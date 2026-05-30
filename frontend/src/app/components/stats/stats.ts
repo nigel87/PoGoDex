@@ -6,11 +6,13 @@ import { PokedexService, PokedexStats, PokedexDTO } from '../../services/pokedex
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { I18nService } from '../../services/i18n.service';
+import { TranslatePipe } from '../../services/translate.pipe';
 
 @Component({
   selector: 'app-stats',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TranslatePipe],
   templateUrl: './stats.html',
   styleUrl: './stats.css'
 })
@@ -42,17 +44,17 @@ export class StatsComponent implements OnInit, OnDestroy {
 
   // Regioni disponibili nel gioco per il calcolo delle statistiche
   pokemonRegions = [
-    { value: 'all', label: 'Tutte le Regioni' },
-    { value: 'kanto', label: 'Kanto' },
-    { value: 'johto', label: 'Johto' },
-    { value: 'hoenn', label: 'Hoenn' },
-    { value: 'sinnoh', label: 'Sinnoh' },
-    { value: 'unova', label: 'Unova' },
-    { value: 'kalos', label: 'Kalos' },
-    { value: 'alola', label: 'Alola' },
-    { value: 'galar', label: 'Galar' },
-    { value: 'hisui', label: 'Hisui' },
-    { value: 'paldea', label: 'Paldea' }
+    { value: 'all' },
+    { value: 'kanto' },
+    { value: 'johto' },
+    { value: 'hoenn' },
+    { value: 'sinnoh' },
+    { value: 'unova' },
+    { value: 'kalos' },
+    { value: 'alola' },
+    { value: 'galar' },
+    { value: 'hisui' },
+    { value: 'paldea' }
   ];
 
   // Calcolo reattivo della lista Pokémon filtrata per la regione attiva
@@ -158,7 +160,8 @@ export class StatsComponent implements OnInit, OnDestroy {
     private userService: UserService,
     public settingsService: SettingsService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    public i18n: I18nService
   ) { }
 
   ngOnInit() {
@@ -232,7 +235,6 @@ export class StatsComponent implements OnInit, OnDestroy {
 
   // Restituisce l'etichetta testuale della regione selezionata
   getActiveRegionLabel(): string {
-    const found = this.pokemonRegions.find(r => r.value === this.selectedRegion());
-    return found ? found.label : 'Tutte le Regioni';
+    return this.i18n.translate('region.' + this.selectedRegion());
   }
 }

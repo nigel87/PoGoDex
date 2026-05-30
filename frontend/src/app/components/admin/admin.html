@@ -2,10 +2,10 @@
   <!-- Schermata di Accesso Negato (Sicurezza Remota attiva) -->
   <div *ngIf="!isLocal()" class="security-barrier glass-card">
     <div class="security-icon">🛡️</div>
-    <h2>Accesso Negato / Access Denied</h2>
-    <p>Questa console di amministrazione è disponibile **esclusivamente** per gli sviluppatori in ambiente locale sul computer host dell'amministratore.</p>
-    <p class="help-text">Per motivi di sicurezza, qualsiasi operazione di scrittura delle configurazioni è bloccata a livello di rete IP per connessioni non-loopback.</p>
-    <button [routerLink]="['/']" class="admin-btn back-btn">Torna alla Home</button>
+    <h2>{{ 'admin.barrier.title' | translate }}</h2>
+    <p>{{ 'admin.barrier.desc' | translate }}</p>
+    <p class="help-text">{{ 'admin.barrier.help' | translate }}</p>
+    <button [routerLink]="['/']" class="admin-btn back-btn">{{ 'admin.barrier.btn' | translate }}</button>
   </div>
 
   <!-- Contenuto della console locale -->
@@ -13,13 +13,13 @@
     <!-- Header fisso -->
     <header class="admin-header glass-card">
       <div class="header-left">
-        <h1 class="logo">PoGO<span>Dex</span> <span class="badge">Dev Console</span></h1>
-        <p class="subtitle">Configurazione grafica delle forme speciali (Shadow, Mega, Gigamax)</p>
+        <h1 class="logo">PoGO<span>Dex</span> <span class="badge">{{ i18n.currentLang() === 'it' ? 'Console Sviluppatore' : 'Dev Console' }}</span></h1>
+        <p class="subtitle">{{ 'admin.subtitle' | translate }}</p>
       </div>
       <div class="header-actions">
-        <button [routerLink]="['/']" class="admin-btn cancel-btn">Esci</button>
+        <button [routerLink]="['/']" class="admin-btn cancel-btn">{{ 'admin.btn.exit' | translate }}</button>
         <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving()">
-          <span *ngIf="!isSaving()">Salva Configurazione</span>
+          <span *ngIf="!isSaving()">{{ 'admin.btn.save' | translate }}</span>
           <span *ngIf="isSaving()" class="btn-spinner"></span>
         </button>
       </div>
@@ -29,15 +29,15 @@
     <div class="feedback-banner success-banner glass-card" *ngIf="saveSuccess()">
       <span class="icon">✓</span>
       <div class="message">
-        <h4>Configurazione Salvata con Successo!</h4>
-        <p>Il file <code>pokemon-config.ts</code> locale è stato riscritto ed è aggiornato. Per rendere effettive le modifiche sul Raspberry Pi remoto, esegui il commit su Git e lancia <code>./deploy.sh</code>.</p>
+        <h4>{{ 'admin.banner.success.title' | translate }}</h4>
+        <p>{{ 'admin.banner.success.desc' | translate }}</p>
       </div>
     </div>
 
     <div class="feedback-banner error-banner glass-card" *ngIf="saveError()">
       <span class="icon">✗</span>
       <div class="message">
-        <h4>Errore di Salvataggio</h4>
+        <h4>{{ 'admin.banner.error.title' | translate }}</h4>
         <p>{{ saveError() }}</p>
       </div>
     </div>
@@ -45,7 +45,7 @@
     <!-- Barra di caricamento -->
     <div *ngIf="isLoading()" class="loader-container glass-card">
       <div class="spinner"></div>
-      <span>Caricamento del catalogo e lettura del file di configurazione...</span>
+      <span>{{ i18n.currentLang() === 'it' ? 'Caricamento del catalogo e lettura delle configurazioni...' : 'Loading catalog and configuration settings...' }}</span>
     </div>
 
     <!-- Pannello principale dei controlli -->
@@ -56,13 +56,13 @@
           <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           <input 
             type="text" 
-            placeholder="Cerca per nome o numero di Pokédex..." 
+            [placeholder]="'admin.search' | translate" 
             [ngModel]="searchQuery()" 
             (ngModelChange)="searchQuery.set($event)"
             class="search-bar-input">
         </div>
         <div class="results-badge">
-          Mostrati: <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} Pokémon
+          {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
         </div>
       </div>
 
@@ -71,14 +71,14 @@
         <table class="config-table">
           <thead>
             <tr>
-              <th class="col-id">ID</th>
-              <th class="col-sprite">Sprite</th>
-              <th class="col-name">Nome Pokémon</th>
-              <th class="col-types">Tipi</th>
-              <th class="col-check text-center release-header">🚀 Rilasciato in GO</th>
-              <th class="col-check text-center shadow-header">💀 Shadow (Ombra)</th>
-              <th class="col-check text-center mega-header">🧬 Mega Evoluzione</th>
-              <th class="col-check text-center gigamax-header">🌋 Forma Gigamax</th>
+              <th class="col-id">{{ 'admin.col.id' | translate }}</th>
+              <th class="col-sprite">{{ 'admin.col.sprite' | translate }}</th>
+              <th class="col-name">{{ 'admin.col.name' | translate }}</th>
+              <th class="col-types">{{ 'admin.col.types' | translate }}</th>
+              <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
+              <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
+              <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
+              <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
             </tr>
           </thead>
           <tbody>

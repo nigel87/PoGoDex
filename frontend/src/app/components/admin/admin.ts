@@ -6,11 +6,13 @@ import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService } from '../../services/user.service';
+import { I18nService } from '../../services/i18n.service';
+import { TranslatePipe } from '../../services/translate.pipe';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
   templateUrl: './admin.html',
   styleUrl: './admin.css'
 })
@@ -38,7 +40,8 @@ export class AdminComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private pokedexService: PokedexService,
-    private userService: UserService
+    private userService: UserService,
+    public i18n: I18nService
   ) {
     // Verifica rigorosa dell'host locale del browser
     const hostname = window.location.hostname.toLowerCase();

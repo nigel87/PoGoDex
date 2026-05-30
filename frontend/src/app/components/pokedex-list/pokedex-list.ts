@@ -7,11 +7,13 @@ import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { I18nService } from '../../services/i18n.service';
+import { TranslatePipe } from '../../services/translate.pipe';
 
 @Component({
   selector: 'app-pokedex-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
   templateUrl: './pokedex-list.html',
   styleUrl: './pokedex-list.css'
 })
@@ -36,17 +38,17 @@ export class PokedexList implements OnInit, OnDestroy {
 
   // Regioni disponibili nel gioco per il filtro a pillole
   pokemonRegions = [
-    { value: 'all', label: 'Tutte le Regioni' },
-    { value: 'kanto', label: 'Kanto' },
-    { value: 'johto', label: 'Johto' },
-    { value: 'hoenn', label: 'Hoenn' },
-    { value: 'sinnoh', label: 'Sinnoh' },
-    { value: 'unova', label: 'Unova' },
-    { value: 'kalos', label: 'Kalos' },
-    { value: 'alola', label: 'Alola' },
-    { value: 'galar', label: 'Galar' },
-    { value: 'hisui', label: 'Hisui' },
-    { value: 'paldea', label: 'Paldea' }
+    { value: 'all' },
+    { value: 'kanto' },
+    { value: 'johto' },
+    { value: 'hoenn' },
+    { value: 'sinnoh' },
+    { value: 'unova' },
+    { value: 'kalos' },
+    { value: 'alola' },
+    { value: 'galar' },
+    { value: 'hisui' },
+    { value: 'paldea' }
   ];
 
   // Subscriptions per evitare leak di memoria
@@ -54,37 +56,37 @@ export class PokedexList implements OnInit, OnDestroy {
 
   // Elenco completo dei tipi per i filtri grafici
   pokemonTypes = [
-    { value: 'all', label: 'Tutti' },
-    { value: 'normal', label: 'Normale' },
-    { value: 'fire', label: 'Fuoco' },
-    { value: 'water', label: 'Acqua' },
-    { value: 'electric', label: 'Elettro' },
-    { value: 'grass', label: 'Erba' },
-    { value: 'ice', label: 'Ghiaccio' },
-    { value: 'fighting', label: 'Lotta' },
-    { value: 'poison', label: 'Veleno' },
-    { value: 'ground', label: 'Terra' },
-    { value: 'flying', label: 'Volante' },
-    { value: 'psychic', label: 'Psico' },
-    { value: 'bug', label: 'Coleottero' },
-    { value: 'rock', label: 'Roccia' },
-    { value: 'ghost', label: 'Spettro' },
-    { value: 'dragon', label: 'Drago' },
-    { value: 'steel', label: 'Acciaio' },
-    { value: 'fairy', label: 'Folletto' }
+    { value: 'all' },
+    { value: 'normal' },
+    { value: 'fire' },
+    { value: 'water' },
+    { value: 'electric' },
+    { value: 'grass' },
+    { value: 'ice' },
+    { value: 'fighting' },
+    { value: 'poison' },
+    { value: 'ground' },
+    { value: 'flying' },
+    { value: 'psychic' },
+    { value: 'bug' },
+    { value: 'rock' },
+    { value: 'ghost' },
+    { value: 'dragon' },
+    { value: 'steel' },
+    { value: 'fairy' }
   ];
 
   specialForms = [
-    { value: 'all', label: 'Qualsiasi' },
-    { value: 'shiny', label: 'Cromatici (Shiny)' }, // Aggiunto filtro Shiny!
-    { value: 'shadow', label: 'Shadow' },
-    { value: 'purified', label: 'Purificati' },
-    { value: 'perfect', label: '100% IV' },
-    { value: 'lucky', label: 'Lucky' },
-    { value: 'xxl', label: 'XXL' },
-    { value: 'xxs', label: 'XXS' },
-    { value: 'mega', label: 'Mega' },
-    { value: 'gigamax', label: 'Gigamax' }
+    { value: 'all' },
+    { value: 'shiny' },
+    { value: 'shadow' },
+    { value: 'purified' },
+    { value: 'perfect' },
+    { value: 'lucky' },
+    { value: 'xxl' },
+    { value: 'xxs' },
+    { value: 'mega' },
+    { value: 'gigamax' }
   ];
 
   // Mappa reattiva per tracciare la forma regional selezionata per ogni card (base ID -> forma ID)
@@ -210,7 +212,8 @@ export class PokedexList implements OnInit, OnDestroy {
     private userService: UserService,
     public settingsService: SettingsService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    public i18n: I18nService
   ) { }
 
   // Helper per verificare se un singolo Pokémon soddisfa i filtri attivi
@@ -357,11 +360,31 @@ export class PokedexList implements OnInit, OnDestroy {
   getFormRegion(p: PokedexDTO): string {
     if (p.id < 10000) return 'Base';
     const name = p.name.toLowerCase();
-    if (name.includes('alolan')) return 'Alola';
-    if (name.includes('galarian')) return 'Galar';
-    if (name.includes('hisuian')) return 'Hisui';
-    if (name.includes('paldean')) return 'Paldea';
-    return 'Forma';
+    if (name.includes('alolan')) return this.i18n.translate('region.alola');
+    if (name.includes('galarian')) return this.i18n.translate('region.galar');
+    if (name.includes('hisuian')) return this.i18n.translate('region.hisui');
+    if (name.includes('paldean')) return this.i18n.translate('region.paldea');
+    return this.i18n.currentLang() === 'it' ? 'Forma' : 'Form';
+  }
+
+  // Ottiene l'etichetta tradotta del tipo Pokémon
+  getTypeLabel(typeValue: string): string {
+    const itMap: { [key: string]: string } = {
+      all: 'Tutti', normal: 'Normale', fire: 'Fuoco', water: 'Acqua', electric: 'Elettro',
+      grass: 'Erba', ice: 'Ghiaccio', fighting: 'Lotta', poison: 'Veleno', ground: 'Terra',
+      flying: 'Volante', psychic: 'Psico', bug: 'Coleottero', rock: 'Roccia', ghost: 'Spettro',
+      dragon: 'Drago', steel: 'Acciaio', fairy: 'Folletto'
+    };
+    const enMap: { [key: string]: string } = {
+      all: 'All', normal: 'Normal', fire: 'Fire', water: 'Water', electric: 'Electric',
+      grass: 'Grass', ice: 'Ice', fighting: 'Fighting', poison: 'Poison', ground: 'Ground',
+      flying: 'Flying', psychic: 'Psychic', bug: 'Bug', rock: 'Rock', ghost: 'Ghost',
+      dragon: 'Dragon', steel: 'Steel', fairy: 'Fairy'
+    };
+    const lower = typeValue.toLowerCase();
+    return this.i18n.currentLang() === 'it' 
+      ? (itMap[lower] || typeValue) 
+      : (enMap[lower] || typeValue);
   }
 
   // Cambia la forma attiva per una determinata card

@@ -4,10 +4,10 @@
     <div class="header-content">
       <h1 class="logo" [routerLink]="['/']" style="cursor: pointer;">PoGO<span>Dex</span></h1>
       <nav class="navigation-tabs">
-        <a [routerLink]="['/' + username]" class="nav-link">Pokedex</a>
-        <a [routerLink]="['/' + username + '/stats']" class="nav-link">Statistiche</a>
-        <a [routerLink]="['/' + username + '/export']" class="nav-link">Esporta</a>
-        <a [routerLink]="['/' + username + '/settings']" class="nav-link active">Impostazioni</a>
+        <a [routerLink]="['/' + username]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
+        <a [routerLink]="['/' + username + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
+        <a [routerLink]="['/' + username + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
+        <a [routerLink]="['/' + username + '/settings']" class="nav-link active">{{ 'nav.settings' | translate }}</a>
       </nav>
     </div>
   </header>
@@ -16,8 +16,8 @@
   <main class="settings-main">
     <!-- Panel Header Title -->
     <div class="glass-card welcome-panel">
-      <h2>Centro Impostazioni PoGODex</h2>
-      <p class="subtitle">Personalizza la tua esperienza di gioco, configura l'aspetto visivo delle schede Pokédex e predisponi le funzionalità avanzate per il tuo Raspberry Pi.</p>
+      <h2>{{ 'settings.title' | translate }}</h2>
+      <p class="subtitle">{{ 'settings.subtitle' | translate }}</p>
     </div>
 
     <!-- Settings Options Grid -->
@@ -29,14 +29,14 @@
         </div>
         
         <div class="settings-meta">
-          <h3>Visualizzazione & Griglia</h3>
-          <p class="card-desc">Controlla come le diverse specie di Pokémon e le loro varianti geografiche compaiono nell'elenco principale.</p>
+          <h3>{{ 'settings.display_card.title' | translate }}</h3>
+          <p class="card-desc">{{ 'settings.display_card.desc' | translate }}</p>
         </div>
 
         <div class="setting-item">
           <div class="item-info">
-            <span class="item-title">Raggruppa Forme Regionali</span>
-            <span class="item-desc">Se attivo, raggruppa le varianti regionali (Alola, Galar, Hisui, Paldea) all'interno della scheda del Pokémon base. Potrai cambiare forma dinamicamente con un selettore integrato sulla card.</span>
+            <span class="item-title">{{ 'settings.group_regionals.title' | translate }}</span>
+            <span class="item-desc">{{ 'settings.group_regionals.desc' | translate }}</span>
           </div>
           
           <!-- Custom Premium Toggle Switch -->
@@ -49,8 +49,8 @@
 
         <div class="setting-item">
           <div class="item-info">
-            <span class="item-title">Includi Pokémon non rilasciati nei progressi</span>
-            <span class="item-desc">Se attivo (stile Pokémon GO), i Pokémon non ancora rilasciati (es. Phione, Arceus) faranno parte del totale regionale e delle statistiche, impedendo il completamento al 100% della regione fino al rilascio effettivo. Se disattivato, verranno considerati solo i Pokémon disponibili in-game.</span>
+            <span class="item-title">{{ 'settings.include_unreleased.title' | translate }}</span>
+            <span class="item-desc">{{ 'settings.include_unreleased.desc' | translate }}</span>
           </div>
           
           <!-- Custom Premium Toggle Switch -->
@@ -63,8 +63,8 @@
 
         <!-- Opzioni pulsanti per forme regionali, visibile solo se raggruppamento attivo -->
         <div class="sub-settings-panel" *ngIf="groupRegionals()">
-          <h4 class="sub-panel-title">Qualità da registrare per le Forme Regionali:</h4>
-          <p class="sub-panel-desc">Seleziona quali pulsanti di cattura abilitare sulle schede dei Pokémon regionali quando sono raggruppate.</p>
+          <h4 class="sub-panel-title">{{ 'settings.regional_buttons.title' | translate }}</h4>
+          <p class="sub-panel-desc">{{ 'settings.regional_buttons.desc' | translate }}</p>
           <div class="checkbox-pills-grid">
             <button 
               *ngFor="let btn of availableButtons" 
@@ -73,7 +73,38 @@
               [class.active]="isButtonChecked(btn.value)"
               (click)="toggleRegionalButton(btn.value)">
               <span class="pill-checkbox-indicator"></span>
-              {{ btn.label }}
+              {{ 'pokedex.btn.' + btn.value | translate }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 1.5: Language / Lingua (ACTIVE) -->
+      <div class="glass-card settings-card active-card">
+        <div class="card-icon-wrapper display-icon" style="background: rgba(46, 204, 113, 0.1); color: #2ecc71;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        
+        <div class="settings-meta">
+          <h3>{{ 'settings.language.title' | translate }}</h3>
+          <p class="card-desc">{{ 'settings.language.desc' | translate }}</p>
+        </div>
+
+        <div class="setting-item" style="border-top: none; margin-top: 0; padding-top: 0; display: flex; justify-content: flex-start; width: 100%;">
+          <div class="language-selector-pills">
+            <button 
+              type="button" 
+              class="lang-pill-btn" 
+              [class.active]="i18n.currentLang() === 'it'"
+              (click)="changeLanguage('it')">
+              <span class="flag">🇮🇹</span> Italiano
+            </button>
+            <button 
+              type="button" 
+              class="lang-pill-btn" 
+              [class.active]="i18n.currentLang() === 'en'"
+              (click)="changeLanguage('en')">
+              <span class="flag">🇬🇧</span> English
             </button>
           </div>
         </div>
@@ -86,9 +117,9 @@
         </div>
 
         <div class="settings-meta">
-          <h3>Sincronizzazione & Account</h3>
-          <p class="card-desc">Collega il tuo profilo Google o Niantic per sincronizzare automaticamente i tuoi progressi su più dispositivi.</p>
-          <span class="badge-coming-soon">Prossimamente</span>
+          <h3>{{ 'settings.account.title' | translate }}</h3>
+          <p class="card-desc">{{ 'settings.account.desc' | translate }}</p>
+          <span class="badge-coming-soon">{{ 'settings.coming_soon' | translate }}</span>
         </div>
       </div>
 
@@ -99,9 +130,9 @@
         </div>
 
         <div class="settings-meta">
-          <h3>Notifiche & Eventi</h3>
-          <p class="card-desc">Ricevi avvisi ed evidenziazioni speciali nel Pokédex durante i Community Day e gli eventi globali di Pokémon GO.</p>
-          <span class="badge-coming-soon">Prossimamente</span>
+          <h3>{{ 'settings.notifications.title' | translate }}</h3>
+          <p class="card-desc">{{ 'settings.notifications.desc' | translate }}</p>
+          <span class="badge-coming-soon">{{ 'settings.coming_soon' | translate }}</span>
         </div>
       </div>
     </div>

@@ -6,10 +6,10 @@
       
       <div class="header-right-group">
         <nav class="navigation-tabs">
-          <a [routerLink]="['/' + username]" class="nav-link active">Pokedex</a>
-          <a [routerLink]="['/' + username + '/stats']" class="nav-link">Statistiche</a>
-          <a [routerLink]="['/' + username + '/export']" class="nav-link">Esporta</a>
-          <a [routerLink]="['/' + username + '/settings']" class="nav-link">Impostazioni</a>
+          <a [routerLink]="['/' + username]" class="nav-link active">{{ 'nav.pokedex' | translate }}</a>
+          <a [routerLink]="['/' + username + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
+          <a [routerLink]="['/' + username + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
+          <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
         </nav>
 
         <!-- Player Profile Switcher Dropdown (Netflix-style premium look) -->
@@ -21,7 +21,7 @@
           </div>
           
           <div class="profile-dropdown-menu glass-card">
-            <div class="dropdown-header">Cambia Giocatore</div>
+            <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
             <div class="users-list-scroll">
               <button 
                 *ngFor="let u of usersList()" 
@@ -36,7 +36,7 @@
             <div class="dropdown-footer">
               <button class="add-player-btn" (click)="openNewUserModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Aggiungi Giocatore
+                {{ 'pokedex.add_player' | translate }}
               </button>
             </div>
           </div>
@@ -54,7 +54,7 @@
           <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           <input 
             type="text" 
-            placeholder="Cerca per nome o numero Pokedex..." 
+            [placeholder]="'pokedex.search' | translate" 
             [ngModel]="searchQuery()" 
             (ngModelChange)="searchQuery.set($event)"
             class="search-bar-input">
@@ -67,42 +67,42 @@
             class="toggle-btn" 
             [class.active]="selectedStatus() === 'all'"
             (click)="selectedStatus.set('all')">
-            Tutti
+            {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
           </button>
           <button 
             type="button" 
             class="toggle-btn" 
             [class.active]="selectedStatus() === 'caught'"
             (click)="selectedStatus.set('caught')">
-            Catturati
+            {{ 'status.caught' | translate }}
           </button>
           <button 
             type="button" 
             class="toggle-btn" 
             [class.active]="selectedStatus() === 'missing'"
             (click)="selectedStatus.set('missing')">
-            Mancanti
+            {{ 'status.missing' | translate }}
           </button>
         </div>
       </div>
  
       <!-- Filtro Regioni -->
       <div class="regions-filter-row">
-        <span class="filter-label">Regione:</span>
+        <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Regione:' : 'Region:' }}</span>
         <div class="region-pills-scroll">
           <button 
             *ngFor="let reg of pokemonRegions" 
             class="region-filter-pill"
             [class.active]="selectedRegion() === reg.value"
             (click)="selectRegion(reg.value)">
-            {{ reg.label }}
+            {{ 'region.' + reg.value | translate }}
           </button>
         </div>
       </div>
- 
+  
       <!-- Filtro Forme Speciali -->
       <div class="form-filters-row">
-        <span class="filter-label">Forma Speciale:</span>
+        <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Forma Speciale:' : 'Special Form:' }}</span>
         <div class="form-pills-scroll">
           <button 
             *ngFor="let form of specialForms" 
@@ -110,7 +110,7 @@
             [class.active]="selectedFormFilter() === form.value"
             [class]="'form-' + form.value"
             (click)="selectFormFilter(form.value)">
-            {{ form.label }}
+            {{ 'form.' + form.value | translate }}
           </button>
         </div>
       </div>
@@ -124,7 +124,7 @@
             [class.active]="selectedType() === t.value"
             [class]="'type-' + t.value"
             (click)="selectType(t.value)">
-            {{ t.label }}
+            {{ getTypeLabel(t.value) }}
           </button>
         </div>
       </div>
@@ -135,14 +135,14 @@
   <main class="pokedex-main">
     <div *ngIf="isLoading()" class="loader-container">
       <div class="spinner"></div>
-      <span>Caricamento Pokedex di Kanto...</span>
+      <span>{{ i18n.currentLang() === 'it' ? 'Caricamento Pokédex...' : 'Loading Pokédex...' }}</span>
     </div>
 
     <!-- No results -->
     <div *ngIf="!isLoading() && filteredList().length === 0" class="no-results-panel glass-card">
       <svg class="no-results-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-      <h3>Nessun Pokémon trovato</h3>
-      <p>Nessun Pokémon corrisponde ai criteri di ricerca e ai filtri selezionati.</p>
+      <h3>{{ i18n.currentLang() === 'it' ? 'Nessun Pokémon trovato' : 'No Pokémon found' }}</h3>
+      <p>{{ 'pokedex.no_results' | translate }}</p>
     </div>
 
     <!-- Cards Grid -->
@@ -174,10 +174,10 @@
           <div class="card-header">
             <div class="card-header-left" style="display: flex; align-items: center; gap: 0.35rem;">
               <span class="pokemon-id">{{ formatId(p) }}</span>
-              <span class="completion-crown" *ngIf="isSpeciesCompleted(base)" title="Specie Completata al 100% (Tutte le spunte attive)">👑</span>
+              <span class="completion-crown" *ngIf="isSpeciesCompleted(base)" [title]="'pokedex.crown_title' | translate">👑</span>
             </div>
             <div class="size-badges">
-              <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">🔒 Non Rilasciato</span>
+              <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">{{ 'pokedex.unreleased' | translate }}</span>
               <span class="size-badge xxl" *ngIf="isReleased(p.name) && p.xxl">XXL</span>
               <span class="size-badge xxs" *ngIf="isReleased(p.name) && p.xxs">XXS</span>
             </div>
@@ -196,8 +196,8 @@
           <div class="pokemon-info">
             <h2 class="pokemon-name">{{ p.name }}</h2>
             <div class="types-row">
-              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
-              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
+              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
+              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
             </div>
             
             <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo e ci sono varianti) -->
@@ -229,9 +229,9 @@
               class="action-btn regular-btn" 
               [class.active]="p.regular"
               (click)="toggleForm(p, 'regular')"
-              title="Catturato Regolare">
+              [title]="'pokedex.btn.regular.title' | translate">
               <span class="ball-icon"></span>
-              Reg
+              {{ 'pokedex.btn.regular' | translate }}
             </button>
  
             <!-- Shiny -->
@@ -241,9 +241,9 @@
               class="action-btn shiny-btn" 
               [class.active]="p.shiny"
               (click)="toggleForm(p, 'shiny')"
-              title="Shiny (Cromatico)">
+              [title]="'pokedex.btn.shiny.title' | translate">
               <span class="shiny-icon">✨</span>
-              Shy
+              {{ 'pokedex.btn.shiny' | translate }}
             </button>
  
             <!-- Perfect -->
@@ -253,9 +253,9 @@
               class="action-btn perfect-btn" 
               [class.active]="p.perfect"
               (click)="toggleForm(p, 'perfect')"
-              title="Perfect (100% IV)">
+              [title]="'pokedex.btn.perfect.title' | translate">
               <span class="star-icon">★★★</span>
-              100
+              {{ 'pokedex.btn.perfect' | translate }}
             </button>
  
             <!-- Lucky -->
@@ -265,9 +265,9 @@
               class="action-btn lucky-btn" 
               [class.active]="p.lucky"
               (click)="toggleForm(p, 'lucky')"
-              title="Lucky (Fortunato)">
+              [title]="'pokedex.btn.lucky.title' | translate">
               <span class="bubble-icon"></span>
-              Lck
+              {{ 'pokedex.btn.lucky' | translate }}
             </button>
  
             <!-- XXL -->
@@ -277,8 +277,8 @@
               class="action-btn xxl-btn" 
               [class.active]="p.xxl"
               (click)="toggleForm(p, 'xxl')"
-              title="Taglia XXL">
-              XXL
+              [title]="'pokedex.btn.xxl.title' | translate">
+              {{ 'pokedex.btn.xxl' | translate }}
             </button>
  
             <!-- XXS -->
@@ -288,10 +288,10 @@
               class="action-btn xxs-btn" 
               [class.active]="p.xxs"
               (click)="toggleForm(p, 'xxs')"
-              title="Taglia XXS">
-              XXS
+              [title]="'pokedex.btn.xxs.title' | translate">
+              {{ 'pokedex.btn.xxs' | translate }}
             </button>
-
+ 
             <!-- Mega X / Y or Standard Mega -->
             <ng-container *ngIf="hasTwoMegas(p.name); else standardMega">
               <button 
@@ -300,9 +300,9 @@
                 class="action-btn mega-btn" 
                 [class.active]="isMegaActive(p, 'x')"
                 (click)="toggleMega(p, 'x')"
-                title="Mega Evoluzione X">
+                [title]="'pokedex.btn.megax.title' | translate">
                 <span class="mega-icon">🧬</span>
-                Meg X
+                {{ 'pokedex.btn.megax' | translate }}
               </button>
               <button 
                 *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
@@ -310,9 +310,9 @@
                 class="action-btn mega-btn" 
                 [class.active]="isMegaActive(p, 'y')"
                 (click)="toggleMega(p, 'y')"
-                title="Mega Evoluzione Y">
+                [title]="'pokedex.btn.megay.title' | translate">
                 <span class="mega-icon">🧬</span>
-                Meg Y
+                {{ 'pokedex.btn.megay' | translate }}
               </button>
             </ng-container>
             <ng-template #standardMega>
@@ -322,12 +322,12 @@
                 class="action-btn mega-btn" 
                 [class.active]="isMegaActive(p, 'standard')"
                 (click)="toggleMega(p, 'standard')"
-                title="Mega Evoluzione">
+                [title]="'pokedex.btn.mega.title' | translate">
                 <span class="mega-icon">🧬</span>
-                Meg
+                {{ 'pokedex.btn.mega' | translate }}
               </button>
             </ng-template>
-
+ 
             <!-- Gigamax -->
             <button 
               *ngIf="canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')"
@@ -335,9 +335,9 @@
               class="action-btn gigamax-btn" 
               [class.active]="p.gigamax"
               (click)="toggleForm(p, 'gigamax')"
-              title="Forma Gigamax">
+              [title]="'pokedex.btn.gigamax.title' | translate">
               <span class="giga-icon">🌋</span>
-              Gmx
+              {{ 'pokedex.btn.gigamax' | translate }}
             </button>
             
             <!-- Shadow -->
@@ -347,9 +347,9 @@
               class="action-btn shadow-btn" 
               [class.active]="p.shadow"
               (click)="toggleForm(p, 'shadow')"
-              title="Shadow (Ombra)">
+              [title]="'pokedex.btn.shadow.title' | translate">
               <span class="shadow-icon"></span>
-              Sha
+              {{ 'pokedex.btn.shadow' | translate }}
             </button>
  
             <!-- Purified -->
@@ -359,9 +359,9 @@
               class="action-btn purified-btn" 
               [class.active]="p.purified"
               (click)="toggleForm(p, 'purified')"
-              title="Purificato">
+              [title]="'pokedex.btn.purified.title' | translate">
               <span class="purified-icon"></span>
-              Pur
+              {{ 'pokedex.btn.purified' | translate }}
             </button>
           </div>
         </ng-container>
@@ -373,26 +373,26 @@
   <div class="modal-overlay" *ngIf="showUserModal()">
     <div class="modal-card glass-card">
       <div class="modal-header">
-        <h3>Aggiungi Giocatore</h3>
+        <h3>{{ 'pokedex.modal.title' | translate }}</h3>
         <button class="close-modal-btn" (click)="closeNewUserModal()">×</button>
       </div>
       <div class="modal-body">
-        <label for="new-player-name">Nome del Giocatore</label>
+        <label for="new-player-name">{{ 'pokedex.modal.label' | translate }}</label>
         <input 
           id="new-player-name" 
           type="text" 
-          placeholder="Es: Nigel, Sofia, Allenatore1..." 
+          [placeholder]="'pokedex.modal.placeholder' | translate" 
           [ngModel]="newUserName()"
           (ngModelChange)="newUserName.set($event)"
           class="modal-input-text"
           (keyup.enter)="createNewUser()"
           autofocus>
-        <p class="modal-help-text">Creando il profilo, avrai un Pokedex personale e statistiche indipendenti salvate su disco.</p>
+        <p class="modal-help-text">{{ 'pokedex.modal.help' | translate }}</p>
       </div>
       <div class="modal-footer">
-        <button class="modal-btn cancel-btn" (click)="closeNewUserModal()">Annulla</button>
+        <button class="modal-btn cancel-btn" (click)="closeNewUserModal()">{{ 'pokedex.modal.cancel' | translate }}</button>
         <button class="modal-btn confirm-btn" (click)="createNewUser()" [disabled]="!newUserName().trim() || isCreatingUser()">
-          <span *ngIf="!isCreatingUser()">Crea Profilo</span>
+          <span *ngIf="!isCreatingUser()">{{ 'pokedex.modal.create' | translate }}</span>
           <span *ngIf="isCreatingUser()" class="btn-spinner"></span>
         </button>
       </div>

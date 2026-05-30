@@ -4,47 +4,47 @@
     <div class="header-content">
       <h1 class="logo" [routerLink]="['/']" style="cursor: pointer;">PoGO<span>Dex</span></h1>
       <nav class="navigation-tabs">
-        <a [routerLink]="['/' + username]" class="nav-link">Pokedex</a>
-        <a [routerLink]="['/' + username + '/stats']" class="nav-link active">Statistiche</a>
-        <a [routerLink]="['/' + username + '/export']" class="nav-link">Esporta</a>
-        <a [routerLink]="['/' + username + '/settings']" class="nav-link">Impostazioni</a>
+        <a [routerLink]="['/' + username]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
+        <a [routerLink]="['/' + username + '/stats']" class="nav-link active">{{ 'nav.stats' | translate }}</a>
+        <a [routerLink]="['/' + username + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
+        <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
       </nav>
     </div>
   </header>
 
   <!-- Main Content -->
   <main class="stats-main">
-    <div *ngIf="isLoading()" class="loader-container">
+    <div class="loader-container" *ngIf="isLoading()">
       <div class="spinner"></div>
-      <span>Analisi Pokedex in corso...</span>
+      <span>{{ i18n.currentLang() === 'it' ? 'Analisi Pokedex in corso...' : 'Analyzing Pokédex...' }}</span>
     </div>
 
     <div *ngIf="!isLoading() && stats()" class="stats-dashboard">
       <!-- Filtro Regioni per Statistiche -->
       <div class="stats-region-selector glass-card">
-        <span class="selector-label">Regione:</span>
+        <span class="selector-label">{{ 'stats.select_region' | translate }}:</span>
         <div class="stats-region-pills">
           <button 
             *ngFor="let reg of pokemonRegions" 
             class="stats-region-pill"
             [class.active]="selectedRegion() === reg.value"
             (click)="selectRegion(reg.value)">
-            {{ reg.label }}
+            {{ 'region.' + reg.value | translate }}
           </button>
         </div>
       </div>
 
       <!-- Welcome panel -->
       <div class="glass-card welcome-panel">
-        <h2>Dashboard Progressi {{ getActiveRegionLabel() }}</h2>
-        <p class="subtitle">Visualizza in tempo reale le tue percentuali di completamento per ciascun Dex di Pokémon GO. L'analisi è basata sulle specie registrate per la regione di <strong>{{ getActiveRegionLabel() }}</strong> ({{ stats().total }} Pokémon totali).</p>
+        <h2>{{ 'stats.title' | translate }} - {{ getActiveRegionLabel() }}</h2>
+        <p class="subtitle">{{ 'stats.subtitle' | translate }} ({{ stats().total }} {{ 'pokedex.pokemon' | translate }})</p>
       </div>
 
       <!-- Grid Gauges -->
       <div class="gauges-grid">
         <!-- Regular Dex -->
         <div class="glass-card gauge-card">
-          <h3>Pokedex Regolare</h3>
+          <h3>{{ 'stats.overall' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart pogo-theme" [style.--pct]="regularPct() + '%'">
               <div class="donut-inner">
@@ -54,13 +54,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().regularCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon Registrati</p>
+            <p class="label">{{ 'stats.caught' | translate }}</p>
           </div>
         </div>
 
         <!-- Shadow Dex -->
         <div class="glass-card gauge-card">
-          <h3>Shadow (Ombra)</h3>
+          <h3>{{ 'stats.shadow' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart shadow-theme" [style.--pct]="shadowPct() + '%'">
               <div class="donut-inner">
@@ -70,13 +70,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().shadowCaught }} / {{ shadowCapableTotal() }}</p>
-            <p class="label">Pokémon Ombra</p>
+            <p class="label">{{ 'stats.shadow' | translate }}</p>
           </div>
         </div>
 
         <!-- Purified Dex -->
         <div class="glass-card gauge-card">
-          <h3>Purificati</h3>
+          <h3>{{ 'stats.purified' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart purified-theme" [style.--pct]="purifiedPct() + '%'">
               <div class="donut-inner">
@@ -86,13 +86,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().purifiedCaught }} / {{ shadowCapableTotal() }}</p>
-            <p class="label">Pokémon Purificati</p>
+            <p class="label">{{ 'stats.purified' | translate }}</p>
           </div>
         </div>
 
         <!-- Perfect (100%) Dex -->
         <div class="glass-card gauge-card">
-          <h3>Perfect (100% IV)</h3>
+          <h3>{{ 'stats.perfect' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart perfect-theme" [style.--pct]="perfectPct() + '%'">
               <div class="donut-inner">
@@ -102,13 +102,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().perfectCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon Perfetti</p>
+            <p class="label">{{ 'stats.perfect' | translate }}</p>
           </div>
         </div>
 
         <!-- Lucky Dex -->
         <div class="glass-card gauge-card">
-          <h3>Lucky (Fortunati)</h3>
+          <h3>{{ 'stats.lucky' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart lucky-theme" [style.--pct]="luckyPct() + '%'">
               <div class="donut-inner">
@@ -118,13 +118,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().luckyCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon Fortunati</p>
+            <p class="label">{{ 'stats.lucky' | translate }}</p>
           </div>
         </div>
 
         <!-- XXL Dex -->
         <div class="glass-card gauge-card">
-          <h3>XXL (Giganti)</h3>
+          <h3>{{ 'stats.xxl' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart xxl-theme" [style.--pct]="xxlPct() + '%'">
               <div class="donut-inner">
@@ -134,13 +134,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().xxlCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon XXL</p>
+            <p class="label">{{ 'stats.xxl' | translate }}</p>
           </div>
         </div>
 
         <!-- XXS Dex -->
         <div class="glass-card gauge-card">
-          <h3>XXS (Mini)</h3>
+          <h3>{{ 'stats.xxs' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart xxs-theme" [style.--pct]="xxsPct() + '%'">
               <div class="donut-inner">
@@ -150,13 +150,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().xxsCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon XXS</p>
+            <p class="label">{{ 'stats.xxs' | translate }}</p>
           </div>
         </div>
 
         <!-- Shiny Dex -->
         <div class="glass-card gauge-card">
-          <h3>Cromatici (Shiny)</h3>
+          <h3>{{ 'stats.shiny' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart shiny-theme" [style.--pct]="shinyPct() + '%'">
               <div class="donut-inner">
@@ -166,13 +166,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().shinyCaught }} / {{ stats().total }}</p>
-            <p class="label">Pokémon Shiny</p>
+            <p class="label">{{ 'stats.shiny' | translate }}</p>
           </div>
         </div>
 
         <!-- Mega Dex -->
         <div class="glass-card gauge-card">
-          <h3>Mega Evoluzioni</h3>
+          <h3>{{ 'stats.mega' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart mega-theme" [style.--pct]="megaPct() + '%'">
               <div class="donut-inner">
@@ -182,13 +182,13 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().megaCaught }} / {{ megaCapableTotal() }}</p>
-            <p class="label">Pokémon Mega</p>
+            <p class="label">{{ 'stats.mega' | translate }}</p>
           </div>
         </div>
 
         <!-- Gigamax Dex -->
         <div class="glass-card gauge-card">
-          <h3>Forme Gigamax</h3>
+          <h3>{{ 'stats.gigamax' | translate }}</h3>
           <div class="gauge-wrapper">
             <div class="donut-chart gigamax-theme" [style.--pct]="gigamaxPct() + '%'">
               <div class="donut-inner">
@@ -198,7 +198,7 @@
           </div>
           <div class="gauge-details">
             <p class="captured-count">{{ stats().gigamaxCaught }} / {{ gigamaxCapableTotal() }}</p>
-            <p class="label">Pokémon Gigamax</p>
+            <p class="label">{{ 'stats.gigamax' | translate }}</p>
           </div>
         </div>
       </div>

@@ -5,25 +5,27 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { PokedexService } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
+import { TranslatePipe } from '../../services/translate.pipe';
+import { I18nService } from '../../services/i18n.service';
 
 @Component({
   selector: 'app-export',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
   templateUrl: './export.html',
   styleUrl: './export.css'
 })
 export class ExportComponent implements OnInit, OnDestroy {
   // Categorie del Dex
   categories = [
-    { value: 'regular', label: 'Pokedex Regolare' },
-    { value: 'shadow', label: 'Pokémon Shadow' },
-    { value: 'purified', label: 'Pokémon Purificati' },
-    { value: 'perfect', label: 'Pokémon 100% (Perfect)' },
-    { value: 'lucky', label: 'Pokémon Lucky (Fortunati)' },
-    { value: 'xxs', label: 'Pokémon XXS' },
-    { value: 'xxl', label: 'Pokémon XXL' },
-    { value: 'shiny', label: 'Pokémon Cromatici (Shiny)' }
+    { value: 'regular' },
+    { value: 'shadow' },
+    { value: 'purified' },
+    { value: 'perfect' },
+    { value: 'lucky' },
+    { value: 'xxs' },
+    { value: 'xxl' },
+    { value: 'shiny' }
   ];
 
   // Stati reattivi
@@ -41,7 +43,8 @@ export class ExportComponent implements OnInit, OnDestroy {
     private pokedexService: PokedexService,
     private userService: UserService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    public i18n: I18nService
   ) {}
 
   ngOnInit() {

@@ -396,3 +396,53 @@
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
+
+/* Language selector pills */
+.language-selector-pills {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.lang-pill-btn {
+  flex: 1;
+  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.8rem 1.2rem;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: var(--font-primary);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.lang-pill-btn:hover {
+  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.lang-pill-btn.active {
+  background: rgba(46, 204, 113, 0.12);
+  border-color: #2ecc71;
+  color: #2ecc71;
+  box-shadow: 0 0 16px rgba(46, 204, 113, 0.15);
+}
+
+.lang-pill-btn.active .flag {
+  transform: scale(1.15);
+}
+
+.flag {
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}

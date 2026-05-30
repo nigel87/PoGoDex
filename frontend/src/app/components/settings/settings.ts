@@ -2,12 +2,14 @@ import { Component, OnInit, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { SettingsService } from '../../services/settings.service';
+import { I18nService, Language } from '../../services/i18n.service';
+import { TranslatePipe } from '../../services/translate.pipe';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TranslatePipe],
   templateUrl: './settings.html',
   styleUrl: './settings.css'
 })
@@ -19,20 +21,21 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   // Lista delle categorie di pulsanti disponibili per la configurazione
   availableButtons = [
-    { value: 'regular', label: 'Normale' },
-    { value: 'shiny', label: 'Shiny' },
-    { value: 'perfect', label: '100% IV' },
-    { value: 'lucky', label: 'Fortunato' },
-    { value: 'xxl', label: 'XXL' },
-    { value: 'xxs', label: 'XXS' },
-    { value: 'mega', label: 'Mega' },
-    { value: 'gigamax', label: 'Gigamax' },
-    { value: 'shadow', label: 'Ombra' },
-    { value: 'purified', label: 'Purificato' }
+    { value: 'regular' },
+    { value: 'shiny' },
+    { value: 'perfect' },
+    { value: 'lucky' },
+    { value: 'xxl' },
+    { value: 'xxs' },
+    { value: 'mega' },
+    { value: 'gigamax' },
+    { value: 'shadow' },
+    { value: 'purified' }
   ];
 
   constructor(
     public settingsService: SettingsService,
+    public i18n: I18nService,
     private route: ActivatedRoute
   ) {}
 
@@ -43,10 +46,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     this.sub.add(
       this.route.params.subscribe(params => {
-        const routeUser = params['username'];
-        if (routeUser) {
-          this.username = routeUser;
-        }
+         const routeUser = params['username'];
+         if (routeUser) {
+           this.username = routeUser;
+         }
       })
     );
   }
@@ -86,5 +89,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
       current.push(value);
     }
     this.settingsService.setRegionalButtons(current);
+  }
+
+  changeLanguage(lang: Language) {
+    this.i18n.setLanguage(lang);
   }
 }
