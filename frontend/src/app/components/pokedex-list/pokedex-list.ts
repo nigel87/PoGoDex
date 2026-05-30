@@ -91,7 +91,7 @@ export class PokedexList implements OnInit, OnDestroy {
   selectedFormMap = signal<{ [key: number]: number }>({});
 
   // Specie idonee alle forme Mega e Gigamax in Pokémon GO
-  megaCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam', 'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl', 'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom', 'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye', 'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt', 'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross', 'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow', 'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon'];
+  megaCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam', 'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl', 'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom', 'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye', 'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt', 'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross', 'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow', 'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon', 'Victreebel', 'Dragonite',];
   gigamaxCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Butterfree', 'Pikachu', 'Meowth', 'Machamp', 'Gengar', 'Kingler', 'Lapras', 'Eevee', 'Snorlax', 'Garbodor', 'Melmetal', 'Rillaboom', 'Cinderace', 'Inteleon', 'Corviknight', 'Orbeetle', 'Drednaw', 'Coalossal', 'Flapple', 'Appletun', 'Sandaconda', 'Toxtricity', 'Centiskorch', 'Hatterene', 'Grimmsnarl', 'Alcremie', 'Duraludon', 'Urshifu'];
 
   canMega(name: string): boolean {
@@ -142,7 +142,7 @@ export class PokedexList implements OnInit, OnDestroy {
 
     this.pokedexService.updateEntry(user.id, pokemon.id, updatedPokemon).subscribe({
       next: (res) => {
-        this.pokemonList.update(list => 
+        this.pokemonList.update(list =>
           list.map(p => p.id === pokemon.id ? res : p)
         );
       },
@@ -161,34 +161,34 @@ export class PokedexList implements OnInit, OnDestroy {
     const formFilter = this.selectedFormFilter();
     const region = this.selectedRegion();
     const isGrouped = this.settingsService.groupRegionals();
- 
+
     if (!isGrouped) {
       // Logica classica quando il raggruppamento è disattivato (mostra tutto separato)
       return list.filter(p => this.matchesFilters(p, query, status, type, formFilter, region));
     }
- 
+
     // Logica quando il raggruppamento è attivo:
     // 1. Consideriamo solo i Pokémon base (id < 10000)
     const basePokemons = list.filter(p => p.id < 10000);
     const result: PokedexDTO[] = [];
- 
+
     for (const base of basePokemons) {
       // 2. Recuperiamo le forme regionali associate a questo Pokémon base
       const regionals = list.filter(r => r.id >= 10000 && r.name.startsWith(base.name + ' ('));
       const allForms = [base, ...regionals];
- 
+
       // 3. Troviamo quali forme di questa specie soddisfano i filtri correnti
       const matchingForms = allForms.filter(f => this.matchesFilters(f, query, status, type, formFilter, region));
- 
+
       if (matchingForms.length > 0) {
         // Se almeno una forma soddisfa i filtri, la card del Pokémon base deve essere visibile!
         result.push(base);
- 
+
         // EXTRA UX: Se la forma attualmente attiva non corrisponde ai nuovi filtri inseriti,
         // cambiamo automaticamente la forma attiva sulla card in modo che l'utente veda subito il risultato corretto!
         const currentSelectedId = this.selectedFormMap()[base.id] || base.id;
         const currentStillMatches = matchingForms.some(f => f.id === currentSelectedId);
- 
+
         if (!currentStillMatches) {
           // Switch automatico alla prima forma che corrisponde
           const targetForm = matchingForms[0];
@@ -198,10 +198,10 @@ export class PokedexList implements OnInit, OnDestroy {
         }
       }
     }
- 
+
     return result;
   });
- 
+
   username: string = '';
 
   constructor(
@@ -210,8 +210,8 @@ export class PokedexList implements OnInit, OnDestroy {
     public settingsService: SettingsService,
     private route: ActivatedRoute,
     private router: Router
-  ) {}
- 
+  ) { }
+
   // Helper per verificare se un singolo Pokémon soddisfa i filtri attivi
   private matchesFilters(p: PokedexDTO, query: string, status: string, type: string, formFilter: string, region: string): boolean {
     // Filtro per regione
@@ -223,18 +223,18 @@ export class PokedexList implements OnInit, OnDestroy {
     }
 
     const matchesQuery = p.name.toLowerCase().includes(query) || p.id.toString() === query;
- 
-    const matchesType = type === 'all' || 
-                        p.type1.toLowerCase() === type || 
-                        (p.type2 !== null && p.type2.toLowerCase() === type);
- 
+
+    const matchesType = type === 'all' ||
+      p.type1.toLowerCase() === type ||
+      (p.type2 !== null && p.type2.toLowerCase() === type);
+
     let matchesStatus = true;
     if (status === 'caught') {
       matchesStatus = p.regular;
     } else if (status === 'missing') {
       matchesStatus = !p.regular;
     }
- 
+
     let matchesForm = true;
     if (formFilter !== 'all') {
       switch (formFilter) {
@@ -249,10 +249,10 @@ export class PokedexList implements OnInit, OnDestroy {
         case 'gigamax': matchesForm = p.gigamax; break;
       }
     }
- 
+
     return matchesQuery && matchesType && matchesStatus && matchesForm;
   }
- 
+
   // Determina a quale regione appartiene il Pokémon in base a generation e nome
   getPokemonRegion(p: PokedexDTO): string {
     switch (p.generation) {
@@ -289,7 +289,7 @@ export class PokedexList implements OnInit, OnDestroy {
 
     for (const p of allForms) {
       const isRegional = p.id >= 10000;
-      
+
       const checkRegular = isRegional ? this.settingsService.isButtonEnabledForRegional('regular') : true;
       if (checkRegular && !p.regular) return false;
 
@@ -376,7 +376,7 @@ export class PokedexList implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadUsers();
-    
+
     // Sottoscrizione ai parametri della rotta dinamica (:username)
     this.sub.add(
       this.route.params.subscribe(params => {
@@ -414,7 +414,7 @@ export class PokedexList implements OnInit, OnDestroy {
     this.userService.getUsers().subscribe({
       next: (users) => {
         this.usersList.set(users);
-        
+
         // Se non c'è ancora un utente attivo nel localStorage, seleziona il primo caricato (es: default seed)
         const currentUser = this.userService.getCurrentUser();
         if (!currentUser && users.length > 0) {
@@ -466,7 +466,7 @@ export class PokedexList implements OnInit, OnDestroy {
       next: (newUser) => {
         this.usersList.update(list => [...list, newUser]);
         this.userService.setActiveUser(newUser);
-        
+
         this.isCreatingUser.set(false);
         this.closeNewUserModal();
       },
@@ -497,7 +497,7 @@ export class PokedexList implements OnInit, OnDestroy {
 
     this.pokedexService.updateEntry(user.id, pokemon.id, updatedPokemon).subscribe({
       next: (res) => {
-        this.pokemonList.update(list => 
+        this.pokemonList.update(list =>
           list.map(p => p.id === pokemon.id ? res : p)
         );
       },

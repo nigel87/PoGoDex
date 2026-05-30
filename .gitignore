@@ -29,3 +29,6 @@ backend/.env
 
 # Local logs
 *.log
+
+# Local utility scripts and configurations
+util/
