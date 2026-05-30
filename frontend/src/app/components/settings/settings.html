@@ -61,6 +61,20 @@
           </div>
         </div>
 
+        <div class="setting-item">
+          <div class="item-info">
+            <span class="item-title">{{ 'settings.simplify_export.title' | translate }}</span>
+            <span class="item-desc">{{ 'settings.simplify_export.desc' | translate }}</span>
+          </div>
+          
+          <!-- Custom Premium Toggle Switch -->
+          <div class="toggle-switch-wrapper" (click)="toggleSimplifyExport()">
+            <div class="switch-track" [class.active]="simplifyExport()">
+              <div class="switch-thumb"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Opzioni pulsanti per forme regionali, visibile solo se raggruppamento attivo -->
         <div class="sub-settings-panel" *ngIf="groupRegionals()">
           <h4 class="sub-panel-title">{{ 'settings.regional_buttons.title' | translate }}</h4>

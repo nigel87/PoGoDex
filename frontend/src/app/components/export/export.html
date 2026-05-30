@@ -31,23 +31,44 @@
           </div>
         </div>
 
-        <!-- Formato di Ricerca -->
+        <!-- Formato di Ricerca (List vs Negation) -->
         <div class="control-group">
-          <label>{{ i18n.currentLang() === 'it' ? 'Formato di Output' : 'Output Format' }}</label>
+          <label>{{ i18n.currentLang() === 'it' ? 'Tipo di Filtro' : 'Filter Mode' }}</label>
           <div class="toggle-group">
             <button 
               type="button" 
               class="toggle-btn" 
               [class.active]="selectedMode() === 'list'"
               (click)="onModeChange('list')">
-              {{ i18n.currentLang() === 'it' ? 'Elenco Numeri (1,4,7)' : 'Number List (1,4,7)' }}
+              {{ i18n.currentLang() === 'it' ? 'Lista (1,2)' : 'List (1,2)' }}
             </button>
             <button 
               type="button" 
               class="toggle-btn" 
               [class.active]="selectedMode() === 'negation'"
               (click)="onModeChange('negation')">
-              {{ i18n.currentLang() === 'it' ? 'Filtro Esclusione (!1&!4)' : 'Exclusion Filter (!1&!4)' }}
+              {{ i18n.currentLang() === 'it' ? 'Esclusione (!1)' : 'Exclusion (!1)' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Formato Elementi (Number vs Name) -->
+        <div class="control-group">
+          <label>{{ 'export.format.label' | translate }}</label>
+          <div class="toggle-group">
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="selectedFormat() === 'number'"
+              (click)="onFormatChange('number')">
+              {{ 'export.format.number' | translate }}
+            </button>
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="selectedFormat() === 'name'"
+              (click)="onFormatChange('name')">
+              {{ 'export.format.name' | translate }}
             </button>
           </div>
         </div>

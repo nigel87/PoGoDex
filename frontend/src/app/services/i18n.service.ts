@@ -130,6 +130,9 @@ export class I18nService {
       'export.copy': 'Copia Stringa',
       'export.copied': 'Copiato!',
       'export.no_missing': 'Complimenti! Hai registrato tutte le specie idonee per questa categoria!',
+      'export.format.label': 'Formato Elementi',
+      'export.format.number': 'Numero Pokédex',
+      'export.format.name': 'Nome Pokémon',
 
       // Settings Panel
       'settings.title': 'Centro Impostazioni PoGODex',
@@ -140,6 +143,8 @@ export class I18nService {
       'settings.group_regionals.desc': 'Se attivo, raggruppa le varianti regionali (Alola, Galar, Hisui, Paldea) all\'interno della scheda del Pokémon base. Potrai cambiare forma dinamicamente con un selettore integrato sulla card.',
       'settings.include_unreleased.title': 'Includi Pokémon non rilasciati nei progressi',
       'settings.include_unreleased.desc': 'Se attivo (stile Pokémon GO), i Pokémon non ancora rilasciati (es. Phione, Arceus) faranno parte del totale regionale e delle statistiche, impedendo il completamento al 100% della regione fino al rilascio effettivo. Se disattivato, verranno considerati solo i Pokémon disponibili in-game.',
+      'settings.simplify_export.title': 'Semplificazione Evolutiva Esportazione',
+      'settings.simplify_export.desc': 'Se attivo, nel box di esportazione dei Pokémon mancanti viene visualizzato solo il Pokémon base (es. se mancano Bulbasaur, Ivysaur e Venusaur, mostra solo Bulbasaur poiché le evoluzioni si possono ottenere evolvendo il base). Inoltre, nasconde le evoluzioni mancanti se possiedi già un loro antenato.',
       'settings.regional_buttons.title': 'Qualità da registrare per le Forme Regionali:',
       'settings.regional_buttons.desc': 'Seleziona quali pulsanti di cattura abilitare sulle schede dei Pokémon regionali quando sono raggruppate.',
       'settings.account.title': 'Sincronizzazione & Account',
@@ -294,6 +299,9 @@ export class I18nService {
       'export.copy': 'Copy String',
       'export.copied': 'Copied!',
       'export.no_missing': 'Congratulations! You have registered all eligible species for this category!',
+      'export.format.label': 'Element Format',
+      'export.format.number': 'Pokédex Number',
+      'export.format.name': 'Pokémon Name',
 
       // Settings Panel
       'settings.title': 'PoGODex Settings Center',
@@ -304,6 +312,8 @@ export class I18nService {
       'settings.group_regionals.desc': 'If active, groups regional variants (Alola, Galar, Hisui, Paldea) inside the base Pokémon card. You can change forms dynamically with an integrated selector on the card.',
       'settings.include_unreleased.title': 'Include unreleased Pokémon in progress',
       'settings.include_unreleased.desc': 'If active (like Pokémon GO), unreleased Pokémon (e.g. Phione, Arceus) are included in regional totals and statistics, blocking 100% completion of the region until actually released. If disabled, only available in-game Pokémon are considered.',
+      'settings.simplify_export.title': 'Evolutionary Export Simplification',
+      'settings.simplify_export.desc': 'If active, the export box for missing species displays only the base Pokémon of an evolutionary line (e.g. if Bulbasaur, Ivysaur, and Venusaur are all missing, only Bulbasaur is shown since evolutions can be obtained by evolving it). It also hides missing evolutions if you already own any of their ancestors.',
       'settings.regional_buttons.title': 'Buttons to display for Regional Forms:',
       'settings.regional_buttons.desc': 'Select which action buttons to enable on regional Pokémon cards when grouped.',
       'settings.account.title': 'Sync & Account',

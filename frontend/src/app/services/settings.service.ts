@@ -7,6 +7,7 @@ export class SettingsService {
   private readonly GROUP_REGIONALS_KEY = 'pogodex_group_regionals';
   private readonly REGIONAL_BUTTONS_KEY = 'pogodex_regional_buttons';
   private readonly INCLUDE_UNRELEASED_KEY = 'pogodex_include_unreleased';
+  private readonly SIMPLIFY_EXPORT_KEY = 'pogodex_simplify_export';
 
   // Segnale reattivo per l'impostazione "Raggruppa Forme Regionali" (attiva di default)
   groupRegionals = signal<boolean>(true);
@@ -16,6 +17,9 @@ export class SettingsService {
 
   // Segnale reattivo per includere o meno i Pokémon non rilasciati nei progressi totali (attivo di default, stile Pokémon GO)
   includeUnreleased = signal<boolean>(true);
+
+  // Segnale reattivo per la semplificazione dell'esportazione (Rule 2 - attiva di default)
+  simplifyExport = signal<boolean>(true);
 
   constructor() {
     this.loadSettings();
@@ -47,6 +51,13 @@ export class SettingsService {
     } else {
       this.includeUnreleased.set(true); // Default attivo (stile Pokémon GO)
     }
+
+    const savedSimplify = localStorage.getItem(this.SIMPLIFY_EXPORT_KEY);
+    if (savedSimplify !== null) {
+      this.simplifyExport.set(savedSimplify === 'true');
+    } else {
+      this.simplifyExport.set(true); // Default attivo
+    }
   }
 
   // Cambia il valore dell'impostazione e salva in localStorage
@@ -65,6 +76,12 @@ export class SettingsService {
   setIncludeUnreleased(value: boolean) {
     this.includeUnreleased.set(value);
     localStorage.setItem(this.INCLUDE_UNRELEASED_KEY, value.toString());
+  }
+
+  // Cambia la semplificazione evolutiva dell'esportazione
+  setSimplifyExport(value: boolean) {
+    this.simplifyExport.set(value);
+    localStorage.setItem(this.SIMPLIFY_EXPORT_KEY, value.toString());
   }
 
   // Verifica se un pulsante specifico è abilitato per le forme regionali

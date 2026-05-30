@@ -16,6 +16,7 @@ import { Subscription } from 'rxjs';
 export class SettingsComponent implements OnInit, OnDestroy {
   groupRegionals = signal<boolean>(true);
   includeUnreleased = signal<boolean>(true);
+  simplifyExport = signal<boolean>(true);
   username = '';
   private sub = new Subscription();
 
@@ -43,6 +44,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     // Si iscrive reattivamente all'impostazione corrente
     this.groupRegionals.set(this.settingsService.groupRegionals());
     this.includeUnreleased.set(this.settingsService.includeUnreleased());
+    this.simplifyExport.set(this.settingsService.simplifyExport());
 
     this.sub.add(
       this.route.params.subscribe(params => {
@@ -69,6 +71,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const newVal = !this.includeUnreleased();
     this.includeUnreleased.set(newVal);
     this.settingsService.setIncludeUnreleased(newVal);
+  }
+
+  toggleSimplifyExport() {
+    const newVal = !this.simplifyExport();
+    this.simplifyExport.set(newVal);
+    this.settingsService.setSimplifyExport(newVal);
   }
 
   // Verifica se un bottone è selezionato
