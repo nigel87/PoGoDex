@@ -1,129 +1,135 @@
-# 🌐 Guida d'Installazione & Deployment di PoGODex su Raspberry Pi
+# 🌐 PoGODex - Ultimate Pokémon GO Collection Tracker
 
-**PoGODex** è un'applicazione web moderna e ad alta fedeltà visiva (stile *glassmorphic premium*) progettata per tracciare la tua collezione personale di Pokémon GO (Shiny, 100% IV, Ombra, Purificati, Mega, Gigamax e taglie XXL/XXS). 
+**PoGODex** is a modern, high-fidelity web application styled with a premium *glassmorphic dark UI* designed to catalog, organize, and track your personal Pokémon GO collections. 
 
-Grazie alla migrazione da Java Spring Boot a **Node.js + TypeScript + SQLite**, l'applicazione è incredibilmente leggera e reattiva, consumando meno di **30-50MB di memoria RAM** totale, rendendola perfetta per girare in modo permanente su **Raspberry Pi (Zero 2 W, 3, 4, o 5)**!
+Track your **Shiny**, **100% IV (Perfect)**, **Shadow**, **Purified**, **Mega Evolutions**, **Gigamax Forms**, and **XXL/XXS** size collections all in one clean, fluid interface.
 
----
-
-## 🛠️ 1. Requisiti & Installazione Pulita sul Raspberry Pi
-
-Connettiti al terminale del tuo Raspberry Pi tramite SSH ed esegui i comandi indicati di seguito per predisporre un ambiente pulito.
-
-### A. Aggiornare il Sistema Operativo
-```bash
-sudo apt-get update && sudo apt-get upgrade -y
-```
-
-### B. Installare SQLite e Strumenti di Rete
-Installa SQLite3, le librerie di sviluppo nativo (necessarie per compilare i driver database se mancano i prebuilt binaries) e rsync:
-```bash
-sudo apt-get install -y sqlite3 libsqlite3-dev build-essential git rsync
-```
-
-### C. Installare Node.js (Versione 20+ LTS Consigliata)
-Non utilizzare la versione predefinita dei repository apt standard (che potrebbe essere molto vecchia). Installa Node.js LTS tramite il repository ufficiale NodeSource:
-```bash
-# Scarica e configura il setup per Node.js v20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-
-# Installa Node.js e npm
-sudo apt-get install -y nodejs
-```
-
-Verifica che l'installazione sia andata a buon fine controllando le versioni:
-```bash
-node -v  # Dovrebbe mostrare v20.x.x o superiore
-npm -v   # Dovrebbe mostrare v10.x.x o superiore
-```
+Thanks to its lightweight migration from Java Spring Boot to **Node.js + TypeScript + SQLite**, the application compiles in seconds and runs with a microscopic footprint (**<15MB RAM** for the backend), making it ideal for hosting on any device—from standard laptops (macOS, Windows, Linux) to lightweight single-board computers (like Raspberry Pi) or VPS instances!
 
 ---
 
-## 🚀 2. Deploy locale tramite lo Script `deploy.sh`
+## ✨ Key Features
 
-Sul tuo computer di sviluppo locale (Mac o Linux), all'interno della cartella principale del progetto PoGODex, è presente lo script di deploy asincrono ed ottimizzato [deploy.sh](deploy.sh).
-
-Questo script utilizza `rsync` per trasferire solo i file sorgenti utili sul Raspberry Pi in pochi secondi, **escludendo automaticamente** le cartelle pesanti (`node_modules`), i compilati locali (`dist`) ed il database di sviluppo (`backend/data/pogodex.sqlite`) per evitare sovrascritture accidentali sul server di produzione.
-
-### Configurazione dello script:
-Apri [deploy.sh](deploy.sh) e modifica le variabili in alto se il nome utente o l'host del tuo Raspberry Pi sono diversi:
-```bash
-DEST_USER="nigel"
-DEST_HOST="raspberrypi"
-DEST_PATH="/home/nigel/PoGODex/"
-```
-
-### Esecuzione del Deploy:
-Rendi eseguibile lo script ed avvialo:
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
+*   🌍 **Full Pokédex (989 Species)**: Pre-loaded offline database containing all released Pokémon from Generations 1 to 9, including all geographic Regional Forms (Alolan, Galarian, Hisuian, Paldean).
+*   🎭 **Regional Form Swapper**: Dynamic, layout-optimized regional variant selector inside Pokémon cards. Automatically filters regional forms by type and geographic region.
+*   👑 **100% Completion Celebrations**: Modern, soft pulsing neon animations and golden crown `👑` achievements for completely captured species.
+*   👥 **Netflix-Style Multi-User Profiles**: Switch between multiple player profiles on-the-fly via a glassmorphic header dropdown. Create new profiles instantly with zero authentication required.
+*   📊 **Visual Stat Dashboards**: Interactive, responsive pure CSS donut charts showing capture percentages for all 8 categories—filtered globally or by individual geographic region.
+*   📋 **GO Search String Generator**: Instantly generate standard Pokémon GO search strings (e.g. `!1&!4&!7` or `1,4,7`) for missing species in each category to copy and paste directly into the game.
+*   🛡️ **Single-Port Production Deployment**: Express acts as a static web server to serve Angular directly on port `8085`. This eliminates Cross-Origin Resource Sharing (CORS) blocks and Mixed Content (HTTP/HTTPS) issues.
+*   ☁️ **Cloudflare Tunnel Ready**: Pre-configured support for custom domains (e.g., `pogodex.xyz`) via Cloudflare Tunnels with safe `allowedHosts` settings.
 
 ---
 
-## ⚡ 3. Avvio dell'Applicazione sul Raspberry Pi
+## 🛠️ Tech Stack
 
-Una volta completato il deploy, connettiti in SSH sul Raspberry Pi per avviare il servizio:
-
-```bash
-ssh nigel@raspberrypi
-cd /home/nigel/PoGODex
-```
-
-### Avvio Automatico Reattivo:
-Esegui lo script principale di orchestrazione [start-app.sh](start-app.sh):
-```bash
-chmod +x start-app.sh
-./start-app.sh
-```
-Questo script eseguirà in modo asincrono:
-1. Verifica e liberazione automatica delle porte `8085` (Backend) e `4205` (Frontend) se occupate.
-2. Installazione automatica di tutte le dipendenze npm per il backend e per il frontend.
-3. Migrazione ed inizializzazione del database SQLite persistente.
-4. Popolamento dei 989 Pokémon delle 9 generazioni e varianti regionali.
-5. Avvio del server Express in background e del client Angular (configurato per ascoltare sull'host `0.0.0.0`, rendendolo accessibile a tutti i dispositivi della tua rete locale).
+*   **Frontend**: Angular 18 (Standalone Components, reactive Signals state management, vanilla CSS).
+*   **Backend**: Node.js + Express + TypeScript.
+*   **Database**: SQLite3 via lightweight async database bindings (`sqlite` & `sqlite3` packages).
+*   **Asset Pipeline**: Dynamic 3D artworks and high-definition shiny assets loaded dynamically from PokeAPI official repositories.
 
 ---
 
-## 📱 4. Accesso nella Rete Locale (LAN)
+## 🚀 Getting Started & Installation
 
-Una volta avviata l'applicazione sul Raspberry Pi, puoi accedervi da **qualsiasi dispositivo connesso allo stesso Wi-Fi** (iPhone, iPad, Computer portatili, Smart TV) inserendo semplicemente nel browser l'indirizzo IP locale del Raspberry Pi o il suo hostname locale:
+PoGODex is equipped with a self-healing setup script that automatically checks network ports, installs npm dependencies, migrates the database, and launches the servers.
 
-* 🌐 **Interfaccia Web Pokédex**: `http://<IP-DEL-RASPBERRY-PI>:4205`
-* 🔌 **Console Database & API REST**: `http://<IP-DEL-RASPBERRY-PI>:8085`
+### Prerequisites
+Make sure you have [Node.js (v20+ LTS recommended)](https://nodejs.org/) and `git` installed on your machine.
 
-*Grazie alla nostra speciale architettura di rete adattiva, il client Angular rileva dinamicamente il nome host del browser ed instrada tutte le chiamate REST direttamente all'indirizzo corretto del Raspberry Pi, garantendo una navigazione remota fluida ed immediata senza alcun tipo di configurazione IP manuale hardcoded!*
+### Quick Start (All Platforms)
+
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/nigel87/PoGoDex.git
+    cd PoGoDex
+    ```
+
+2.  **Launch the Application**:
+    Run the orchestration script:
+    *   **macOS / Linux**:
+        ```bash
+        chmod +x start-app.sh
+        ./start-app.sh
+        ```
+    *   **Windows (Git Bash / WSL)**:
+        ```bash
+        ./start-app.sh
+        ```
+
+3.  **Explore your Pokédex!**
+    Open your browser and navigate to:
+    👉 **`http://localhost:4205`** or the backend server at **`http://localhost:8085`** (serving the Angular app statically).
 
 ---
 
-## 🛡️ 5. Mantenere l'App sempre attiva con PM2 (Opzionale e Consigliato)
+## ⚡ Deployment & Hosting
 
-Se vuoi che PoGODex rimanga attivo in background anche se chiudi la sessione SSH o se il Raspberry Pi viene riavviato (ad esempio dopo un'interruzione di corrente), è consigliabile utilizzare **PM2**, il gestore di processi standard per Node.js.
+### Option A: Hosting via Backend Static Server (Recommended)
+This is the most lightweight method (consuming only **~15MB RAM**).
+1.  Compile the Angular frontend locally:
+    ```bash
+    cd frontend && npm install && npm run build && cd ..
+    ```
+2.  Install dependencies and start the Express backend:
+    ```bash
+    cd backend && npm install && npm run build && npm run start
+    ```
+3.  Access the app directly on: **`http://localhost:8085`**.
 
-### A. Installare PM2 globalmente
-```bash
-sudo npm install -g pm2
-```
+### Option B: Remote Server / VPS Sync via `deploy.sh`
+If you develop on a local machine (Mac/PC) and want to deploy to a remote server (like a Raspberry Pi or a VPS in your home network):
+1.  Open the [deploy.sh](deploy.sh) script and customize your connection details:
+    ```bash
+    DEST_USER="your-username"
+    DEST_HOST="your-server-ip-or-host"
+    DEST_PATH="/home/username/PoGODex/"
+    ```
+2.  Run the deploy script from your development machine:
+    ```bash
+    chmod +x deploy.sh
+    ./deploy.sh
+    ```
+    This script will compile Angular locally on your fast machine (taking less than 2 seconds), then utilize `rsync` to transfer the ready-to-serve files to the remote server, bypassing compilation overhead on slow devices!
 
-### B. Avviare i servizi sotto PM2
-Dalla cartella principale del progetto `/home/nigel/PoGODex`:
-```bash
-# Avvia il Backend Node.js
-cd backend
-pm2 start dist/index.js --name "pogodex-backend"
+---
 
-# Avvia il Frontend Angular
-cd ../frontend
-pm2 start "npx ng serve --host 0.0.0.0 --port 4205" --name "pogodex-frontend"
-```
+## 🛡️ Production PM2 Keeping-Alive (Optional)
 
-### C. Salvare lo Stato ed Abilitare l'Avvio al Boot del Raspberry Pi
-```bash
-# Salva l'elenco dei processi attivi
-pm2 save
+To keep PoGODex running persistently in the background on your home server (surviving reboots and crashes), we recommend using **PM2**:
 
-# Genera lo script di startup per systemd (copia ed incolla il comando generato a schermo)
-pm2 startup
-```
-Da questo momento in poi, PoGODex si avvierà in modo completamente invisibile e silenzioso all'accensione del tuo Raspberry Pi!
+1.  **Install PM2 Globally**:
+    ```bash
+    sudo npm install -g pm2
+    ```
+
+2.  **Start the Service**:
+    From the root project directory:
+    ```bash
+    cd backend
+    pm2 start dist/index.js --name "pogodex-backend"
+    ```
+
+3.  **Enable System Startup**:
+    Save the PM2 process list and configure systemd to launch it on boot:
+    ```bash
+    pm2 save
+    pm2 startup
+    ```
+
+---
+
+## 🌐 Custom Domain & Cloudflare Tunnels
+
+If you own a custom domain (e.g. `yourpogodex.com`) and want to expose PoGODex to the internet securely via HTTPS without opening any ports on your router, configure a Cloudflare Tunnel pointing to:
+
+*   **Service Type**: `HTTP`
+*   **URL**: `http://localhost:8085` (pointing to the static Express port).
+
+The frontend detects custom domain headers dynamically and switches seamlessly to secure relative routes, preventing all CORS blocks and browser Mixed Content warnings automatically!
+
+---
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
