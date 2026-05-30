@@ -1,0 +1,139 @@
+<div class="export-container">
+  <!-- Header -->
+  <header class="pogo-header">
+    <div class="header-content">
+      <h1 class="logo" [routerLink]="['/']" style="cursor: pointer;">PoGO<span>Dex</span></h1>
+      <nav class="navigation-tabs">
+        <a [routerLink]="['/' + username]" class="nav-link">Pokedex</a>
+        <a [routerLink]="['/' + username + '/stats']" class="nav-link">Statistiche</a>
+        <a [routerLink]="['/' + username + '/export']" class="nav-link active">Esporta</a>
+        <a [routerLink]="['/' + username + '/settings']" class="nav-link">Impostazioni</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="export-main">
+    <div class="glass-card config-panel">
+      <h2>Generatore Stringhe Pokémon GO</h2>
+      <p class="subtitle">Esporta l'elenco dei Pokémon che ti mancano in un formato pronto per essere incollato all'interno della barra di ricerca di Pokémon GO.</p>
+
+      <div class="control-grid">
+        <!-- Categoria Dex -->
+        <div class="control-group">
+          <label for="category">Seleziona Categoria Dex</label>
+          <div class="select-wrapper">
+            <select id="category" [ngModel]="selectedCategory()" (ngModelChange)="onCategoryChange($event)">
+              <option *ngFor="let cat of categories" [value]="cat.value">{{ cat.label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Formato di Ricerca -->
+        <div class="control-group">
+          <label>Formato di Output</label>
+          <div class="toggle-group">
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="selectedMode() === 'list'"
+              (click)="onModeChange('list')">
+              Elenco Numeri (1,4,7)
+            </button>
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="selectedMode() === 'negation'"
+              (click)="onModeChange('negation')">
+              Filtro Esclusione (!1&!4)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result String Display -->
+      <div class="result-box-wrapper">
+        <div class="result-header">
+          <span>Stringa di Ricerca Generata</span>
+          <span class="status-badge" *ngIf="searchString()">
+            {{ searchString().split(selectedMode() === 'list' ? ',' : '&').length }} Pokémon Mancanti
+          </span>
+        </div>
+        
+        <div class="result-content">
+          <div *ngIf="isLoading()" class="loader-spinner">
+            <div class="spinner"></div>
+            <span>Generazione in corso...</span>
+          </div>
+
+          <div *ngIf="!isLoading() && !searchString()" class="no-missing-alert">
+            🎉 Congratulazioni! Hai completato questa sezione del Pokedex. Nessun Pokémon mancante!
+          </div>
+
+          <textarea 
+            *ngIf="!isLoading() && searchString()" 
+            readonly 
+            [value]="searchString()"
+            class="search-string-textarea"
+            rows="4">
+          </textarea>
+        </div>
+
+        <button 
+          *ngIf="searchString() && !isLoading()"
+          (click)="copyToClipboard()"
+          class="copy-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copia negli appunti
+        </button>
+      </div>
+    </div>
+
+    <!-- Guida all'uso -->
+    <div class="glass-card guide-panel">
+      <h3>📘 Come utilizzare la stringa in Pokémon GO?</h3>
+      
+      <div class="guide-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Seleziona e Copia</h4>
+            <p>Scegli la categoria desiderata (es. Pokémon Fortunati o Regolari) e premi il pulsante **"Copia"** qui sopra per salvare la stringa generata negli appunti del telefono.</p>
+          </div>
+        </div>
+
+        <div class="step" *ngIf="selectedMode() === 'list'">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Cosa fa l'Elenco Numeri? (1,4,7)</h4>
+            <p>Se incolli questa stringa nel motore di ricerca di Pokémon GO, il gioco ti mostrerà **esclusivamente** i Pokémon presenti nella lista che possiedi già nella tua borsa. È eccezionale per verificare rapidamente se hai doppioni da scambiare o evolvere per conto di un amico!</p>
+          </div>
+        </div>
+
+        <div class="step" *ngIf="selectedMode() === 'negation'">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Cosa fa il Filtro Esclusione? (!1&!4&!7)</h4>
+            <p>Questa query nasconde tutti i Pokémon che ti mancano. Incollandola nel gioco, vedrai nel tuo box **solo i Pokémon che hai già registrato come catturati**, permettendoti di filtrare e ordinare facilmente la tua collezione esistente.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Filtri Avanzati in Gioco</h4>
+            <p>Puoi combinare la stringa copiata con i filtri nativi del gioco! Ad esempio, incollala e aggiungi `& shiny` per cercare i cromatici delle specie che ti mancano, o `& 4*` per vedere i tuoi 100%.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Copy Toast Notification -->
+  <div class="toast-container" [class.show]="showCopyToast()">
+    <div class="toast-notification">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      Stringa copiata con successo negli appunti!
+    </div>
+  </div>
+</div>

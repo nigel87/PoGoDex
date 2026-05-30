@@ -1,0 +1,163 @@
+/* Import fonts from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Define Cascade Layers */
+@layer reset, base, theme, components, utilities;
+
+@layer reset {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+    
+    /* Design Tokens - Colors */
+    --color-bg-light: #f3f6fa;
+    --color-bg-dark: #0a0f1d;
+    --surface-bg-light: rgba(255, 255, 255, 0.7);
+    --surface-bg-dark: rgba(13, 20, 38, 0.6);
+    --border-light: rgba(0, 0, 0, 0.08);
+    --border-dark: rgba(255, 255, 255, 0.06);
+    
+    --text-primary-light: #1c2434;
+    --text-primary-dark: #f1f5f9;
+    --text-secondary-light: #64748b;
+    --text-secondary-dark: #94a3b8;
+    
+    /* Theming with light-dark() */
+    --app-bg: light-dark(var(--color-bg-light), var(--color-bg-dark));
+    --surface-bg: light-dark(var(--surface-bg-light), var(--surface-bg-dark));
+    --border-color: light-dark(var(--border-light), var(--border-dark));
+    --text-primary: light-dark(var(--text-primary-light), var(--text-primary-dark));
+    --text-secondary: light-dark(var(--text-secondary-light), var(--text-secondary-dark));
+    
+    --glass-blur: blur(20px);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+    
+    /* Font families */
+    --font-primary: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-secondary: 'Inter', sans-serif;
+    
+    /* Pokémon Go style variables */
+    --pogo-blue: #1b7cfc;
+    --pogo-green: #00d28a;
+    --pogo-gradient: linear-gradient(135deg, #1b7cfc 0%, #00d28a 100%);
+    --pogo-gold: #ffbe0b;
+    --pogo-purple: #9c27b0;
+    --pogo-red: #ff4757;
+    
+    /* Type Colors */
+    --type-normal: #A8A77A;
+    --type-fire: #EE8130;
+    --type-water: #6390F0;
+    --type-electric: #F7D02C;
+    --type-grass: #7AC74C;
+    --type-ice: #96D9D6;
+    --type-fighting: #C22E28;
+    --type-poison: #A33EA1;
+    --type-ground: #E2BF65;
+    --type-flying: #A98FF3;
+    --type-psychic: #F95587;
+    --type-bug: #A6B91A;
+    --type-rock: #B6A136;
+    --type-ghost: #735797;
+    --type-dragon: #6F35FC;
+    --type-steel: #B7B7CE;
+    --type-fairy: #D685AD;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: var(--font-primary);
+    background: var(--app-bg);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background: radial-gradient(circle at 10% 20%, light-dark(rgba(27, 124, 252, 0.08), rgba(27, 124, 252, 0.15)) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, light-dark(rgba(0, 210, 138, 0.08), rgba(0, 210, 138, 0.15)) 0%, transparent 45%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* Scrollbars customization */
+  body {
+    scrollbar-color: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)) transparent;
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.15));
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.3));
+  }
+}
+
+@layer theme {
+  /* Type Badge Styles */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    font-family: var(--font-secondary);
+  }
+
+  .type-normal { background-color: var(--type-normal); }
+  .type-fire { background-color: var(--type-fire); }
+  .type-water { background-color: var(--type-water); }
+  .type-electric { background-color: var(--type-electric); }
+  .type-grass { background-color: var(--type-grass); }
+  .type-ice { background-color: var(--type-ice); }
+  .type-fighting { background-color: var(--type-fighting); }
+  .type-poison { background-color: var(--type-poison); }
+  .type-ground { background-color: var(--type-ground); }
+  .type-flying { background-color: var(--type-flying); }
+  .type-psychic { background-color: var(--type-psychic); }
+  .type-bug { background-color: var(--type-bug); }
+  .type-rock { background-color: var(--type-rock); }
+  .type-ghost { background-color: var(--type-ghost); }
+  .type-dragon { background-color: var(--type-dragon); }
+  .type-steel { background-color: var(--type-steel); }
+  .type-fairy { background-color: var(--type-fairy); }
+}
+
+@layer components {
+  /* Standard premium Glassmorphism Container */
+  .glass-card {
+    background: var(--surface-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+  }
+}

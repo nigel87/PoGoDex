@@ -1,0 +1,326 @@
+/* Container della Landing Page */
+.landing-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: #090e1a; /* Sfondo scuro ultra-moderno */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 1.5rem;
+}
+
+/* Sfondo animato a strati con auras luminose fluttuanti */
+.background-decorations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(140px);
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  animation: float-breathing 8s infinite alternate ease-in-out;
+}
+
+.orb-1 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #1b7cfc 0%, rgba(27,124,252,0) 70%);
+  top: -100px;
+  left: -100px;
+}
+
+.orb-2 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #7b2cbf 0%, rgba(123,44,191,0) 70%);
+  bottom: -150px;
+  right: -150px;
+  animation-delay: -3s;
+}
+
+@keyframes float-breathing {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, 30px) scale(1.15); }
+}
+
+/* Silhouette di Pokéball stilizzate e rotanti */
+.pokeball-silhouette {
+  position: absolute;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' opacity='0.03'%3E%3Ccircle cx='50' cy='50' r='45' stroke='white' stroke-width='4' fill='none'/%3E%3Cline x1='5' y1='50' x2='95' y2='50' stroke='white' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='12' fill='none' stroke='white' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='5' fill='white'/%3E%3C/svg%3E") no-repeat center;
+  background-size: contain;
+  opacity: 0.3;
+  animation: slow-rotate 40s linear infinite;
+}
+
+.silhouette-1 {
+  width: 320px;
+  height: 320px;
+  top: 15%;
+  right: 12%;
+}
+
+.silhouette-2 {
+  width: 200px;
+  height: 200px;
+  bottom: 12%;
+  left: 10%;
+  animation-duration: 25s;
+  animation-direction: reverse;
+}
+
+@keyframes slow-rotate {
+  to { transform: rotate(360deg); }
+}
+
+/* Card Centrale Glassmorphic Premium */
+.landing-card {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 3rem 2.5rem;
+  z-index: 10;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.landing-card:hover {
+  border-color: rgba(27, 124, 252, 0.2);
+  box-shadow: 0 20px 60px rgba(27, 124, 252, 0.06), 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+/* Brand Logo Premium */
+.logo {
+  font-size: 3.2rem;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  color: #f8fafc;
+  margin-bottom: 0.2rem;
+  user-select: none;
+}
+
+.logo span {
+  background: linear-gradient(135deg, #1b7cfc 0%, #00f5d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.brand-header {
+  margin-bottom: 2rem;
+}
+
+/* Testo di Benvenuto */
+.welcome-text {
+  margin-bottom: 2.2rem;
+}
+
+.welcome-text h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.3px;
+}
+
+.welcome-text p {
+  color: #94a3b8;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* Modulo Allenatore */
+.trainer-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.input-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.input-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.input-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 0.2rem 0.8rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-prefix {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1b7cfc;
+  margin-right: 0.4rem;
+  user-select: none;
+}
+
+.input-wrapper input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f8fafc;
+  padding: 0.75rem 0.2rem;
+}
+
+.input-wrapper input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 500;
+}
+
+/* Input Focus Glow */
+.input-wrapper:focus-within {
+  border-color: rgba(27, 124, 252, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 16px rgba(27, 124, 252, 0.22);
+}
+
+/* Notifica Errore */
+.error-msg {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ef4444;
+  margin-top: 0.2rem;
+  align-self: flex-start;
+}
+
+/* Bottone di Invio Premium */
+.submit-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #1b7cfc 0%, #1b7cfc 100%);
+  border: none;
+  border-radius: 14px;
+  padding: 1.05rem;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 18px rgba(27, 124, 252, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.submit-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 100%);
+  transition: all 0.5s ease;
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(27, 124, 252, 0.45);
+}
+
+.submit-btn:hover::before {
+  left: 100%;
+  transition: all 0.7s ease;
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.submit-btn:hover .btn-icon {
+  transform: translateX(4px);
+}
+
+/* Animazione di apparizione fluida */
+.fade-in-slide {
+  animation: fadeInSlide 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+@keyframes fadeInSlide {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animazione di errore (Shake) */
+.shake {
+  animation: shakeEffect 0.45s ease-in-out;
+}
+
+@keyframes shakeEffect {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* Responsività per dispositivi mobili */
+@media (max-width: 480px) {
+  .landing-card {
+    padding: 2.2rem 1.6rem;
+    border-radius: 24px;
+  }
+  .logo {
+    font-size: 2.7rem;
+  }
+  .welcome-text h2 {
+    font-size: 1.4rem;
+  }
+}

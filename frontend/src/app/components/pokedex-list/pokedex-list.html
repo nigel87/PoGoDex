@@ -1,0 +1,375 @@
+<div class="pokedex-container">
+  <!-- Header -->
+  <header class="pogo-header">
+    <div class="header-content">
+      <h1 class="logo" [routerLink]="['/']" style="cursor: pointer;">PoGO<span>Dex</span></h1>
+      
+      <div class="header-right-group">
+        <nav class="navigation-tabs">
+          <a [routerLink]="['/' + username]" class="nav-link active">Pokedex</a>
+          <a [routerLink]="['/' + username + '/stats']" class="nav-link">Statistiche</a>
+          <a [routerLink]="['/' + username + '/export']" class="nav-link">Esporta</a>
+          <a [routerLink]="['/' + username + '/settings']" class="nav-link">Impostazioni</a>
+        </nav>
+
+        <!-- Player Profile Switcher Dropdown (Netflix-style premium look) -->
+        <div class="player-profile-dropdown" *ngIf="activeUser()">
+          <div class="active-player-trigger">
+            <img [src]="activeUser()?.avatarUrl" [alt]="activeUser()?.name" class="player-avatar">
+            <span class="player-name">{{ activeUser()?.name }}</span>
+            <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          
+          <div class="profile-dropdown-menu glass-card">
+            <div class="dropdown-header">Cambia Giocatore</div>
+            <div class="users-list-scroll">
+              <button 
+                *ngFor="let u of usersList()" 
+                class="dropdown-user-btn" 
+                [class.selected]="u.id === activeUser()?.id"
+                (click)="switchUser(u)">
+                <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
+                <span>{{ u.name }}</span>
+                <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
+              </button>
+            </div>
+            <div class="dropdown-footer">
+              <button class="add-player-btn" (click)="openNewUserModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Aggiungi Giocatore
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter Bar Panel -->
+  <section class="filters-section">
+    <div class="glass-card filters-card">
+      <div class="search-and-status-row">
+        <!-- Input Cerca -->
+        <div class="search-input-wrapper">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input 
+            type="text" 
+            placeholder="Cerca per nome o numero Pokedex..." 
+            [ngModel]="searchQuery()" 
+            (ngModelChange)="searchQuery.set($event)"
+            class="search-bar-input">
+        </div>
+
+        <!-- Filtro Catturati / Mancanti -->
+        <div class="status-toggle">
+          <button 
+            type="button" 
+            class="toggle-btn" 
+            [class.active]="selectedStatus() === 'all'"
+            (click)="selectedStatus.set('all')">
+            Tutti
+          </button>
+          <button 
+            type="button" 
+            class="toggle-btn" 
+            [class.active]="selectedStatus() === 'caught'"
+            (click)="selectedStatus.set('caught')">
+            Catturati
+          </button>
+          <button 
+            type="button" 
+            class="toggle-btn" 
+            [class.active]="selectedStatus() === 'missing'"
+            (click)="selectedStatus.set('missing')">
+            Mancanti
+          </button>
+        </div>
+      </div>
+ 
+      <!-- Filtro Regioni -->
+      <div class="regions-filter-row">
+        <span class="filter-label">Regione:</span>
+        <div class="region-pills-scroll">
+          <button 
+            *ngFor="let reg of pokemonRegions" 
+            class="region-filter-pill"
+            [class.active]="selectedRegion() === reg.value"
+            (click)="selectRegion(reg.value)">
+            {{ reg.label }}
+          </button>
+        </div>
+      </div>
+ 
+      <!-- Filtro Forme Speciali -->
+      <div class="form-filters-row">
+        <span class="filter-label">Forma Speciale:</span>
+        <div class="form-pills-scroll">
+          <button 
+            *ngFor="let form of specialForms" 
+            class="form-filter-pill"
+            [class.active]="selectedFormFilter() === form.value"
+            [class]="'form-' + form.value"
+            (click)="selectFormFilter(form.value)">
+            {{ form.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtro Tipi Pokémon (Scrollabile Orizzontalmente con ombre d'affordance) -->
+      <div class="types-filter-row">
+        <div class="type-pills-scroll">
+          <button 
+            *ngFor="let t of pokemonTypes" 
+            class="type-filter-pill"
+            [class.active]="selectedType() === t.value"
+            [class]="'type-' + t.value"
+            (click)="selectType(t.value)">
+            {{ t.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pokedex Listing Grid -->
+  <main class="pokedex-main">
+    <div *ngIf="isLoading()" class="loader-container">
+      <div class="spinner"></div>
+      <span>Caricamento Pokedex di Kanto...</span>
+    </div>
+
+    <!-- No results -->
+    <div *ngIf="!isLoading() && filteredList().length === 0" class="no-results-panel glass-card">
+      <svg class="no-results-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+      <h3>Nessun Pokémon trovato</h3>
+      <p>Nessun Pokémon corrisponde ai criteri di ricerca e ai filtri selezionati.</p>
+    </div>
+
+    <!-- Cards Grid -->
+    <div *ngIf="!isLoading() && filteredList().length > 0" class="pokedex-grid">
+      <div 
+        *ngFor="let base of filteredList()" 
+        class="glass-card pokemon-card"
+        [class.caught-active]="getActiveForm(base).regular"
+        [class.shadow-active]="getActiveForm(base).shadow"
+        [class.purified-active]="getActiveForm(base).purified"
+        [class.lucky-active]="getActiveForm(base).lucky"
+        [class.perfect-active]="getActiveForm(base).perfect"
+        [class.shiny-active]="getActiveForm(base).shiny"
+        [class.species-completed]="isSpeciesCompleted(base)">
+        
+        <ng-container *ngIf="getActiveForm(base) as p">
+          <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
+          <div class="card-sparkles" *ngIf="p.lucky || p.purified || p.shiny">
+            <span class="sparkle s1">✦</span>
+            <span class="sparkle s2">✦</span>
+            <span class="sparkle s3">✦</span>
+          </div>
+ 
+          <!-- Pokeball background badge for caught regular -->
+          <div class="pokeball-bg-watermark" [class.active]="p.regular"></div>
+ 
+          <!-- Card Header (ID & Size Badges) -->
+          <div class="card-header">
+            <div class="card-header-left" style="display: flex; align-items: center; gap: 0.35rem;">
+              <span class="pokemon-id">{{ formatId(p) }}</span>
+              <span class="completion-crown" *ngIf="isSpeciesCompleted(base)" title="Specie Completata al 100% (Tutte le spunte attive)">👑</span>
+            </div>
+            <div class="size-badges">
+              <span class="size-badge xxl" *ngIf="p.xxl">XXL</span>
+              <span class="size-badge xxs" *ngIf="p.xxs">XXS</span>
+            </div>
+          </div>
+
+          <!-- Pokemon Image Section (Shiny artwork auto-switcher!) -->
+          <div class="image-container">
+            <img 
+              [src]="p.shiny ? 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/' + p.id + '.png' : p.spriteUrl" 
+              [alt]="p.name" 
+              class="pokemon-sprite"
+              loading="lazy">
+          </div>
+
+          <!-- Pokemon Info -->
+          <div class="pokemon-info">
+            <h2 class="pokemon-name">{{ p.name }}</h2>
+            <div class="types-row">
+              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
+              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
+            </div>
+            
+            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo e ci sono varianti) -->
+            <div class="regional-switcher-row" *ngIf="settingsService.groupRegionals() && getRegionalForms(base).length > 0">
+              <button 
+                type="button" 
+                class="region-pill-btn" 
+                [class.active]="p.id === base.id"
+                (click)="selectFormForCard(base.id, base.id)">
+                Base
+              </button>
+              <button 
+                *ngFor="let reg of getRegionalForms(base)" 
+                type="button" 
+                class="region-pill-btn" 
+                [class.active]="p.id === reg.id"
+                (click)="selectFormForCard(base.id, reg.id)">
+                {{ getFormRegion(reg) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Action Toggle Buttons -->
+          <div class="caught-actions-grid">
+            <!-- Regular -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'regular')"
+              type="button" 
+              class="action-btn regular-btn" 
+              [class.active]="p.regular"
+              (click)="toggleForm(p, 'regular')"
+              title="Catturato Regolare">
+              <span class="ball-icon"></span>
+              Reg
+            </button>
+ 
+            <!-- Shiny -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'shiny')"
+              type="button" 
+              class="action-btn shiny-btn" 
+              [class.active]="p.shiny"
+              (click)="toggleForm(p, 'shiny')"
+              title="Shiny (Cromatico)">
+              <span class="shiny-icon">✨</span>
+              Shy
+            </button>
+ 
+            <!-- Perfect -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'perfect')"
+              type="button" 
+              class="action-btn perfect-btn" 
+              [class.active]="p.perfect"
+              (click)="toggleForm(p, 'perfect')"
+              title="Perfect (100% IV)">
+              <span class="star-icon">★★★</span>
+              100
+            </button>
+ 
+            <!-- Lucky -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'lucky')"
+              type="button" 
+              class="action-btn lucky-btn" 
+              [class.active]="p.lucky"
+              (click)="toggleForm(p, 'lucky')"
+              title="Lucky (Fortunato)">
+              <span class="bubble-icon"></span>
+              Lck
+            </button>
+ 
+            <!-- XXL -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'xxl')"
+              type="button" 
+              class="action-btn xxl-btn" 
+              [class.active]="p.xxl"
+              (click)="toggleForm(p, 'xxl')"
+              title="Taglia XXL">
+              XXL
+            </button>
+ 
+            <!-- XXS -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'xxs')"
+              type="button" 
+              class="action-btn xxs-btn" 
+              [class.active]="p.xxs"
+              (click)="toggleForm(p, 'xxs')"
+              title="Taglia XXS">
+              XXS
+            </button>
+
+            <!-- Mega -->
+            <button 
+              *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+              type="button" 
+              class="action-btn mega-btn" 
+              [class.active]="p.mega"
+              (click)="toggleForm(p, 'mega')"
+              title="Mega Evoluzione">
+              <span class="mega-icon">🧬</span>
+              Meg
+            </button>
+
+            <!-- Gigamax -->
+            <button 
+              *ngIf="canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')"
+              type="button" 
+              class="action-btn gigamax-btn" 
+              [class.active]="p.gigamax"
+              (click)="toggleForm(p, 'gigamax')"
+              title="Forma Gigamax">
+              <span class="giga-icon">🌋</span>
+              Gmx
+            </button>
+            
+            <!-- Shadow -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'shadow')"
+              type="button" 
+              class="action-btn shadow-btn" 
+              [class.active]="p.shadow"
+              (click)="toggleForm(p, 'shadow')"
+              title="Shadow (Ombra)">
+              <span class="shadow-icon"></span>
+              Sha
+            </button>
+ 
+            <!-- Purified -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'purified')"
+              type="button" 
+              class="action-btn purified-btn" 
+              [class.active]="p.purified"
+              (click)="toggleForm(p, 'purified')"
+              title="Purificato">
+              <span class="purified-icon"></span>
+              Pur
+            </button>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Player Profile Modal popup (Premium glassmorphic overlay) -->
+  <div class="modal-overlay" *ngIf="showUserModal()">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3>Aggiungi Giocatore</h3>
+        <button class="close-modal-btn" (click)="closeNewUserModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <label for="new-player-name">Nome del Giocatore</label>
+        <input 
+          id="new-player-name" 
+          type="text" 
+          placeholder="Es: Nigel, Sofia, Allenatore1..." 
+          [ngModel]="newUserName()"
+          (ngModelChange)="newUserName.set($event)"
+          class="modal-input-text"
+          (keyup.enter)="createNewUser()"
+          autofocus>
+        <p class="modal-help-text">Creando il profilo, avrai un Pokedex personale e statistiche indipendenti salvate su disco.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel-btn" (click)="closeNewUserModal()">Annulla</button>
+        <button class="modal-btn confirm-btn" (click)="createNewUser()" [disabled]="!newUserName().trim() || isCreatingUser()">
+          <span *ngIf="!isCreatingUser()">Crea Profilo</span>
+          <span *ngIf="isCreatingUser()" class="btn-spinner"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,31 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# Angular build and cache
+frontend/.angular/
+frontend/dist/
+frontend/tmp/
+frontend/frontend.log
+
+# Backend build and database
+backend/dist/
+backend/data/
+backend/backend.log
+backend/.env
+
+# Local logs
+*.log
