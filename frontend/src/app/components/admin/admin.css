@@ -295,6 +295,8 @@
 
 .table-scroll-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 360px);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.15);
@@ -313,7 +315,10 @@
   text-transform: uppercase;
   color: #94a3b8;
   border-bottom: 2px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.2);
+  background: #0e1628;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .config-table td {
