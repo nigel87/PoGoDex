@@ -69,7 +69,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().shadowCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().shadowCaught }} / {{ shadowCapableTotal() }}</p>
             <p class="label">Pokémon Ombra</p>
           </div>
         </div>
@@ -85,7 +85,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().purifiedCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().purifiedCaught }} / {{ shadowCapableTotal() }}</p>
             <p class="label">Pokémon Purificati</p>
           </div>
         </div>
@@ -181,7 +181,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().megaCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().megaCaught }} / {{ megaCapableTotal() }}</p>
             <p class="label">Pokémon Mega</p>
           </div>
         </div>
@@ -197,7 +197,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().gigamaxCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().gigamaxCaught }} / {{ gigamaxCapableTotal() }}</p>
             <p class="label">Pokémon Gigamax</p>
           </div>
         </div>

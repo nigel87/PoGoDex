@@ -340,7 +340,7 @@
             
             <!-- Shadow -->
             <button 
-              *ngIf="showButtonForPokemon(p, 'shadow')"
+              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'shadow')"
               type="button" 
               class="action-btn shadow-btn" 
               [class.active]="p.shadow"
@@ -352,7 +352,7 @@
  
             <!-- Purified -->
             <button 
-              *ngIf="showButtonForPokemon(p, 'purified')"
+              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'purified')"
               type="button" 
               class="action-btn purified-btn" 
               [class.active]="p.purified"

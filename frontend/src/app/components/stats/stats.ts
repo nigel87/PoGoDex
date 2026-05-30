@@ -4,6 +4,7 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { PokedexService, PokedexStats, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
+import { SHADOW_CAPABLE_SPECIES } from '../../services/shadow-list';
 
 @Component({
   selector: 'app-stats',
@@ -14,6 +15,25 @@ import { UserService, User } from '../../services/user.service';
 })
 export class StatsComponent implements OnInit, OnDestroy {
   pokemonList = signal<PokedexDTO[]>([]);
+  
+  // Specie idonee alle forme speciali
+  megaCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam', 'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl', 'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom', 'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye', 'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt', 'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross', 'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow', 'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon'];
+  gigamaxCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Butterfree', 'Pikachu', 'Meowth', 'Machamp', 'Gengar', 'Kingler', 'Lapras', 'Eevee', 'Snorlax', 'Garbodor', 'Melmetal', 'Rillaboom', 'Cinderace', 'Inteleon', 'Corviknight', 'Orbeetle', 'Drednaw', 'Coalossal', 'Flapple', 'Appletun', 'Sandaconda', 'Toxtricity', 'Centiskorch', 'Hatterene', 'Grimmsnarl', 'Alcremie', 'Duraludon', 'Urshifu'];
+
+  canMega(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return this.megaCapableSpecies.includes(baseName);
+  }
+
+  canGigamax(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return this.gigamaxCapableSpecies.includes(baseName);
+  }
+
+  canShadow(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return SHADOW_CAPABLE_SPECIES.includes(baseName);
+  }
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
   selectedRegion = signal<string>('all');
@@ -88,17 +108,38 @@ export class StatsComponent implements OnInit, OnDestroy {
   // Espone stats per mantenere la retrocompatibilità del template HTML
   stats = computed(() => this.computedStats());
 
-  // Percentuali computate reattivamente basate su computedStats
+  // Totabili idonei dinamici
+  shadowCapableTotal = computed(() => {
+    return this.filteredPokemon().filter(p => this.canShadow(p.name)).length;
+  });
+
+  megaCapableTotal = computed(() => {
+    let count = 0;
+    for (const p of this.filteredPokemon()) {
+      if (this.canMega(p.name)) {
+        const baseName = p.name.split(' (')[0];
+        const isDouble = baseName === 'Charizard' || baseName === 'Mewtwo';
+        count += isDouble ? 2 : 1;
+      }
+    }
+    return count;
+  });
+
+  gigamaxCapableTotal = computed(() => {
+    return this.filteredPokemon().filter(p => this.canGigamax(p.name)).length;
+  });
+
+  // Percentuali computate reattivamente basate su computedStats ed i corretti denominatori
   regularPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().regularCaught / this.computedStats().total) * 100) : 0);
-  shadowPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().shadowCaught / this.computedStats().total) * 100) : 0);
-  purifiedPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().purifiedCaught / this.computedStats().total) * 100) : 0);
+  shadowPct = computed(() => this.shadowCapableTotal() > 0 ? Math.round((this.computedStats().shadowCaught / this.shadowCapableTotal()) * 100) : 0);
+  purifiedPct = computed(() => this.shadowCapableTotal() > 0 ? Math.round((this.computedStats().purifiedCaught / this.shadowCapableTotal()) * 100) : 0);
   perfectPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().perfectCaught / this.computedStats().total) * 100) : 0);
   luckyPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().luckyCaught / this.computedStats().total) * 100) : 0);
   xxlPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().xxlCaught / this.computedStats().total) * 100) : 0);
   xxsPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().xxsCaught / this.computedStats().total) * 100) : 0);
   shinyPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().shinyCaught / this.computedStats().total) * 100) : 0);
-  megaPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().megaCaught / this.computedStats().total) * 100) : 0);
-  gigamaxPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().gigamaxCaught / this.computedStats().total) * 100) : 0);
+  megaPct = computed(() => this.megaCapableTotal() > 0 ? Math.round((this.computedStats().megaCaught / this.megaCapableTotal()) * 100) : 0);
+  gigamaxPct = computed(() => this.gigamaxCapableTotal() > 0 ? Math.round((this.computedStats().gigamaxCaught / this.gigamaxCapableTotal()) * 100) : 0);
 
   username = '';
   private sub = new Subscription();

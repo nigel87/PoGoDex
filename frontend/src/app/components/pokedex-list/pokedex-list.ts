@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
+import { SHADOW_CAPABLE_SPECIES } from '../../services/shadow-list';
 
 @Component({
   selector: 'app-pokedex-list',
@@ -101,6 +102,11 @@ export class PokedexList implements OnInit, OnDestroy {
   canGigamax(name: string): boolean {
     const baseName = name.split(' (')[0];
     return this.gigamaxCapableSpecies.includes(baseName);
+  }
+
+  canShadow(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return SHADOW_CAPABLE_SPECIES.includes(baseName);
   }
 
   hasTwoMegas(name: string): boolean {
@@ -291,10 +297,10 @@ export class PokedexList implements OnInit, OnDestroy {
       if (checkShiny && !p.shiny) return false;
 
       const checkShadow = isRegional ? this.settingsService.isButtonEnabledForRegional('shadow') : true;
-      if (checkShadow && !p.shadow) return false;
+      if (checkShadow && this.canShadow(p.name) && !p.shadow) return false;
 
       const checkPurified = isRegional ? this.settingsService.isButtonEnabledForRegional('purified') : true;
-      if (checkPurified && !p.purified) return false;
+      if (checkPurified && this.canShadow(p.name) && !p.purified) return false;
 
       const checkPerfect = isRegional ? this.settingsService.isButtonEnabledForRegional('perfect') : true;
       if (checkPerfect && !p.perfect) return false;
