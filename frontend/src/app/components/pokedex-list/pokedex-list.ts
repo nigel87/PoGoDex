@@ -103,6 +103,49 @@ export class PokedexList implements OnInit, OnDestroy {
     return this.gigamaxCapableSpecies.includes(baseName);
   }
 
+  hasTwoMegas(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return baseName === 'Charizard' || baseName === 'Mewtwo';
+  }
+
+  isMegaActive(pokemon: PokedexDTO, formType: 'x' | 'y' | 'standard'): boolean {
+    if (formType === 'x') {
+      return (pokemon.mega & 1) > 0;
+    } else if (formType === 'y') {
+      return (pokemon.mega & 2) > 0;
+    } else {
+      return pokemon.mega > 0;
+    }
+  }
+
+  toggleMega(pokemon: PokedexDTO, formType: 'x' | 'y' | 'standard') {
+    const user = this.activeUser();
+    if (!user) return;
+
+    const updatedPokemon = { ...pokemon };
+    if (formType === 'x') {
+      // Toggle bit 1 (value 1)
+      updatedPokemon.mega = (updatedPokemon.mega & 1) ? (updatedPokemon.mega & ~1) : (updatedPokemon.mega | 1);
+    } else if (formType === 'y') {
+      // Toggle bit 2 (value 2)
+      updatedPokemon.mega = (updatedPokemon.mega & 2) ? (updatedPokemon.mega & ~2) : (updatedPokemon.mega | 2);
+    } else {
+      // Standard: Toggle between 0 and 1
+      updatedPokemon.mega = updatedPokemon.mega ? 0 : 1;
+    }
+
+    this.pokedexService.updateEntry(user.id, pokemon.id, updatedPokemon).subscribe({
+      next: (res) => {
+        this.pokemonList.update(list => 
+          list.map(p => p.id === pokemon.id ? res : p)
+        );
+      },
+      error: (err) => {
+        console.error('Errore nell\'aggiornamento dello stato di cattura Mega:', err);
+      }
+    });
+  }
+
   // Filtro dinamico reattivo con supporto al raggruppamento delle forme regionali
   filteredList = computed(() => {
     const list = this.pokemonList();
@@ -196,7 +239,7 @@ export class PokedexList implements OnInit, OnDestroy {
         case 'xxl': matchesForm = p.xxl; break;
         case 'xxs': matchesForm = p.xxs; break;
         case 'shiny': matchesForm = p.shiny; break;
-        case 'mega': matchesForm = p.mega; break;
+        case 'mega': matchesForm = p.mega > 0; break;
         case 'gigamax': matchesForm = p.gigamax; break;
       }
     }
@@ -267,7 +310,13 @@ export class PokedexList implements OnInit, OnDestroy {
 
       if (this.canMega(p.name)) {
         const checkMega = isRegional ? this.settingsService.isButtonEnabledForRegional('mega') : true;
-        if (checkMega && !p.mega) return false;
+        if (checkMega) {
+          if (this.hasTwoMegas(p.name)) {
+            if (p.mega !== 3) return false;
+          } else {
+            if (!p.mega) return false;
+          }
+        }
       }
 
       if (this.canGigamax(p.name)) {
@@ -433,12 +482,12 @@ export class PokedexList implements OnInit, OnDestroy {
   }
 
   // Aggiorna lo stato di cattura di un Pokémon per il giocatore attivo
-  toggleForm(pokemon: PokedexDTO, formType: 'regular' | 'shadow' | 'purified' | 'perfect' | 'lucky' | 'xxl' | 'xxs' | 'shiny' | 'mega' | 'gigamax') {
+  toggleForm(pokemon: PokedexDTO, formType: 'regular' | 'shadow' | 'purified' | 'perfect' | 'lucky' | 'xxl' | 'xxs' | 'shiny' | 'gigamax') {
     const user = this.activeUser();
     if (!user) return;
 
     const updatedPokemon = { ...pokemon };
-    updatedPokemon[formType] = !updatedPokemon[formType];
+    (updatedPokemon as any)[formType] = !(updatedPokemon as any)[formType];
 
     this.pokedexService.updateEntry(user.id, pokemon.id, updatedPokemon).subscribe({
       next: (res) => {

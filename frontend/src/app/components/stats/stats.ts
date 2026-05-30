@@ -66,7 +66,7 @@ export class StatsComponent implements OnInit, OnDestroy {
       if (p.xxl) xxlCaught++;
       if (p.xxs) xxsCaught++;
       if (p.shiny) shinyCaught++;
-      if (p.mega) megaCaught++;
+      if (p.mega) megaCaught += (p.mega === 3 ? 2 : 1);
       if (p.gigamax) gigamaxCaught++;
     }
 

@@ -26,7 +26,7 @@ export interface PokedexEntry {
   xxs: boolean;
   xxl: boolean;
   shiny: boolean;
-  mega: boolean;
+  mega: number;
   gigamax: boolean;
 }
 
@@ -45,7 +45,7 @@ export interface PokedexDTO {
   xxs: boolean;
   xxl: boolean;
   shiny: boolean;
-  mega: boolean;
+  mega: number;
   gigamax: boolean;
 }
 

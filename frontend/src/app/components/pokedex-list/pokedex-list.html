@@ -290,17 +290,41 @@
               XXS
             </button>
 
-            <!-- Mega -->
-            <button 
-              *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-              type="button" 
-              class="action-btn mega-btn" 
-              [class.active]="p.mega"
-              (click)="toggleForm(p, 'mega')"
-              title="Mega Evoluzione">
-              <span class="mega-icon">🧬</span>
-              Meg
-            </button>
+            <!-- Mega X / Y or Standard Mega -->
+            <ng-container *ngIf="hasTwoMegas(p.name); else standardMega">
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'x')"
+                (click)="toggleMega(p, 'x')"
+                title="Mega Evoluzione X">
+                <span class="mega-icon">🧬</span>
+                Meg X
+              </button>
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'y')"
+                (click)="toggleMega(p, 'y')"
+                title="Mega Evoluzione Y">
+                <span class="mega-icon">🧬</span>
+                Meg Y
+              </button>
+            </ng-container>
+            <ng-template #standardMega>
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'standard')"
+                (click)="toggleMega(p, 'standard')"
+                title="Mega Evoluzione">
+                <span class="mega-icon">🧬</span>
+                Meg
+              </button>
+            </ng-template>
 
             <!-- Gigamax -->
             <button 

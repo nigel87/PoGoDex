@@ -17,7 +17,7 @@ export interface PokedexDTO {
   xxs: boolean;
   xxl: boolean;
   shiny: boolean; // Pokémon Cromatico (Shiny)
-  mega: boolean;  // Pokémon Mega
+  mega: number;  // Pokémon Mega (0 = none, 1 = Mega X/standard, 2 = Mega Y, 3 = both)
   gigamax: boolean; // Pokémon Gigamax
 }
 

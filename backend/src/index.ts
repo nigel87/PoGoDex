@@ -112,7 +112,7 @@ async function startServer() {
             xxs: entry ? !!entry.xxs : false,
             xxl: entry ? !!entry.xxl : false,
             shiny: entry ? !!entry.shiny : false,
-            mega: entry ? !!entry.mega : false,
+            mega: entry ? (entry.mega || 0) : 0,
             gigamax: entry ? !!entry.gigamax : false
           };
         });
@@ -158,7 +158,7 @@ async function startServer() {
           dto.xxs ? 1 : 0,
           dto.xxl ? 1 : 0,
           dto.shiny ? 1 : 0,
-          dto.mega ? 1 : 0,
+          dto.mega || 0,
           dto.gigamax ? 1 : 0
         );
 
@@ -209,7 +209,7 @@ async function startServer() {
             SUM(xxs) as xxsCaught,
             SUM(xxl) as xxlCaught,
             SUM(shiny) as shinyCaught,
-            SUM(mega) as megaCaught,
+            SUM(CASE WHEN mega = 3 THEN 2 WHEN mega > 0 THEN 1 ELSE 0 END) as megaCaught,
             SUM(gigamax) as gigamaxCaught
           FROM pokedex_entries
           WHERE userId = ?;
