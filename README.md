@@ -130,6 +130,31 @@ The frontend detects custom domain headers dynamically and switches seamlessly t
 
 ---
 
+## 💻 Developer Admin Console (Local Only)
+
+PoGODex includes a high-fidelity, secure **Local Developer Admin Console** to visually configure which species can be **Shadow**, **Mega**, or **Gigantamax** without writing a single line of TypeScript.
+
+### 🛡️ Network Loopback Security
+For absolute security, writing and editing capabilities are protected at both the browser and network levels:
+1. **Frontend Gatekeeping**: The `/admin` page checks the active host. If it is not accessed via `localhost`, `127.0.0.1`, or `[::1]`, it displays an explicit *Access Denied* warning.
+2. **Backend Firewall**: The Express backend (`/api/admin/config` endpoints) inspects the client remote address. Any request originating from outside loopback IPs is instantly rejected with a `403 Forbidden` response. 
+
+This ensures your remote production server (e.g. on a Raspberry Pi or VPS) is completely safe from unauthorized configuration tampering.
+
+### 🔄 Developer Workflow
+1.  **Launch the App Locally**:
+    Run `./start-app.sh` on your local computer.
+2.  **Access the Console**:
+    Navigate to: 👉 **`http://localhost:4205/admin`**
+3.  **Manage Capabilities**:
+    Use the scrollable table (powered by high-performance inline search filters) to check or uncheck Shadow, Mega, or Gigantamax capabilities for any of the 989 species.
+4.  **Save Configurations**:
+    Click **"Save Configuration"**. This triggers the local backend to rewrite [pokemon-config.ts](frontend/src/app/services/pokemon-config.ts) directly on your local disk.
+5.  **Commit and Deploy**:
+    Commit the updated `pokemon-config.ts` file in Git, then launch `./deploy.sh` to compile and push the updated configurations directly to your remote server!
+
+---
+
 ## 📄 License
 
 This project is open-source and available under the [MIT License](LICENSE).

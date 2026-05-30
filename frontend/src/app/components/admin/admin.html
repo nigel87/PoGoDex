@@ -1,0 +1,145 @@
+<div class="admin-container">
+  <!-- Schermata di Accesso Negato (Sicurezza Remota attiva) -->
+  <div *ngIf="!isLocal()" class="security-barrier glass-card">
+    <div class="security-icon">🛡️</div>
+    <h2>Accesso Negato / Access Denied</h2>
+    <p>Questa console di amministrazione è disponibile **esclusivamente** per gli sviluppatori in ambiente locale sul computer host dell'amministratore.</p>
+    <p class="help-text">Per motivi di sicurezza, qualsiasi operazione di scrittura delle configurazioni è bloccata a livello di rete IP per connessioni non-loopback.</p>
+    <button [routerLink]="['/']" class="admin-btn back-btn">Torna alla Home</button>
+  </div>
+
+  <!-- Contenuto della console locale -->
+  <ng-container *ngIf="isLocal()">
+    <!-- Header fisso -->
+    <header class="admin-header glass-card">
+      <div class="header-left">
+        <h1 class="logo">PoGO<span>Dex</span> <span class="badge">Dev Console</span></h1>
+        <p class="subtitle">Configurazione grafica delle forme speciali (Shadow, Mega, Gigamax)</p>
+      </div>
+      <div class="header-actions">
+        <button [routerLink]="['/']" class="admin-btn cancel-btn">Esci</button>
+        <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving()">
+          <span *ngIf="!isSaving()">Salva Configurazione</span>
+          <span *ngIf="isSaving()" class="btn-spinner"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Banner di feedback -->
+    <div class="feedback-banner success-banner glass-card" *ngIf="saveSuccess()">
+      <span class="icon">✓</span>
+      <div class="message">
+        <h4>Configurazione Salvata con Successo!</h4>
+        <p>Il file <code>pokemon-config.ts</code> locale è stato riscritto ed è aggiornato. Per rendere effettive le modifiche sul Raspberry Pi remoto, esegui il commit su Git e lancia <code>./deploy.sh</code>.</p>
+      </div>
+    </div>
+
+    <div class="feedback-banner error-banner glass-card" *ngIf="saveError()">
+      <span class="icon">✗</span>
+      <div class="message">
+        <h4>Errore di Salvataggio</h4>
+        <p>{{ saveError() }}</p>
+      </div>
+    </div>
+
+    <!-- Barra di caricamento -->
+    <div *ngIf="isLoading()" class="loader-container glass-card">
+      <div class="spinner"></div>
+      <span>Caricamento del catalogo e lettura del file di configurazione...</span>
+    </div>
+
+    <!-- Pannello principale dei controlli -->
+    <main *ngIf="!isLoading()" class="admin-main glass-card">
+      <!-- Filtro di ricerca -->
+      <div class="search-row">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input 
+            type="text" 
+            placeholder="Cerca per nome o numero di Pokédex..." 
+            [ngModel]="searchQuery()" 
+            (ngModelChange)="searchQuery.set($event)"
+            class="search-bar-input">
+        </div>
+        <div class="results-badge">
+          Mostrati: <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} Pokémon
+        </div>
+      </div>
+
+      <!-- Tabella delle configurazioni -->
+      <div class="table-scroll-wrapper">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-sprite">Sprite</th>
+              <th class="col-name">Nome Pokémon</th>
+              <th class="col-types">Tipi</th>
+              <th class="col-check text-center release-header">🚀 Rilasciato in GO</th>
+              <th class="col-check text-center shadow-header">💀 Shadow (Ombra)</th>
+              <th class="col-check text-center mega-header">🧬 Mega Evoluzione</th>
+              <th class="col-check text-center gigamax-header">🌋 Forma Gigamax</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of filteredList()" class="config-row" 
+                [class.has-shadow]="isShadow(p.name)"
+                [class.has-mega]="isMega(p.name)"
+                [class.has-gigamax]="isGigamax(p.name)"
+                [class.is-unreleased]="!isReleased(p.name)">
+              <td class="col-id font-mono">{{ formatId(p) }}</td>
+              <td class="col-sprite">
+                <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
+              </td>
+              <td class="col-name font-bold">{{ p.name }}</td>
+              <td class="col-types">
+                <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
+                <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
+              </td>
+              <!-- Release check -->
+              <td class="col-check text-center">
+                <label class="custom-checkbox release-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isReleased(p.name)" 
+                    (change)="toggleCapability(p.name, 'release')">
+                  <span class="checkmark"></span>
+                </label>
+              </td>
+              <!-- Shadow check -->
+              <td class="col-check text-center">
+                <label class="custom-checkbox shadow-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isShadow(p.name)" 
+                    (change)="toggleCapability(p.name, 'shadow')">
+                  <span class="checkmark"></span>
+                </label>
+              </td>
+              <!-- Mega check -->
+              <td class="col-check text-center">
+                <label class="custom-checkbox mega-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isMega(p.name)" 
+                    (change)="toggleCapability(p.name, 'mega')">
+                  <span class="checkmark"></span>
+                </label>
+              </td>
+              <!-- Gigamax check -->
+              <td class="col-check text-center">
+                <label class="custom-checkbox gigamax-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isGigamax(p.name)" 
+                    (change)="toggleCapability(p.name, 'gigamax')">
+                  <span class="checkmark"></span>
+                </label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </ng-container>
+</div>

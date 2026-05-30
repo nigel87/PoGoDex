@@ -47,6 +47,20 @@
           </div>
         </div>
 
+        <div class="setting-item">
+          <div class="item-info">
+            <span class="item-title">Includi Pokémon non rilasciati nei progressi</span>
+            <span class="item-desc">Se attivo (stile Pokémon GO), i Pokémon non ancora rilasciati (es. Phione, Arceus) faranno parte del totale regionale e delle statistiche, impedendo il completamento al 100% della regione fino al rilascio effettivo. Se disattivato, verranno considerati solo i Pokémon disponibili in-game.</span>
+          </div>
+          
+          <!-- Custom Premium Toggle Switch -->
+          <div class="toggle-switch-wrapper" (click)="toggleIncludeUnreleased()">
+            <div class="switch-track" [class.active]="includeUnreleased()">
+              <div class="switch-thumb"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Opzioni pulsanti per forme regionali, visibile solo se raggruppamento attivo -->
         <div class="sub-settings-panel" *ngIf="groupRegionals()">
           <h4 class="sub-panel-title">Qualità da registrare per le Forme Regionali:</h4>

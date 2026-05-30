@@ -7910,5 +7910,53 @@
     "type2": "Ground",
     "generation": 9,
     "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10253.png"
+  },
+  {
+    "id": 489,
+    "name": "Phione",
+    "type1": "Water",
+    "type2": null,
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/489.png"
+  },
+  {
+    "id": 490,
+    "name": "Manaphy",
+    "type1": "Water",
+    "type2": null,
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/490.png"
+  },
+  {
+    "id": 493,
+    "name": "Arceus",
+    "type1": "Normal",
+    "type2": null,
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/493.png"
+  },
+  {
+    "id": 721,
+    "name": "Volcanion",
+    "type1": "Fire",
+    "type2": "Water",
+    "generation": 6,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/721.png"
+  },
+  {
+    "id": 801,
+    "name": "Magearna",
+    "type1": "Steel",
+    "type2": "Fairy",
+    "generation": 7,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/801.png"
+  },
+  {
+    "id": 807,
+    "name": "Zeraora",
+    "type1": "Electric",
+    "type2": null,
+    "generation": 7,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/807.png"
   }
 ]

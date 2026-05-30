@@ -156,7 +156,8 @@
         [class.lucky-active]="getActiveForm(base).lucky"
         [class.perfect-active]="getActiveForm(base).perfect"
         [class.shiny-active]="getActiveForm(base).shiny"
-        [class.species-completed]="isSpeciesCompleted(base)">
+        [class.species-completed]="isSpeciesCompleted(base)"
+        [class.is-unreleased]="!isReleased(getActiveForm(base).name)">
         
         <ng-container *ngIf="getActiveForm(base) as p">
           <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
@@ -176,8 +177,9 @@
               <span class="completion-crown" *ngIf="isSpeciesCompleted(base)" title="Specie Completata al 100% (Tutte le spunte attive)">👑</span>
             </div>
             <div class="size-badges">
-              <span class="size-badge xxl" *ngIf="p.xxl">XXL</span>
-              <span class="size-badge xxs" *ngIf="p.xxs">XXS</span>
+              <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">🔒 Non Rilasciato</span>
+              <span class="size-badge xxl" *ngIf="isReleased(p.name) && p.xxl">XXL</span>
+              <span class="size-badge xxs" *ngIf="isReleased(p.name) && p.xxs">XXS</span>
             </div>
           </div>
 

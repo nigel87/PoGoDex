@@ -88,3 +88,27 @@ export const SHADOW_CAPABLE_SPECIES = [
   // Cross-Gen Evolutions & Regional Forms
   'Obstagoon', 'Ursaluna', 'Sneasler', 'Annihilape'
 ];
+
+export const MEGA_CAPABLE_SPECIES = [
+  'Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam',
+  'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl',
+  'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom',
+  'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye',
+  'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt',
+  'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross',
+  'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow',
+  'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon'
+];
+
+export const GIGAMAX_CAPABLE_SPECIES = [
+  'Venusaur', 'Charizard', 'Blastoise', 'Butterfree', 'Pikachu', 'Meowth',
+  'Machamp', 'Gengar', 'Kingler', 'Lapras', 'Eevee', 'Snorlax',
+  'Garbodor', 'Melmetal', 'Rillaboom', 'Cinderace', 'Inteleon', 'Corviknight',
+  'Orbeetle', 'Drednaw', 'Coalossal', 'Flapple', 'Appletun', 'Sandaconda',
+  'Toxtricity', 'Centiskorch', 'Hatterene', 'Grimmsnarl', 'Alcremie',
+  'Duraludon', 'Urshifu'
+];
+
+export const UNRELEASED_SPECIES = [
+  'Phione', 'Manaphy', 'Arceus', 'Volcanion', 'Magearna', 'Zeraora'
+];

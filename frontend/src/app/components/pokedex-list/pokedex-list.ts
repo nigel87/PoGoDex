@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
-import { SHADOW_CAPABLE_SPECIES } from '../../services/shadow-list';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
 
 @Component({
   selector: 'app-pokedex-list',
@@ -90,23 +90,24 @@ export class PokedexList implements OnInit, OnDestroy {
   // Mappa reattiva per tracciare la forma regional selezionata per ogni card (base ID -> forma ID)
   selectedFormMap = signal<{ [key: number]: number }>({});
 
-  // Specie idonee alle forme Mega e Gigamax in Pokémon GO
-  megaCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam', 'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl', 'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom', 'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye', 'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt', 'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross', 'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow', 'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon', 'Victreebel', 'Dragonite',];
-  gigamaxCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Butterfree', 'Pikachu', 'Meowth', 'Machamp', 'Gengar', 'Kingler', 'Lapras', 'Eevee', 'Snorlax', 'Garbodor', 'Melmetal', 'Rillaboom', 'Cinderace', 'Inteleon', 'Corviknight', 'Orbeetle', 'Drednaw', 'Coalossal', 'Flapple', 'Appletun', 'Sandaconda', 'Toxtricity', 'Centiskorch', 'Hatterene', 'Grimmsnarl', 'Alcremie', 'Duraludon', 'Urshifu'];
-
   canMega(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return this.megaCapableSpecies.includes(baseName);
+    return MEGA_CAPABLE_SPECIES.includes(baseName);
   }
 
   canGigamax(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return this.gigamaxCapableSpecies.includes(baseName);
+    return GIGAMAX_CAPABLE_SPECIES.includes(baseName);
   }
 
   canShadow(name: string): boolean {
     const baseName = name.split(' (')[0];
     return SHADOW_CAPABLE_SPECIES.includes(baseName);
+  }
+
+  isReleased(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return !UNRELEASED_SPECIES.includes(baseName);
   }
 
   hasTwoMegas(name: string): boolean {
@@ -288,6 +289,11 @@ export class PokedexList implements OnInit, OnDestroy {
     const allForms = [basePokemon, ...regionals];
 
     for (const p of allForms) {
+      // Se il Pokémon non è rilasciato e l'impostazione includeUnreleased è falsa, lo ignoriamo nei progressi completamento
+      if (!this.isReleased(p.name) && !this.settingsService.includeUnreleased()) {
+        continue;
+      }
+
       const isRegional = p.id >= 10000;
 
       const checkRegular = isRegional ? this.settingsService.isButtonEnabledForRegional('regular') : true;

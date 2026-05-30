@@ -13,6 +13,7 @@ import { Subscription } from 'rxjs';
 })
 export class SettingsComponent implements OnInit, OnDestroy {
   groupRegionals = signal<boolean>(true);
+  includeUnreleased = signal<boolean>(true);
   username = '';
   private sub = new Subscription();
 
@@ -38,6 +39,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Si iscrive reattivamente all'impostazione corrente
     this.groupRegionals.set(this.settingsService.groupRegionals());
+    this.includeUnreleased.set(this.settingsService.includeUnreleased());
 
     this.sub.add(
       this.route.params.subscribe(params => {
@@ -58,6 +60,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const newVal = !this.groupRegionals();
     this.groupRegionals.set(newVal);
     this.settingsService.setGroupRegionals(newVal);
+  }
+
+  toggleIncludeUnreleased() {
+    const newVal = !this.includeUnreleased();
+    this.includeUnreleased.set(newVal);
+    this.settingsService.setIncludeUnreleased(newVal);
   }
 
   // Verifica se un bottone è selezionato

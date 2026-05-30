@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { getDb } from './db';
 import { runSeeder } from './seed';
 import { PokedexDTO, User } from './types';
@@ -282,6 +283,103 @@ async function startServer() {
         res.json({ searchString });
       } catch (err) {
         console.error('Errore nella generazione della stringa:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // Helper per verificare se la richiesta proviene da localhost (loopback)
+    function isLocalRequest(req: express.Request): boolean {
+      const ip = req.ip || req.socket.remoteAddress || '';
+      return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
+    }
+
+    const configPath = path.join(__dirname, '../../frontend/src/app/services/pokemon-config.ts');
+
+    // =================================================================
+    // 7. GET /api/admin/config - Carica le liste capaci (Solo Locale)
+    // =================================================================
+    app.get('/api/admin/config', (req, res) => {
+      if (!isLocalRequest(req)) {
+        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
+      }
+
+      try {
+        if (!fs.existsSync(configPath)) {
+          return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [] });
+        }
+
+        const content = fs.readFileSync(configPath, 'utf-8');
+
+        function extractArray(fileContent: string, arrayName: string): string[] {
+          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+          const match = fileContent.match(regex);
+          if (!match) return [];
+          const arrayBody = match[1];
+          const nameRegex = /['"](.*?)['"]/g;
+          const names: string[] = [];
+          let nameMatch;
+          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
+            names.push(nameMatch[1].replace(/\\'/g, "'"));
+          }
+          return names;
+        }
+
+        const shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
+        const megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
+        const gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
+        const unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
+
+        res.json({ shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable });
+      } catch (err) {
+        console.error('Errore nel recupero della configurazione:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 8. POST /api/admin/config - Salva le liste su disco (Solo Locale)
+    // =================================================================
+    app.post('/api/admin/config', (req, res) => {
+      if (!isLocalRequest(req)) {
+        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
+      }
+
+      const { shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable } = req.body;
+
+      if (!Array.isArray(shadowCapable) || !Array.isArray(megaCapable) || !Array.isArray(gigamaxCapable) || !Array.isArray(unreleasedCapable)) {
+        return res.status(400).json({ error: 'Formato dati non valido' });
+      }
+
+      try {
+        const shadowLines = shadowCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+        const megaLines = megaCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+        const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+        const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+
+        const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
+${shadowLines}
+];
+
+export const MEGA_CAPABLE_SPECIES = [
+${megaLines}
+];
+
+export const GIGAMAX_CAPABLE_SPECIES = [
+${gigaLines}
+];
+
+export const UNRELEASED_SPECIES = [
+${unreleasedLines}
+];
+`;
+
+        fs.mkdirSync(path.dirname(configPath), { recursive: true });
+        fs.writeFileSync(configPath, tsContent, 'utf-8');
+
+        console.log(`[Admin] Configurazione salvata con successo da localhost.`);
+        res.json({ success: true, message: 'Configurazione salvata con successo.' });
+      } catch (err) {
+        console.error('Errore nel salvataggio della configurazione:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });

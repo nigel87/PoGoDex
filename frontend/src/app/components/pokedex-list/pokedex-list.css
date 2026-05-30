@@ -508,6 +508,52 @@
               linear-gradient(135deg, rgba(255, 190, 11, 0.08) 0%, var(--surface-bg) 70%) !important;
 }
 
+/* Card unreleased styling (translucent grayscale and locked buttons) */
+.pokemon-card.is-unreleased {
+  opacity: 0.55;
+  filter: grayscale(85%);
+  background: light-dark(rgba(0, 0, 0, 0.015), rgba(255, 255, 255, 0.015)) !important;
+  border-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.03)) !important;
+  box-shadow: none !important;
+  pointer-events: auto; /* Mantiene l'hover e i click sui link della card, ma disabilita l'interazione dei pulsanti */
+  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pokemon-card.is-unreleased:hover {
+  opacity: 0.85;
+  filter: grayscale(20%);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Unreleased Pokémon sprite style */
+.pokemon-card.is-unreleased .pokemon-sprite {
+  filter: brightness(0.7) contrast(0.95);
+}
+
+/* Unreleased badge styling */
+.size-badge.unreleased-badge {
+  background: linear-gradient(135deg, #ff9f1c 0%, #ff5400 100%) !important;
+  color: #fff !important;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 10px rgba(255, 159, 28, 0.3);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+}
+
+/* Disable caught actions grid for unreleased species */
+.pokemon-card.is-unreleased .caught-actions-grid {
+  pointer-events: none !important; /* DISABILITA COMPLETAMENTE I CLIC SUI PULSANTI! */
+  opacity: 0.4;
+}
+
+.pokemon-card.is-unreleased .regional-switcher-row {
+  pointer-events: none !important;
+  opacity: 0.4;
+}
+
 /* Card Sparkles Animation */
 .card-sparkles {
   position: absolute;

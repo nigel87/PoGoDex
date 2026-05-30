@@ -6,12 +6,16 @@ import { Injectable, signal } from '@angular/core';
 export class SettingsService {
   private readonly GROUP_REGIONALS_KEY = 'pogodex_group_regionals';
   private readonly REGIONAL_BUTTONS_KEY = 'pogodex_regional_buttons';
+  private readonly INCLUDE_UNRELEASED_KEY = 'pogodex_include_unreleased';
 
   // Segnale reattivo per l'impostazione "Raggruppa Forme Regionali" (attiva di default)
   groupRegionals = signal<boolean>(true);
 
   // Segnale per decidere quali pulsanti mostrare/registrare specificamente per le forme regionali
   regionalButtons = signal<string[]>(['regular', 'shiny', 'perfect', 'lucky', 'xxl', 'xxs', 'mega', 'gigamax', 'shadow', 'purified']);
+
+  // Segnale reattivo per includere o meno i Pokémon non rilasciati nei progressi totali (attivo di default, stile Pokémon GO)
+  includeUnreleased = signal<boolean>(true);
 
   constructor() {
     this.loadSettings();
@@ -36,6 +40,13 @@ export class SettingsService {
     } else {
       this.regionalButtons.set(['regular', 'shiny', 'perfect', 'lucky', 'xxl', 'xxs', 'mega', 'gigamax', 'shadow', 'purified']);
     }
+
+    const savedUnreleased = localStorage.getItem(this.INCLUDE_UNRELEASED_KEY);
+    if (savedUnreleased !== null) {
+      this.includeUnreleased.set(savedUnreleased === 'true');
+    } else {
+      this.includeUnreleased.set(true); // Default attivo (stile Pokémon GO)
+    }
   }
 
   // Cambia il valore dell'impostazione e salva in localStorage
@@ -48,6 +59,12 @@ export class SettingsService {
   setRegionalButtons(value: string[]) {
     this.regionalButtons.set(value);
     localStorage.setItem(this.REGIONAL_BUTTONS_KEY, JSON.stringify(value));
+  }
+
+  // Cambia l'impostazione di inclusione Pokémon non rilasciati
+  setIncludeUnreleased(value: boolean) {
+    this.includeUnreleased.set(value);
+    localStorage.setItem(this.INCLUDE_UNRELEASED_KEY, value.toString());
   }
 
   // Verifica se un pulsante specifico è abilitato per le forme regionali

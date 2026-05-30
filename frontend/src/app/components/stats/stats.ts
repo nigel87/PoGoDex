@@ -4,7 +4,8 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { PokedexService, PokedexStats, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
-import { SHADOW_CAPABLE_SPECIES } from '../../services/shadow-list';
+import { SettingsService } from '../../services/settings.service';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
 
 @Component({
   selector: 'app-stats',
@@ -16,24 +17,25 @@ import { SHADOW_CAPABLE_SPECIES } from '../../services/shadow-list';
 export class StatsComponent implements OnInit, OnDestroy {
   pokemonList = signal<PokedexDTO[]>([]);
 
-  // Specie idonee alle forme speciali
-  megaCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Beedrill', 'Pidgeot', 'Alakazam', 'Slowbro', 'Gengar', 'Kangaskhan', 'Pinsir', 'Gyarados', 'Aerodactyl', 'Mewtwo', 'Ampharos', 'Steelix', 'Scizor', 'Heracross', 'Houndoom', 'Tyranitar', 'Sceptile', 'Blaziken', 'Swampert', 'Gardevoir', 'Sableye', 'Mawile', 'Aggron', 'Medicham', 'Manectric', 'Sharpedo', 'Camerupt', 'Altaria', 'Banette', 'Absol', 'Glalie', 'Salamence', 'Metagross', 'Latias', 'Latios', 'Rayquaza', 'Lopunny', 'Lucario', 'Abomasnow', 'Gallade', 'Audino', 'Diancie', 'Kyogre', 'Groudon', 'Victreebel', 'Dragonite'];
-  gigamaxCapableSpecies = ['Venusaur', 'Charizard', 'Blastoise', 'Butterfree', 'Pikachu', 'Meowth', 'Machamp', 'Gengar', 'Kingler', 'Lapras', 'Eevee', 'Snorlax', 'Garbodor', 'Melmetal', 'Rillaboom', 'Cinderace', 'Inteleon', 'Corviknight', 'Orbeetle', 'Drednaw', 'Coalossal', 'Flapple', 'Appletun', 'Sandaconda', 'Toxtricity', 'Centiskorch', 'Hatterene', 'Grimmsnarl', 'Alcremie', 'Duraludon', 'Urshifu'];
-
   canMega(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return this.megaCapableSpecies.includes(baseName);
+    return MEGA_CAPABLE_SPECIES.includes(baseName);
   }
 
   canGigamax(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return this.gigamaxCapableSpecies.includes(baseName);
+    return GIGAMAX_CAPABLE_SPECIES.includes(baseName);
   }
 
   canShadow(name: string): boolean {
     const baseName = name.split(' (')[0];
     return SHADOW_CAPABLE_SPECIES.includes(baseName);
   }
+  isReleased(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return !UNRELEASED_SPECIES.includes(baseName);
+  }
+
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
   selectedRegion = signal<string>('all');
@@ -57,8 +59,15 @@ export class StatsComponent implements OnInit, OnDestroy {
   filteredPokemon = computed(() => {
     const list = this.pokemonList();
     const region = this.selectedRegion();
-    if (region === 'all') return list;
-    return list.filter(p => this.getPokemonRegion(p) === region);
+    
+    // Filtra in base all'impostazione "Includi non rilasciati"
+    let result = list;
+    if (!this.settingsService.includeUnreleased()) {
+      result = list.filter(p => this.isReleased(p.name));
+    }
+    
+    if (region === 'all') return result;
+    return result.filter(p => this.getPokemonRegion(p) === region);
   });
 
   // Calcolo delle statistiche reattive
@@ -147,6 +156,7 @@ export class StatsComponent implements OnInit, OnDestroy {
   constructor(
     private pokedexService: PokedexService,
     private userService: UserService,
+    public settingsService: SettingsService,
     private route: ActivatedRoute,
     private router: Router
   ) { }
