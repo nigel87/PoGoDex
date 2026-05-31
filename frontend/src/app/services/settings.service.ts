@@ -8,6 +8,7 @@ export class SettingsService {
   private readonly REGIONAL_BUTTONS_KEY = 'pogodex_regional_buttons';
   private readonly INCLUDE_UNRELEASED_KEY = 'pogodex_include_unreleased';
   private readonly SIMPLIFY_EXPORT_KEY = 'pogodex_simplify_export';
+  private readonly LAYOUT_KEY = 'pogodex_layout_view';
 
   // Segnale reattivo per l'impostazione "Raggruppa Forme Regionali" (attiva di default)
   groupRegionals = signal<boolean>(true);
@@ -20,6 +21,9 @@ export class SettingsService {
 
   // Segnale reattivo per la semplificazione dell'esportazione (Rule 2 - attiva di default)
   simplifyExport = signal<boolean>(true);
+
+  // Segnale reattivo per il layout della griglia ('detailed' o 'compact')
+  layout = signal<'detailed' | 'compact'>('detailed');
 
   constructor() {
     this.loadSettings();
@@ -58,6 +62,13 @@ export class SettingsService {
     } else {
       this.simplifyExport.set(true); // Default attivo
     }
+
+    const savedLayout = localStorage.getItem(this.LAYOUT_KEY);
+    if (savedLayout === 'compact') {
+      this.layout.set('compact');
+    } else {
+      this.layout.set('detailed');
+    }
   }
 
   // Cambia il valore dell'impostazione e salva in localStorage
@@ -82,6 +93,12 @@ export class SettingsService {
   setSimplifyExport(value: boolean) {
     this.simplifyExport.set(value);
     localStorage.setItem(this.SIMPLIFY_EXPORT_KEY, value.toString());
+  }
+
+  // Cambia il layout della griglia
+  setLayout(value: 'detailed' | 'compact') {
+    this.layout.set(value);
+    localStorage.setItem(this.LAYOUT_KEY, value);
   }
 
   // Verifica se un pulsante specifico è abilitato per le forme regionali

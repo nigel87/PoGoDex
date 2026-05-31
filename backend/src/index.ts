@@ -55,6 +55,21 @@ async function startServer() {
     console.log('Esecuzione seeding...');
     await runSeeder(db);
 
+    // Auto-cleanup di profili fantasma generati da navigazioni crawler su rotte riservate
+    try {
+      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api'];
+      const placeholders = reserved.map(() => '?').join(',');
+      const result = await db.run(
+        `DELETE FROM users WHERE LOWER(name) IN (${placeholders})`,
+        ...reserved
+      );
+      if (result.changes && result.changes > 0) {
+        log('INFO', `[Auto-Cleanup] Purged ${result.changes} accidental crawler-generated player profiles.`);
+      }
+    } catch (err) {
+      console.error('[Auto-Cleanup] Errore durante la rimozione dei profili riservati:', err);
+    }
+
     // =================================================================
     // 1. GET /api/users - Recupera la lista di tutti gli allenatori
     // =================================================================
@@ -64,6 +79,21 @@ async function startServer() {
         res.json(users);
       } catch (err) {
         console.error('Errore nel recupero degli utenti:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 1.5. DELETE /api/users/:id - Elimina un profilo allenatore
+    // =================================================================
+    app.delete('/api/users/:id', async (req, res) => {
+      const id = parseInt(req.params.id, 10);
+      try {
+        const result = await db.run('DELETE FROM users WHERE id = ?', id);
+        log('INFO', `Profilo allenatore eliminato con successo`, { id, changes: result.changes });
+        res.json({ success: true });
+      } catch (err) {
+        log('ERROR', 'Errore nella cancellazione del profilo allenatore', { err: String(err), id });
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });

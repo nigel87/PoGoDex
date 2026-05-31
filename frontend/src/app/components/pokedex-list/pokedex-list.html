@@ -23,15 +23,23 @@
           <div class="profile-dropdown-menu glass-card">
             <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
             <div class="users-list-scroll">
-              <button 
+              <div 
                 *ngFor="let u of usersList()" 
-                class="dropdown-user-btn" 
-                [class.selected]="u.id === activeUser()?.id"
-                (click)="switchUser(u)">
-                <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
-                <span>{{ u.name }}</span>
-                <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
-              </button>
+                class="dropdown-user-item" 
+                [class.selected]="u.id === activeUser()?.id">
+                <button class="dropdown-user-btn" (click)="switchUser(u)">
+                  <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
+                  <span class="dropdown-user-name">{{ u.name }}</span>
+                  <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
+                </button>
+                <button 
+                  *ngIf="u.name.toLowerCase() !== 'default'" 
+                  class="delete-user-btn" 
+                  (click)="deleteUser($event, u)"
+                  title="Elimina allenatore">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="delete-icon"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                </button>
+              </div>
             </div>
             <div class="dropdown-footer">
               <button class="add-player-btn" (click)="openNewUserModal()">
@@ -82,6 +90,26 @@
             [class.active]="selectedStatus() === 'missing'"
             (click)="selectedStatus.set('missing')">
             {{ 'status.missing' | translate }}
+          </button>
+        </div>
+
+        <!-- Layout Switcher Segment -->
+        <div class="layout-toggle-segment">
+          <button 
+            type="button" 
+            class="layout-toggle-btn"
+            [class.active]="settingsService.layout() === 'detailed'"
+            (click)="settingsService.setLayout('detailed')"
+            title="Visualizzazione dettagliata">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
+          <button 
+            type="button" 
+            class="layout-toggle-btn"
+            [class.active]="settingsService.layout() === 'compact'"
+            (click)="settingsService.setLayout('compact')"
+            title="Visualizzazione compatta">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
         </div>
       </div>
@@ -146,7 +174,7 @@
     </div>
 
     <!-- Cards Grid -->
-    <div *ngIf="!isLoading() && filteredList().length > 0" class="pokedex-grid">
+    <div *ngIf="!isLoading() && filteredList().length > 0" class="pokedex-grid" [class.compact-grid]="settingsService.layout() === 'compact'">
       <div 
         *ngFor="let base of filteredList()" 
         class="glass-card pokemon-card"
@@ -162,8 +190,8 @@
         [class.state-unavailable]="getCardState(getActiveForm(base), selectedFormFilter()) === 2"
         [class.state-missing]="getCardState(getActiveForm(base), selectedFormFilter()) === 3"
         [class.state-caught]="getCardState(getActiveForm(base), selectedFormFilter()) === 4"
-        (click)="onCardClick(getActiveForm(base))"
-        [style.cursor]="selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3 ? 'pointer' : 'default'">
+        (click)="settingsService.layout() === 'compact' ? openBottomSheet(base) : onCardClick(getActiveForm(base))"
+        [style.cursor]="settingsService.layout() === 'compact' || (selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3) ? 'pointer' : 'default'">
         
         <ng-container *ngIf="getActiveForm(base) as p">
           <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
@@ -205,7 +233,7 @@
             </div>
             
             <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo e ci sono varianti) -->
-            <div class="regional-switcher-row" *ngIf="settingsService.groupRegionals() && getRegionalForms(base).length > 0">
+            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && getRegionalForms(base).length > 0">
               <button 
                 type="button" 
                 class="region-pill-btn" 
@@ -225,7 +253,7 @@
           </div>
 
           <!-- Action Toggle Buttons -->
-          <div class="caught-actions-grid" *ngIf="selectedFormFilter() === 'all'">
+          <div class="caught-actions-grid" *ngIf="settingsService.layout() === 'detailed' && selectedFormFilter() === 'all'">
             <!-- Regular -->
             <button 
               *ngIf="showButtonForPokemon(p, 'regular')"
@@ -402,6 +430,220 @@
           <span *ngIf="isCreatingUser()" class="btn-spinner"></span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Premium Bottom Sheet Detail Drawer for Compact View -->
+  <div 
+    class="bottom-sheet-overlay" 
+    *ngIf="activeDetailPokemon() && activeDetailBasePokemon()"
+    (click)="closeBottomSheet()">
+    <div 
+      class="bottom-sheet-drawer glass-card" 
+      (click)="$event.stopPropagation()">
+      
+      <!-- Drawer Handle Indicator -->
+      <div class="drawer-handle" (click)="closeBottomSheet()"></div>
+
+      <!-- Close Button -->
+      <button class="drawer-close-btn" (click)="closeBottomSheet()">×</button>
+
+      <ng-container *ngIf="activeDetailPokemon() as p">
+        <ng-container *ngIf="activeDetailBasePokemon() as bp">
+          <!-- Background decorative glows -->
+          <div class="drawer-glow" [class]="'type-' + p.type1.toLowerCase()"></div>
+
+          <!-- Header: ID, Name, Crown, Types -->
+          <div class="drawer-header">
+            <div class="drawer-header-left">
+              <span class="drawer-pokemon-id">{{ formatId(p) }}</span>
+              <span class="drawer-completion-crown" *ngIf="isSpeciesCompleted(bp)" [title]="'pokedex.crown_title' | translate">👑</span>
+            </div>
+            <h2 class="drawer-pokemon-name">{{ getPokemonCardName(p) }}</h2>
+            <div class="drawer-types-row">
+              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
+              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
+            </div>
+          </div>
+
+          <!-- Scrollable content area inside bottom sheet -->
+          <div class="drawer-content-scroll">
+            <!-- Body: Sprite Image and Region Selection -->
+            <div class="drawer-body">
+            <div class="drawer-image-section">
+              <div class="card-sparkles" *ngIf="p.lucky || p.purified || p.shiny">
+                <span class="sparkle s1">✦</span>
+                <span class="sparkle s2">✦</span>
+                <span class="sparkle s3">✦</span>
+              </div>
+              <img 
+                [src]="getCardSpriteUrl(p, selectedFormFilter())" 
+                [alt]="p.name" 
+                class="drawer-pokemon-sprite">
+            </div>
+
+            <!-- Regional forms inside the drawer -->
+            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && getRegionalForms(bp).length > 0">
+              <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Varianti Regionali:' : 'Regional Forms:' }}</span>
+              <div class="drawer-region-pills">
+                <button 
+                  type="button" 
+                  class="region-pill-btn" 
+                  [class.active]="p.id === bp.id"
+                  (click)="selectFormForDetailCard(bp.id)">
+                  Base
+                </button>
+                <button 
+                  *ngFor="let reg of getRegionalForms(bp)" 
+                  type="button" 
+                  class="region-pill-btn" 
+                  [class.active]="p.id === reg.id"
+                  (click)="selectFormForDetailCard(reg.id)">
+                  {{ getFormRegion(reg) }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+        <!-- Capture Checklist Grid -->
+        <div class="drawer-checklist-section">
+          <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Registra Catture:' : 'Record Captures:' }}</span>
+          <div class="drawer-actions-grid">
+            <!-- Regular -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'regular')"
+              type="button" 
+              class="action-btn regular-btn" 
+              [class.active]="p.regular"
+              (click)="toggleForm(p, 'regular')">
+              <span class="ball-icon"></span>
+              {{ 'pokedex.btn.regular' | translate }}
+            </button>
+
+            <!-- Shiny -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'shiny')"
+              type="button" 
+              class="action-btn shiny-btn" 
+              [class.active]="p.shiny"
+              [class.unavailable]="isShinyUnreleased(p.name)"
+              [disabled]="isShinyUnreleased(p.name)"
+              (click)="toggleForm(p, 'shiny')">
+              <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
+              {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
+            </button>
+
+            <!-- Perfect -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'perfect')"
+              type="button" 
+              class="action-btn perfect-btn" 
+              [class.active]="p.perfect"
+              (click)="toggleForm(p, 'perfect')">
+              <span class="star-icon">★★★</span>
+              {{ 'pokedex.btn.perfect' | translate }}
+            </button>
+
+            <!-- Lucky -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'lucky')"
+              type="button" 
+              class="action-btn lucky-btn" 
+              [class.active]="p.lucky"
+              (click)="toggleForm(p, 'lucky')">
+              <span class="bubble-icon"></span>
+              {{ 'pokedex.btn.lucky' | translate }}
+            </button>
+
+            <!-- XXL -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'xxl')"
+              type="button" 
+              class="action-btn xxl-btn" 
+              [class.active]="p.xxl"
+              (click)="toggleForm(p, 'xxl')">
+              {{ 'pokedex.btn.xxl' | translate }}
+            </button>
+
+            <!-- XXS -->
+            <button 
+              *ngIf="showButtonForPokemon(p, 'xxs')"
+              type="button" 
+              class="action-btn xxs-btn" 
+              [class.active]="p.xxs"
+              (click)="toggleForm(p, 'xxs')">
+              {{ 'pokedex.btn.xxs' | translate }}
+            </button>
+
+            <!-- Mega X / Y or Standard Mega -->
+            <ng-container *ngIf="hasTwoMegas(p.name); else standardMega">
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'x')"
+                (click)="toggleMega(p, 'x')">
+                <span class="mega-icon">🧬</span>
+                Mega X
+              </button>
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'y')"
+                (click)="toggleMega(p, 'y')">
+                <span class="mega-icon">🧬</span>
+                Mega Y
+              </button>
+            </ng-container>
+            <ng-template #standardMega>
+              <button 
+                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
+                type="button" 
+                class="action-btn mega-btn" 
+                [class.active]="isMegaActive(p, 'standard')"
+                (click)="toggleMega(p, 'standard')">
+                <span class="mega-icon">🧬</span>
+                Mega
+              </button>
+            </ng-template>
+
+            <!-- Gigamax -->
+            <button 
+              *ngIf="canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')"
+              type="button" 
+              class="action-btn gigamax-btn" 
+              [class.active]="p.gigamax"
+              (click)="toggleForm(p, 'gigamax')">
+              <span class="giga-icon">🌋</span>
+              {{ 'pokedex.btn.gigamax' | translate }}
+            </button>
+            
+            <!-- Shadow -->
+            <button 
+              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'shadow')"
+              type="button" 
+              class="action-btn shadow-btn" 
+              [class.active]="p.shadow"
+              (click)="toggleForm(p, 'shadow')">
+              <span class="shadow-icon"></span>
+              {{ 'pokedex.btn.shadow' | translate }}
+            </button>
+
+            <!-- Purified -->
+            <button 
+              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'purified')"
+              type="button" 
+              class="action-btn purified-btn" 
+              [class.active]="p.purified"
+              (click)="toggleForm(p, 'purified')">
+              <span class="purified-icon"></span>
+              {{ 'pokedex.btn.purified' | translate }}
+            </button>
+          </div>
+        </div>
+        </div> <!-- Close drawer-content-scroll -->
+      </ng-container></ng-container>
     </div>
   </div>
 </div>

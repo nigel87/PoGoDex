@@ -7,41 +7,45 @@
     <div class="pokeball-silhouette silhouette-2"></div>
   </div>
 
-  <!-- Pannello Centrale Glassmorphic -->
-  <div class="landing-card glass-card fade-in-slide">
-    <div class="brand-header">
-      <h1 class="logo">PoGO<span>Dex</span></h1>
-      <p class="tagline">{{ 'landing.subtitle' | translate }}</p>
+  <div class="landing-content-wrapper">
+    <!-- Huge Floating Logo above the card -->
+    <div class="brand-logo-container float-animation">
+      <img src="logo.png" alt="PoGODex Logo" class="brand-logo-img" onerror="this.src='favicon.png'">
+      <h1 class="logo-large">PoGO<span>Dex</span></h1>
+      <p class="tagline-large">{{ 'landing.subtitle' | translate }}</p>
     </div>
 
-    <div class="welcome-text">
-      <h2>{{ 'landing.title' | translate }}</h2>
-      <p>{{ 'settings.subtitle' | translate }}</p>
-    </div>
-
-    <!-- Modulo Input Nome Allenatore -->
-    <form (submit)="onSubmit(); $event.preventDefault();" class="trainer-form">
-      <div class="input-group" [class.shake]="showError()">
-        <label for="trainer-name">{{ 'landing.placeholder' | translate }}</label>
-        <div class="input-wrapper">
-          <span class="input-prefix">@</span>
-          <input 
-            id="trainer-name"
-            type="text" 
-            [placeholder]="'landing.placeholder' | translate" 
-            [ngModel]="trainerName()" 
-            (ngModelChange)="trainerName.set($event)"
-            name="trainerName"
-            autocomplete="off"
-            required>
-        </div>
-        <span class="error-msg" *ngIf="showError()">{{ 'landing.error' | translate }}</span>
+    <!-- Pannello Centrale Glassmorphic -->
+    <div class="landing-card glass-card fade-in-slide">
+      <div class="welcome-text">
+        <h2>{{ 'landing.title' | translate }}</h2>
+        <p>{{ 'settings.subtitle' | translate }}</p>
       </div>
 
-      <button type="submit" class="submit-btn">
-        <span>{{ 'landing.btn' | translate }}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-      </button>
-    </form>
+      <!-- Modulo Input Nome Allenatore -->
+      <form (submit)="onSubmit(); $event.preventDefault();" class="trainer-form">
+        <div class="input-group" [class.shake]="showError()">
+          <label for="trainer-name">{{ 'landing.placeholder' | translate }}</label>
+          <div class="input-wrapper">
+            <span class="input-prefix">@</span>
+            <input 
+              id="trainer-name"
+              type="text" 
+              [placeholder]="'landing.placeholder' | translate" 
+              [ngModel]="trainerName()" 
+              (ngModelChange)="trainerName.set($event)"
+              name="trainerName"
+              autocomplete="off"
+              required>
+          </div>
+          <span class="error-msg" *ngIf="showError()">{{ 'landing.error' | translate }}</span>
+        </div>
+
+        <button type="submit" class="submit-btn">
+          <span>{{ 'landing.btn' | translate }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </form>
+    </div>
   </div>
 </div>

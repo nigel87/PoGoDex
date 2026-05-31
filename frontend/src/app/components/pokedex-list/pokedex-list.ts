@@ -120,6 +120,22 @@ export class PokedexList implements OnInit, OnDestroy {
   newUserName = signal<string>('');
   isCreatingUser = signal<boolean>(false);
 
+  // Stati del Bottom Sheet (Drawer per griglia compatta)
+  activeDetailPokemonId = signal<number | null>(null);
+  activeDetailBasePokemonId = signal<number | null>(null);
+
+  activeDetailPokemon = computed(() => {
+    const id = this.activeDetailPokemonId();
+    if (!id) return null;
+    return this.pokemonList().find(p => p.id === id) || null;
+  });
+
+  activeDetailBasePokemon = computed(() => {
+    const id = this.activeDetailBasePokemonId();
+    if (!id) return null;
+    return this.pokemonList().find(p => p.id === id) || null;
+  });
+
   // Segnali dei filtri
   searchQuery = signal<string>('');
   selectedStatus = signal<string>('all'); // 'all', 'caught', 'missing'
@@ -725,6 +741,10 @@ export class PokedexList implements OnInit, OnDestroy {
       this.route.params.subscribe(params => {
         const routeUser = params['username'];
         if (routeUser) {
+          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api'];
+          if (reserved.includes(routeUser.toLowerCase())) {
+            return;
+          }
           this.username = routeUser;
           // Esegue la find-or-create automatica sul backend
           this.userService.createUser(routeUser).subscribe({
@@ -820,6 +840,39 @@ export class PokedexList implements OnInit, OnDestroy {
     });
   }
 
+  // Elimina un profilo giocatore locale
+  deleteUser(event: Event, userToDelete: User) {
+    event.stopPropagation(); // Evita il switchUser causato dal click sul pulsante genitore
+    
+    if (userToDelete.name.toLowerCase() === 'default') {
+      alert('Non è possibile eliminare il profilo predefinito.');
+      return;
+    }
+    
+    if (confirm(`Sei sicuro di voler eliminare il profilo di ${userToDelete.name}? Questa azione cancellerà tutti i suoi progressi nel Pokedex.`)) {
+      this.userService.deleteUser(userToDelete.id).subscribe({
+        next: () => {
+          // Rimuovi dalla lista locale
+          this.usersList.update(list => list.filter(u => u.id !== userToDelete.id));
+          
+          // Se era l'utente attivo, reindirizza al primo rimanente o alla landing
+          const currentActive = this.activeUser();
+          if (currentActive && currentActive.id === userToDelete.id) {
+            const remaining = this.usersList().filter(u => u.id !== userToDelete.id);
+            if (remaining.length > 0) {
+              this.router.navigate(['/' + remaining[0].name]);
+            } else {
+              this.router.navigate(['/']);
+            }
+          }
+        },
+        error: (err) => {
+          console.error('Errore durante l\'eliminazione del profilo allenatore:', err);
+        }
+      });
+    }
+  }
+
   // Seleziona un tipo dal filtro
   selectType(type: string) {
     this.selectedType.set(type);
@@ -848,6 +901,22 @@ export class PokedexList implements OnInit, OnDestroy {
         console.error('Errore nell\'aggiornamento dello stato di cattura:', err);
       }
     });
+  }
+
+  // Bottom Sheet Drawer Methods
+  openBottomSheet(basePokemon: any) {
+    const activeForm = this.getActiveForm(basePokemon);
+    this.activeDetailBasePokemonId.set(basePokemon.id);
+    this.activeDetailPokemonId.set(activeForm.id);
+  }
+
+  closeBottomSheet() {
+    this.activeDetailBasePokemonId.set(null);
+    this.activeDetailPokemonId.set(null);
+  }
+
+  selectFormForDetailCard(pokemonId: number) {
+    this.activeDetailPokemonId.set(pokemonId);
   }
 
   formatId(pokemon: PokedexDTO): string {

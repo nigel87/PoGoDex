@@ -75,4 +75,11 @@ export class UserService {
     localStorage.setItem('active_pogo_user', JSON.stringify(user));
     this.activeUserSubject.next(user);
   }
+
+  /**
+   * Elimina un profilo giocatore locale.
+   */
+  deleteUser(id: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${id}`);
+  }
 }

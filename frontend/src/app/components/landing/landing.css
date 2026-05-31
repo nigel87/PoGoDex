@@ -83,17 +83,27 @@
   to { transform: rotate(360deg); }
 }
 
+/* Wrapper per il contenuto principale */
+.landing-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  z-index: 10;
+  width: 100%;
+  max-width: 500px;
+}
+
 /* Card Centrale Glassmorphic Premium */
 .landing-card {
   width: 100%;
-  max-width: 500px;
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 28px;
   padding: 3rem 2.5rem;
-  z-index: 10;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3),
               inset 0 1px 0 rgba(255, 255, 255, 0.1);
   display: flex;
@@ -108,33 +118,82 @@
   box-shadow: 0 20px 60px rgba(27, 124, 252, 0.06), 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
-/* Brand Logo Premium */
-.logo {
-  font-size: 3.2rem;
+/* Brand Logo Premium Fuori dalla Card */
+.brand-logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  perspective: 1000px;
+}
+
+.logo-large {
+  font-size: 4.5rem;
   font-weight: 900;
-  letter-spacing: -1.5px;
+  letter-spacing: -2px;
   color: #f8fafc;
   margin-bottom: 0.2rem;
   user-select: none;
+  filter: drop-shadow(0 0 25px rgba(27, 124, 252, 0.35));
 }
 
-.logo span {
+.logo-large span {
   background: linear-gradient(135deg, #1b7cfc 0%, #00f5d4 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  position: relative;
 }
 
-.tagline {
-  color: #64748b;
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: 0.2px;
+/* Riflesso neon sotto il logo */
+.logo-large::after {
+  content: 'PoGODex';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) scaleY(-0.3) translateY(38px);
+  z-index: -1;
+  opacity: 0.08;
+  background: linear-gradient(180deg, rgba(27, 124, 252, 0.8) 0%, transparent 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  pointer-events: none;
+  filter: blur(2px);
 }
 
-.brand-header {
-  margin-bottom: 2rem;
+.tagline-large {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
+
+/* Animazione di Floating 3D Levitation */
+.float-animation {
+  animation: levitate 6s infinite ease-in-out;
+}
+
+@keyframes levitate {
+  0% {
+    transform: translateY(0px) rotateY(0deg) rotateX(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotateY(3deg) rotateX(1deg);
+  }
+  50% {
+    transform: translateY(0px) rotateY(0deg) rotateX(0deg);
+  }
+  75% {
+    transform: translateY(-8px) rotateY(-3deg) rotateX(-1deg);
+  }
+  100% {
+    transform: translateY(0px) rotateY(0deg) rotateX(0deg);
+  }
+}
+
 
 /* Testo di Benvenuto */
 .welcome-text {
@@ -322,5 +381,25 @@
   }
   .welcome-text h2 {
     font-size: 1.4rem;
+  }
+}
+
+/* Brand Logo Image Styling on Landing Page */
+.brand-logo-img {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 0.8rem;
+  filter: drop-shadow(0 0 20px rgba(27, 124, 252, 0.45));
+  animation: logo-spin 12s linear infinite;
+  user-select: none;
+  pointer-events: none;
+}
+
+@keyframes logo-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
