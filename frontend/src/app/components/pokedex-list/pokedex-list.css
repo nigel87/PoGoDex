@@ -35,6 +35,109 @@
   }
 }
 
+.search-field-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  flex: 1;
+}
+
+@media (min-width: 600px) {
+  .search-field-container {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+}
+
+.search-family-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-color);
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.search-family-toggle:hover:not(.disabled) {
+  border-color: var(--pogo-blue);
+  box-shadow: 0 0 10px rgba(0, 162, 232, 0.15);
+}
+
+.search-family-toggle.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  filter: grayscale(100%);
+}
+
+.search-family-toggle .toggle-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-family-toggle .switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+}
+
+.search-family-toggle .switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.search-family-toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.05));
+  transition: .3s ease;
+  border: 1px solid var(--border-color);
+}
+
+.search-family-toggle .slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-secondary);
+  transition: .3s ease;
+}
+
+.search-family-toggle input:checked + .slider {
+  background-color: var(--pogo-blue);
+  box-shadow: 0 0 10px rgba(0, 162, 232, 0.4);
+  border-color: var(--pogo-blue);
+}
+
+.search-family-toggle input:checked + .slider:before {
+  transform: translateX(16px);
+  background-color: #ffffff;
+}
+
+.search-family-toggle .slider.round {
+  border-radius: 24px;
+}
+
+.search-family-toggle .slider.round:before {
+  border-radius: 50%;
+}
+
 .search-input-wrapper {
   position: relative;
   flex: 1;

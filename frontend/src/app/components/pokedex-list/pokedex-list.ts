@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
-import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES, EVOLVES_FROM } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 
@@ -144,10 +144,20 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
   // Segnali dei filtri
   searchQuery = signal<string>('');
+  showEvolutionFamily = signal<boolean>(false);
   selectedStatus = signal<string>('all'); // 'all', 'caught', 'missing'
   selectedType = signal<string>('all'); // 'all', 'fire', 'water', ecc.
   selectedFormFilter = signal<string>('all'); // 'all', 'shadow', 'purified', 'perfect', 'lucky', 'xxs', 'xxl', 'shiny'
   selectedRegion = signal<string>('all'); // 'all', 'kanto', 'johto', etc.
+
+  onSearchQueryChange(value: string) {
+    if (value.startsWith('+')) {
+      this.showEvolutionFamily.set(true);
+    } else if (this.searchQuery().startsWith('+') && !value.startsWith('+')) {
+      this.showEvolutionFamily.set(false);
+    }
+    this.searchQuery.set(value);
+  }
 
   // Regioni disponibili nel gioco per il filtro a pillole
   pokemonRegions = [
@@ -447,7 +457,27 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   // Filtro dinamico reattivo con supporto al raggruppamento delle forme regionali
   filteredList = computed(() => {
     const list = this.pokemonList();
-    const query = this.searchQuery().toLowerCase().trim();
+    const rawQuery = this.searchQuery().toLowerCase().trim();
+    const showFamily = this.showEvolutionFamily() && rawQuery.length > 0;
+    
+    let cleanQuery = rawQuery;
+    if (rawQuery.startsWith('+')) {
+      cleanQuery = rawQuery.substring(1).trim();
+    }
+    
+    const parsedIds = this.parsePokedexQuery(cleanQuery);
+    
+    // Se "Mostra Famiglia" è attivo, calcoliamo i root ancestors dei match diretti
+    let familyRoots: Set<string> | null = null;
+    if (showFamily && cleanQuery) {
+      familyRoots = new Set<string>();
+      for (const p of list) {
+        if (this.matchesSearchQuery(p, cleanQuery, parsedIds)) {
+          familyRoots.add(this.getRootAncestor(p.name));
+        }
+      }
+    }
+
     const status = this.selectedStatus();
     const type = this.selectedType();
     const formFilter = this.selectedFormFilter();
@@ -456,7 +486,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
     if (!isGrouped) {
       // Logica classica quando il raggruppamento è disattivato (mostra tutto separato)
-      const baseFiltered = list.filter(p => this.matchesFilters(p, query, status, type, formFilter, region));
+      const baseFiltered = list.filter(p => this.matchesFilters(p, cleanQuery, parsedIds, showFamily, familyRoots, status, type, formFilter, region));
       if (formFilter === 'mega') {
         return this.splitDualMegas(baseFiltered);
       }
@@ -474,7 +504,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       const allForms = [base, ...regionals];
 
       // 3. Troviamo quali forme di questa specie soddisfano i filtri correnti
-      const matchingForms = allForms.filter(f => this.matchesFilters(f, query, status, type, formFilter, region));
+      const matchingForms = allForms.filter(f => this.matchesFilters(f, cleanQuery, parsedIds, showFamily, familyRoots, status, type, formFilter, region));
 
       if (matchingForms.length > 0) {
         // Se almeno una forma soddisfa i filtri, la card del Pokémon base deve essere visibile!
@@ -527,6 +557,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     // Resetta automaticamente il limite a 50 quando cambia un qualsiasi filtro
     effect(() => {
       this.searchQuery();
+      this.showEvolutionFamily();
       this.selectedStatus();
       this.selectedType();
       this.selectedFormFilter();
@@ -539,8 +570,99 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  getBaseId(p: PokedexDTO): number {
+    if (p.id >= 10000) {
+      const baseName = p.name.split(' (')[0];
+      const basePoke = this.pokemonList().find(x => x.id < 10000 && x.name === baseName);
+      if (basePoke) {
+        return basePoke.id;
+      }
+    }
+    return p.id;
+  }
+
+  getRootAncestor(name: string): string {
+    let current = name.split(' (')[0];
+    const visited = new Set<string>();
+    while (current && EVOLVES_FROM[current] && !visited.has(current)) {
+      visited.add(current);
+      current = EVOLVES_FROM[current];
+    }
+    return current;
+  }
+
+  parsePokedexQuery(q: string): Set<number> | null {
+    const trimmed = q.trim();
+    if (!trimmed) return null;
+    if (!/^[\d\s\-,]+$/.test(trimmed)) {
+      return null;
+    }
+    const ids = new Set<number>();
+    const parts = trimmed.split(',');
+    for (let part of parts) {
+      part = part.trim();
+      if (!part) continue;
+      if (part.includes('-')) {
+        const rangeParts = part.split('-');
+        if (rangeParts.length === 2) {
+          const start = parseInt(rangeParts[0].trim(), 10);
+          const end = parseInt(rangeParts[1].trim(), 10);
+          if (!isNaN(start) && !isNaN(end)) {
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            for (let i = min; i <= max; i++) {
+              ids.add(i);
+            }
+          }
+        }
+      } else {
+        const id = parseInt(part, 10);
+        if (!isNaN(id)) {
+          ids.add(id);
+        }
+      }
+    }
+    return ids.size > 0 ? ids : null;
+  }
+
+  matchesSearchQuery(p: PokedexDTO, cleanQuery: string, parsedIds: Set<number> | null): boolean {
+    if (!cleanQuery) return true;
+
+    if (parsedIds) {
+      const baseId = this.getBaseId(p);
+      return parsedIds.has(p.id) || parsedIds.has(baseId);
+    }
+
+    const nameMatch = p.name.toLowerCase().includes(cleanQuery);
+    const idMatch = p.id.toString() === cleanQuery;
+
+    let baseIdMatch = false;
+    let baseNameMatch = false;
+    if (p.id >= 10000) {
+      const baseName = p.name.split(' (')[0].toLowerCase();
+      baseNameMatch = baseName.includes(cleanQuery);
+      
+      const basePoke = this.pokemonList().find(x => x.id < 10000 && x.name.split(' (')[0] === p.name.split(' (')[0]);
+      if (basePoke) {
+        baseIdMatch = basePoke.id.toString() === cleanQuery;
+      }
+    }
+
+    return nameMatch || idMatch || baseIdMatch || baseNameMatch;
+  }
+
   // Helper per verificare se un singolo Pokémon soddisfa i filtri attivi
-  private matchesFilters(p: PokedexDTO, query: string, status: string, type: string, formFilter: string, region: string): boolean {
+  private matchesFilters(
+    p: PokedexDTO, 
+    cleanQuery: string, 
+    parsedIds: Set<number> | null, 
+    showFamily: boolean, 
+    familyRoots: Set<string> | null, 
+    status: string, 
+    type: string, 
+    formFilter: string, 
+    region: string
+  ): boolean {
     // Filtro per pokemon non rilasciati
     if (!this.settingsService.includeUnreleased() && !this.isReleased(p.name)) {
       return false;
@@ -554,7 +676,16 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    const matchesQuery = p.name.toLowerCase().includes(query) || p.id.toString() === query;
+    // Filtro ricerca
+    let matchesQuery = true;
+    if (cleanQuery) {
+      if (showFamily && familyRoots) {
+        const root = this.getRootAncestor(p.name);
+        matchesQuery = familyRoots.has(root);
+      } else {
+        matchesQuery = this.matchesSearchQuery(p, cleanQuery, parsedIds);
+      }
+    }
 
     const matchesType = type === 'all' ||
       p.type1.toLowerCase() === type ||

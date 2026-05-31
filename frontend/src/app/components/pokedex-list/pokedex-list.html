@@ -60,15 +60,31 @@
   <section class="filters-section">
     <div class="glass-card filters-card">
       <div class="search-and-status-row">
-        <!-- Input Cerca -->
-        <div class="search-input-wrapper">
-          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input 
-            type="text" 
-            [placeholder]="'pokedex.search' | translate" 
-            [ngModel]="searchQuery()" 
-            (ngModelChange)="searchQuery.set($event)"
-            class="search-bar-input">
+        <!-- Input Cerca e Toggle Famiglia -->
+        <div class="search-field-container">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input 
+              type="text" 
+              [placeholder]="'pokedex.search' | translate" 
+              [ngModel]="searchQuery()" 
+              (ngModelChange)="onSearchQueryChange($event)"
+              class="search-bar-input">
+          </div>
+
+          <div class="search-family-toggle" [class.disabled]="!searchQuery().trim()">
+            <label class="switch">
+              <input 
+                type="checkbox" 
+                [checked]="showEvolutionFamily()" 
+                [disabled]="!searchQuery().trim()"
+                (change)="showEvolutionFamily.set($any($event.target).checked)">
+              <span class="slider round"></span>
+            </label>
+            <span class="toggle-label" [title]="'pokedex.search.show_family_desc' | translate">
+              {{ 'pokedex.search.show_family' | translate }}
+            </span>
+          </div>
         </div>
 
         <!-- Filtro Catturati / Mancanti -->

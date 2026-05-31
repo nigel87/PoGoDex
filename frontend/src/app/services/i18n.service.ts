@@ -26,6 +26,8 @@ export class I18nService {
 
       // Pokédex List
       'pokedex.search': 'Cerca per nome o numero di Pokédex...',
+      'pokedex.search.show_family': 'Mostra Evoluzioni',
+      'pokedex.search.show_family_desc': 'Mostra l\'intera linea evolutiva della specie cercata',
       'pokedex.shown': 'Mostrati:',
       'pokedex.pokemon': 'Pokémon',
       'pokedex.no_results': 'Nessun Pokémon corrisponde ai criteri di ricerca e ai filtri selezionati.',
@@ -219,6 +221,8 @@ export class I18nService {
 
       // Pokédex List
       'pokedex.search': 'Search by name or Pokédex number...',
+      'pokedex.search.show_family': 'Show Evolutions',
+      'pokedex.search.show_family_desc': 'Show the entire evolutionary family of the searched species',
       'pokedex.shown': 'Shown:',
       'pokedex.pokemon': 'Pokémon',
       'pokedex.no_results': 'No Pokémon match the search criteria and selected filters.',
