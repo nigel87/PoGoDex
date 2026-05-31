@@ -6,9 +6,100 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
-import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
+
+const MEGA_ID_MAP: { [key: number]: number | { x: number, y: number } } = {
+  3: 10033, // venusaur-mega
+  6: { x: 10034, y: 10035 }, // charizard-mega-x, charizard-mega-y
+  9: 10036, // blastoise-mega
+  15: 10090, // beedrill-mega
+  18: 10073, // pidgeot-mega
+  65: 10037, // alakazam-mega
+  71: 10279, // victreebel-mega
+  80: 10071, // slowbro-mega
+  94: 10038, // gengar-mega
+  115: 10039, // kangaskhan-mega
+  127: 10040, // pinsir-mega
+  130: 10041, // gyarados-mega
+  142: 10042, // aerodactyl-mega
+  149: 10281, // dragonite-mega
+  150: { x: 10043, y: 10044 }, // mewtwo-mega-x, mewtwo-mega-y
+  181: 10045, // ampharos-mega
+  208: 10072, // steelix-mega
+  212: 10046, // scizor-mega
+  214: 10047, // heracross-mega
+  229: 10048, // houndoom-mega
+  248: 10049, // tyranitar-mega
+  254: 10065, // sceptile-mega
+  257: 10050, // blaziken-mega
+  260: 10064, // swampert-mega
+  282: 10051, // gardevoir-mega
+  302: 10066, // sableye-mega
+  303: 10052, // mawile-mega
+  306: 10053, // aggron-mega
+  308: 10054, // medicham-mega
+  310: 10055, // manectric-mega
+  319: 10070, // sharpedo-mega
+  323: 10087, // camerupt-mega
+  334: 10067, // altaria-mega
+  354: 10056, // banette-mega
+  359: 10057, // absol-mega
+  362: 10074, // glalie-mega
+  373: 10089, // salamence-mega
+  376: 10076, // metagross-mega
+  380: 10062, // latias-mega
+  381: 10063, // latios-mega
+  382: 10077, // kyogre-primal
+  383: 10078, // groudon-primal
+  384: 10079, // rayquaza-mega
+  428: 10088, // lopunny-mega
+  445: 10058, // garchomp-mega
+  448: 10059, // lucario-mega
+  460: 10060, // abomasnow-mega
+  475: 10068, // gallade-mega
+  531: 10069, // audino-mega
+  687: 10297, // malamar-mega
+  719: 10075, // diancie-mega
+  870: 10303, // falinks-mega
+};
+
+const GIGAMAX_ID_MAP: { [key: number]: number } = {
+  3: 10195, // venusaur-gmax
+  6: 10196, // charizard-gmax
+  9: 10197, // blastoise-gmax
+  12: 10198, // butterfree-gmax
+  25: 10199, // pikachu-gmax
+  52: 10200, // meowth-gmax
+  68: 10201, // machamp-gmax
+  94: 10202, // gengar-gmax
+  99: 10203, // kingler-gmax
+  131: 10204, // lapras-gmax
+  133: 10205, // eevee-gmax
+  143: 10206, // snorlax-gmax
+  569: 10207, // garbodor-gmax
+  809: 10208, // melmetal-gmax
+  812: 10209, // rillaboom-gmax
+  815: 10210, // cinderace-gmax
+  818: 10211, // inteleon-gmax
+  823: 10212, // corviknight-gmax
+  826: 10213, // orbeetle-gmax
+  834: 10214, // drednaw-gmax
+  839: 10215, // coalossal-gmax
+  841: 10216, // flapple-gmax
+  842: 10217, // appletun-gmax
+  844: 10218, // sandaconda-gmax
+  849: 10219, // toxtricity-amped-gmax
+  851: 10220, // centiskorch-gmax
+  858: 10221, // hatterene-gmax
+  861: 10222, // grimmsnarl-gmax
+  869: 10223, // alcremie-gmax
+  879: 10224, // copperajah-gmax
+  884: 10225, // duraludon-gmax
+  892: 10226, // urshifu-single-strike-gmax
+};
+
 
 @Component({
   selector: 'app-pokedex-list',
@@ -112,6 +203,157 @@ export class PokedexList implements OnInit, OnDestroy {
     return !UNRELEASED_SPECIES.includes(baseName);
   }
 
+  isShinyUnreleased(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return SHINY_UNRELEASED_SPECIES.includes(baseName);
+  }
+
+  getCardState(p: PokedexDTO, category: string): number {
+    if (category === 'all') return 0;
+
+    // 1. Non rilasciato
+    if (!this.isReleased(p.name)) {
+      return 1;
+    }
+
+    // 2. Rilasciato ma forma non disponibile per questa specie
+    if (category === 'shiny' && this.isShinyUnreleased(p.name)) {
+      return 2;
+    }
+    if ((category === 'shadow' || category === 'purified') && !this.canShadow(p.name)) {
+      return 2;
+    }
+    if (category === 'mega' && !this.canMega(p.name)) {
+      return 2;
+    }
+    if (category === 'gigamax' && !this.canGigamax(p.name)) {
+      return 2;
+    }
+
+    // perfect, lucky, xxl, xxs sono disponibili per tutti i pokemon rilasciati
+
+    // 3 & 4. Rilasciato e disponibile
+    let isCaught = false;
+    if (category === 'mega' && (p as any).megaFormOverride) {
+      const override = (p as any).megaFormOverride;
+      isCaught = override === 'x' ? (p.mega & 1) > 0 : (p.mega & 2) > 0;
+    } else {
+      switch (category) {
+        case 'shiny': isCaught = p.shiny; break;
+        case 'shadow': isCaught = p.shadow; break;
+        case 'purified': isCaught = p.purified; break;
+        case 'perfect': isCaught = p.perfect; break;
+        case 'lucky': isCaught = p.lucky; break;
+        case 'xxl': isCaught = p.xxl; break;
+        case 'xxs': isCaught = p.xxs; break;
+        case 'mega': isCaught = p.mega > 0; break;
+        case 'gigamax': isCaught = p.gigamax; break;
+        case 'regular': isCaught = p.regular; break;
+      }
+    }
+
+    return isCaught ? 4 : 3;
+  }
+
+  getPokemonCardName(p: any): string {
+    if (p.megaFormOverride) {
+      return p.name + ' (Mega ' + p.megaFormOverride.toUpperCase() + ')';
+    }
+    return p.name;
+  }
+
+  getCardSpriteUrl(p: PokedexDTO, category: string): string {
+    // Determiniamo il base ID (utile se p è una forma regionale >= 10000)
+    let baseId = p.id;
+    if (p.id >= 10000) {
+      const baseName = p.name.split(' (')[0];
+      const basePoke = this.pokemonList().find(x => x.id < 10000 && x.name === baseName);
+      if (basePoke) {
+        baseId = basePoke.id;
+      }
+    }
+
+    if (category === 'shiny') {
+      // In modalità shiny, mostriamo sempre lo sprite shiny (se il pokemon ha lo shiny disponibile, altrimenti standard)
+      if (this.isShinyUnreleased(p.name)) {
+        return p.spriteUrl; // standard grayscale
+      }
+      return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/' + p.id + '.png';
+    }
+
+    if (category === 'mega' && this.canMega(p.name)) {
+      const mapping = MEGA_ID_MAP[baseId];
+      if (mapping) {
+        let megaId = typeof mapping === 'number' ? mapping : mapping.x;
+        // Se Mewtwo/Charizard e ha Mega Y attivo, mostriamo Y, altrimenti X
+        if (typeof mapping === 'object') {
+          const override = (p as any).megaFormOverride;
+          if (override === 'y') {
+            megaId = mapping.y;
+          } else if (override === 'x') {
+            megaId = mapping.x;
+          } else {
+            megaId = p.mega === 2 ? mapping.y : mapping.x;
+          }
+        }
+        return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + megaId + '.png';
+      }
+    }
+
+    if (category === 'gigamax' && this.canGigamax(p.name)) {
+      const gmaxId = GIGAMAX_ID_MAP[baseId];
+      if (gmaxId) {
+        return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + gmaxId + '.png';
+      }
+    }
+
+    // Default
+    return p.spriteUrl;
+  }
+
+  onCardClick(p: PokedexDTO) {
+    const category = this.selectedFormFilter();
+    if (category === 'all') return; // In modalità 'all', cliccare sulla card non fa nulla, si usano i bottoncini standard
+
+    const state = this.getCardState(p, category);
+    if (state < 3) return; // Non disponibile o non rilasciato in PoGO
+
+    // Altrimenti toggliamo la cattura di quella specifica categoria!
+    if (category === 'mega') {
+      const override = (p as any).megaFormOverride;
+      if (override) {
+        const bit = override === 'x' ? 1 : 2;
+        const nextVal = (p.mega & bit) ? (p.mega & ~bit) : (p.mega | bit);
+        this.toggleMegaToValue(p, nextVal);
+      } else {
+        if (this.hasTwoMegas(p.name)) {
+          const nextVal = p.mega === 0 ? 1 : (p.mega === 1 ? 2 : 0);
+          this.toggleMegaToValue(p, nextVal);
+        } else {
+          const nextVal = p.mega > 0 ? 0 : 1;
+          this.toggleMegaToValue(p, nextVal);
+        }
+      }
+    } else {
+      this.toggleForm(p, category as any);
+    }
+  }
+
+  toggleMegaToValue(pokemon: PokedexDTO, val: number) {
+    const user = this.activeUser();
+    if (!user) return;
+
+    const updatedPokemon = { ...pokemon, mega: val };
+    this.pokedexService.updateEntry(user.id, pokemon.id, updatedPokemon).subscribe({
+      next: (res) => {
+        this.pokemonList.update(list =>
+          list.map(p => p.id === pokemon.id ? res : p)
+        );
+      },
+      error: (err) => console.error('Errore nell\'aggiornamento Mega:', err)
+    });
+  }
+
   hasTwoMegas(name: string): boolean {
     const baseName = name.split(' (')[0];
     return baseName === 'Charizard' || baseName === 'Mewtwo';
@@ -167,7 +409,11 @@ export class PokedexList implements OnInit, OnDestroy {
 
     if (!isGrouped) {
       // Logica classica quando il raggruppamento è disattivato (mostra tutto separato)
-      return list.filter(p => this.matchesFilters(p, query, status, type, formFilter, region));
+      const baseFiltered = list.filter(p => this.matchesFilters(p, query, status, type, formFilter, region));
+      if (formFilter === 'mega') {
+        return this.splitDualMegas(baseFiltered);
+      }
+      return baseFiltered;
     }
 
     // Logica quando il raggruppamento è attivo:
@@ -202,8 +448,24 @@ export class PokedexList implements OnInit, OnDestroy {
       }
     }
 
+    if (formFilter === 'mega') {
+      return this.splitDualMegas(result);
+    }
     return result;
   });
+
+  splitDualMegas(filtered: PokedexDTO[]): any[] {
+    const result: any[] = [];
+    for (const p of filtered) {
+      if (p.id === 6 || p.id === 150) {
+        result.push({ ...p, megaFormOverride: 'x' });
+        result.push({ ...p, megaFormOverride: 'y' });
+      } else {
+        result.push(p);
+      }
+    }
+    return result;
+  }
 
   username: string = '';
 
@@ -218,6 +480,11 @@ export class PokedexList implements OnInit, OnDestroy {
 
   // Helper per verificare se un singolo Pokémon soddisfa i filtri attivi
   private matchesFilters(p: PokedexDTO, query: string, status: string, type: string, formFilter: string, region: string): boolean {
+    // Filtro per pokemon non rilasciati
+    if (!this.settingsService.includeUnreleased() && !this.isReleased(p.name)) {
+      return false;
+    }
+
     // Filtro per regione
     if (region !== 'all') {
       const pokemonRegion = this.getPokemonRegion(p);
@@ -233,24 +500,46 @@ export class PokedexList implements OnInit, OnDestroy {
       (p.type2 !== null && p.type2.toLowerCase() === type);
 
     let matchesStatus = true;
-    if (status === 'caught') {
-      matchesStatus = p.regular;
-    } else if (status === 'missing') {
-      matchesStatus = !p.regular;
+    if (status !== 'all') {
+      let isCaught = p.regular;
+      if (formFilter !== 'all') {
+        switch (formFilter) {
+          case 'shadow': isCaught = p.shadow; break;
+          case 'purified': isCaught = p.purified; break;
+          case 'perfect': isCaught = p.perfect; break;
+          case 'lucky': isCaught = p.lucky; break;
+          case 'xxl': isCaught = p.xxl; break;
+          case 'xxs': isCaught = p.xxs; break;
+          case 'shiny': isCaught = p.shiny; break;
+          case 'mega': isCaught = p.mega > 0; break;
+          case 'gigamax': isCaught = p.gigamax; break;
+        }
+      }
+
+      if (status === 'caught') {
+        matchesStatus = isCaught;
+      } else if (status === 'missing') {
+        matchesStatus = !isCaught;
+      }
     }
 
+    // Quando un filtro per forma speciale è attivo, mostriamo solo le specie in grado di avere quella forma
     let matchesForm = true;
     if (formFilter !== 'all') {
       switch (formFilter) {
-        case 'shadow': matchesForm = p.shadow; break;
-        case 'purified': matchesForm = p.purified; break;
-        case 'perfect': matchesForm = p.perfect; break;
-        case 'lucky': matchesForm = p.lucky; break;
-        case 'xxl': matchesForm = p.xxl; break;
-        case 'xxs': matchesForm = p.xxs; break;
-        case 'shiny': matchesForm = p.shiny; break;
-        case 'mega': matchesForm = p.mega > 0; break;
-        case 'gigamax': matchesForm = p.gigamax; break;
+        case 'shadow':
+        case 'purified':
+          matchesForm = this.canShadow(p.name);
+          break;
+        case 'mega':
+          matchesForm = this.canMega(p.name);
+          break;
+        case 'gigamax':
+          matchesForm = this.canGigamax(p.name);
+          break;
+        case 'shiny':
+          matchesForm = !this.isShinyUnreleased(p.name);
+          break;
       }
     }
 

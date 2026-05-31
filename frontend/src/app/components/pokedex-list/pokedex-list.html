@@ -150,14 +150,20 @@
       <div 
         *ngFor="let base of filteredList()" 
         class="glass-card pokemon-card"
-        [class.caught-active]="getActiveForm(base).regular"
+        [class.caught-active]="selectedFormFilter() === 'all' ? getActiveForm(base).regular : getCardState(getActiveForm(base), selectedFormFilter()) === 4"
         [class.shadow-active]="getActiveForm(base).shadow"
         [class.purified-active]="getActiveForm(base).purified"
         [class.lucky-active]="getActiveForm(base).lucky"
         [class.perfect-active]="getActiveForm(base).perfect"
         [class.shiny-active]="getActiveForm(base).shiny"
         [class.species-completed]="isSpeciesCompleted(base)"
-        [class.is-unreleased]="!isReleased(getActiveForm(base).name)">
+        [class.is-unreleased]="!isReleased(getActiveForm(base).name)"
+        [class.state-unreleased]="getCardState(getActiveForm(base), selectedFormFilter()) === 1"
+        [class.state-unavailable]="getCardState(getActiveForm(base), selectedFormFilter()) === 2"
+        [class.state-missing]="getCardState(getActiveForm(base), selectedFormFilter()) === 3"
+        [class.state-caught]="getCardState(getActiveForm(base), selectedFormFilter()) === 4"
+        (click)="onCardClick(getActiveForm(base))"
+        [style.cursor]="selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3 ? 'pointer' : 'default'">
         
         <ng-container *ngIf="getActiveForm(base) as p">
           <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
@@ -168,7 +174,7 @@
           </div>
  
           <!-- Pokeball background badge for caught regular -->
-          <div class="pokeball-bg-watermark" [class.active]="p.regular"></div>
+          <div class="pokeball-bg-watermark" [class.active]="selectedFormFilter() === 'all' ? p.regular : getCardState(p, selectedFormFilter()) === 4"></div>
  
           <!-- Card Header (ID & Size Badges) -->
           <div class="card-header">
@@ -178,15 +184,13 @@
             </div>
             <div class="size-badges">
               <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">{{ 'pokedex.unreleased' | translate }}</span>
-              <span class="size-badge xxl" *ngIf="isReleased(p.name) && p.xxl">XXL</span>
-              <span class="size-badge xxs" *ngIf="isReleased(p.name) && p.xxs">XXS</span>
             </div>
           </div>
 
-          <!-- Pokemon Image Section (Shiny artwork auto-switcher!) -->
+          <!-- Pokemon Image Section (Dynamic artwork form-switcher!) -->
           <div class="image-container">
             <img 
-              [src]="p.shiny ? 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/' + p.id + '.png' : p.spriteUrl" 
+              [src]="getCardSpriteUrl(p, selectedFormFilter())" 
               [alt]="p.name" 
               class="pokemon-sprite"
               loading="lazy">
@@ -194,7 +198,7 @@
 
           <!-- Pokemon Info -->
           <div class="pokemon-info">
-            <h2 class="pokemon-name">{{ p.name }}</h2>
+            <h2 class="pokemon-name">{{ getPokemonCardName(p) }}</h2>
             <div class="types-row">
               <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
               <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
@@ -206,7 +210,7 @@
                 type="button" 
                 class="region-pill-btn" 
                 [class.active]="p.id === base.id"
-                (click)="selectFormForCard(base.id, base.id)">
+                (click)="selectFormForCard(base.id, base.id); $event.stopPropagation()">
                 Base
               </button>
               <button 
@@ -214,14 +218,14 @@
                 type="button" 
                 class="region-pill-btn" 
                 [class.active]="p.id === reg.id"
-                (click)="selectFormForCard(base.id, reg.id)">
+                (click)="selectFormForCard(base.id, reg.id); $event.stopPropagation()">
                 {{ getFormRegion(reg) }}
               </button>
             </div>
           </div>
 
           <!-- Action Toggle Buttons -->
-          <div class="caught-actions-grid">
+          <div class="caught-actions-grid" *ngIf="selectedFormFilter() === 'all'">
             <!-- Regular -->
             <button 
               *ngIf="showButtonForPokemon(p, 'regular')"
@@ -240,10 +244,12 @@
               type="button" 
               class="action-btn shiny-btn" 
               [class.active]="p.shiny"
+              [class.unavailable]="isShinyUnreleased(p.name)"
+              [disabled]="isShinyUnreleased(p.name)"
               (click)="toggleForm(p, 'shiny')"
-              [title]="'pokedex.btn.shiny.title' | translate">
-              <span class="shiny-icon">✨</span>
-              {{ 'pokedex.btn.shiny' | translate }}
+              [title]="(isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable' : 'pokedex.btn.shiny.title') | translate">
+              <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
+              {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
             </button>
  
             <!-- Perfect -->

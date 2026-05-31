@@ -6,12 +6,45 @@ import { getDb } from './db';
 import { runSeeder } from './seed';
 import { PokedexDTO, User } from './types';
 
+// =================================================================
+// Logger strutturato — scrive su console e su file logs/YYYY-MM-DD.log
+// =================================================================
+const logsDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+
+function getLogFile(): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return path.join(logsDir, `${today}.log`);
+}
+
+type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+
+function log(level: LogLevel, message: string, extra?: unknown): void {
+  const ts = new Date().toISOString();
+  const base = `[${ts}] [${level}] ${message}`;
+  const full = extra !== undefined
+    ? `${base} | ${JSON.stringify(extra)}`
+    : base;
+  // Console
+  if (level === 'ERROR') console.error(full);
+  else if (level === 'WARN') console.warn(full);
+  else console.log(full);
+  // File
+  try { fs.appendFileSync(getLogFile(), full + '\n'); } catch (_) {}
+}
+
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8085;
 const host = process.env.HOST || '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
+
+// Log di ogni richiesta HTTP in entrata
+app.use((req, _res, next) => {
+  log('INFO', `${req.method} ${req.path}`, { ip: req.ip });
+  next();
+});
 
 // Inizializza il database e avvia il server Express
 async function startServer() {
@@ -287,6 +320,82 @@ async function startServer() {
       }
     });
 
+    // =================================================================
+    // 6.5. POST /api/pokedex/bulk - Importazione massiva di spunte per Pokémon
+    // =================================================================
+    app.post('/api/pokedex/bulk', async (req, res) => {
+      const { userId, pokemonIds, category, value = true } = req.body;
+      if (!userId || !pokemonIds || !category) {
+        return res.status(400).json({ error: 'userId, pokemonIds e category sono richiesti' });
+      }
+
+      const intValue = value ? 1 : 0;
+      const catKey = String(category).toLowerCase();
+      const validCategories = ['regular', 'shadow', 'purified', 'perfect', 'lucky', 'xxs', 'xxl', 'shiny', 'mega', 'gigamax'];
+      if (!validCategories.includes(catKey)) {
+        return res.status(400).json({ error: 'Categoria non valida' });
+      }
+
+      try {
+        const inputIds: number[] = (pokemonIds as number[]).map(Number);
+
+        // Filtra solo i pokemonId che esistono nella tabella pokemons
+        // (evita violazione della FOREIGN KEY per pokemon non ancora rilasciati)
+        const placeholders = inputIds.map(() => '?').join(',');
+        const validRows = await db.all<{ id: number }[]>(
+          `SELECT id FROM pokemons WHERE id IN (${placeholders})`,
+          ...inputIds
+        );
+        const validIds = validRows.map(r => r.id);
+        const skipped = inputIds.length - validIds.length;
+
+        if (skipped > 0) {
+          log('WARN', `Bulk import: saltati ${skipped} pokemon non presenti nel catalogo`, {
+            userId, category, skipped,
+            missingIds: inputIds.filter(id => !validIds.includes(id))
+          });
+        }
+
+        if (validIds.length === 0) {
+          return res.json({ success: true, count: 0, skipped });
+        }
+
+        // Usa INSERT OR REPLACE per upsert atomico più efficiente
+        const columns = ['userId', 'pokemonId', 'regular', 'shadow', 'purified', 'perfect', 'lucky', 'xxs', 'xxl', 'shiny', 'mega', 'gigamax'];
+        const catIndex = columns.indexOf(catKey);
+
+        await db.run('BEGIN TRANSACTION');
+
+        for (const id of validIds) {
+          // Legge il record esistente per non sovrascrivere le altre colonne
+          const existing = await db.get(
+            'SELECT * FROM pokedex_entries WHERE userId = ? AND pokemonId = ?',
+            userId, id
+          );
+          if (existing) {
+            await db.run(
+              `UPDATE pokedex_entries SET ${catKey} = ? WHERE userId = ? AND pokemonId = ?`,
+              intValue, userId, id
+            );
+          } else {
+            const values: (string | number)[] = [userId, id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            if (catIndex !== -1) values[catIndex] = intValue;
+            const queryCols = columns.join(', ');
+            const ph = columns.map(() => '?').join(', ');
+            await db.run(`INSERT INTO pokedex_entries (${queryCols}) VALUES (${ph})`, ...values);
+          }
+        }
+
+        await db.run('COMMIT');
+        log('INFO', `Bulk import completato`, { userId, category, count: validIds.length, skipped });
+        res.json({ success: true, count: validIds.length, skipped });
+      } catch (err) {
+        try { await db.run('ROLLBACK'); } catch (_) {}
+        log('ERROR', 'Errore nell\'importazione massiva', { err: String(err), userId, category });
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
     // Helper per verificare se la richiesta proviene da localhost (loopback)
     function isLocalRequest(req: express.Request): boolean {
       const ip = req.ip || req.socket.remoteAddress || '';
@@ -356,6 +465,34 @@ async function startServer() {
         const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
         const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
 
+        let shinyUnreleasedLines = '';
+        try {
+          if (fs.existsSync(configPath)) {
+            const currentContent = fs.readFileSync(configPath, 'utf-8');
+            const regex = /export\s+const\s+SHINY_UNRELEASED_SPECIES\s*=\s*\[([\s\S]*?)\];/;
+            const match = currentContent.match(regex);
+            if (match) {
+              shinyUnreleasedLines = match[1].trim();
+            }
+          }
+        } catch (_) {}
+
+        if (!shinyUnreleasedLines) {
+          shinyUnreleasedLines = `  'Grookey', 'Thwackey', 'Rillaboom', 'Scorbunny', 'Raboot', 'Cinderace', 'Sobble', 'Drizzile', 'Inteleon',
+  'Sprigatito', 'Floragato', 'Meowscarada', 'Fuecoco', 'Crocalor', 'Skeledirge', 'Quaxly', 'Quaxwell', 'Quaquaval',
+  'Victini', 'Keldeo', 'Meloetta', 'Honedge', 'Doublade', 'Aegislash', 'Hoopa', 'Volcanion', 'Magearna', 'Marshadow',
+  'Cosmog', 'Cosmoem', 'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon', 'Nickit', 'Thievul', 'Yamper', 'Boltund',
+  'Gossifleur', 'Eldegoss', 'Rolycoly', 'Carkol', 'Coalossal', 'Applin', 'Flapple', 'Appletun', 'Cramorant',
+  'Sizzlipede', 'Centiskorch', 'Clobbopus', 'Grapploct', 'Sinistea', 'Polteageist', 'Hatenna', 'Hattrem', 'Hatterene',
+  'Snom', 'Frosmoth', 'Stonjourner', 'Indeedee', 'Morpeko', 'Cufant', 'Copperajah', 'Duraludon', 'Dreepy', 'Drakloak',
+  'Dragapult', 'Eternatus', 'Kubfu', 'Urshifu', 'Zarude', 'Regieleki', 'Regidrago', 'Spectrier', 'Glastrier', 'Calyrex', 'Enamorus',
+  'Pawmi', 'Pawmo', 'Pawmot', 'Tarountula', 'Spidops', 'Nymble', 'Lokix', 'Tandemaus', 'Maushold', 'Fidough', 'Dachsbun',
+  'Smoliv', 'Dolliv', 'Arboliva', 'Nacli', 'Naclstack', 'Garganacl', 'Charcadet', 'Armarouge', 'Ceruledge', 'Tadbulb', 'Bellibolt',
+  'Wattrel', 'Kilowattrel', 'Shroodle', 'Grafaiai', 'Toedscool', 'Toedscruel', 'Klawf', 'Wiglett', 'Wugtrio', 'Flittle',
+  'Espathra', 'Tinkatink', 'Tinkatuff', 'Tinkaton', 'Varoom', 'Revavroom', 'Orthworm', 'Glimmet', 'Glimmora', 'Greavard',
+  'Houndstone', 'Flamigo', 'Cetoddle', 'Cetitan', 'Dondozo', 'Kingambit', 'Frigibax', 'Arctibax', 'Baxcalibur', 'Dipplin'`;
+        }
+
         const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
 ${shadowLines}
 ];
@@ -370,6 +507,10 @@ ${gigaLines}
 
 export const UNRELEASED_SPECIES = [
 ${unreleasedLines}
+];
+
+export const SHINY_UNRELEASED_SPECIES = [
+  ${shinyUnreleasedLines}
 ];
 `;
 

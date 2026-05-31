@@ -411,3 +411,318 @@ select:focus {
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
+
+/* ===== Sub-Tab Navigation ===== */
+.export-sub-tabs {
+  display: flex;
+  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.3rem;
+  gap: 0.3rem;
+  margin-bottom: 0;
+}
+
+.sub-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sub-tab-btn:hover {
+  color: var(--text-primary);
+  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.05));
+}
+
+.sub-tab-btn.active {
+  background: var(--pogo-gradient);
+  color: white;
+  box-shadow: 0 4px 15px rgba(27, 124, 252, 0.25);
+}
+
+.sub-tab-btn svg {
+  flex-shrink: 0;
+}
+
+/* ===== Import Panel ===== */
+.import-actions-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.import-action-btn {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: none;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  font-family: var(--font-primary);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.register-btn {
+  background: linear-gradient(135deg, #00d28a 0%, #00a86b 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 210, 138, 0.25);
+}
+
+.register-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 210, 138, 0.4);
+  filter: brightness(1.05);
+}
+
+.remove-btn {
+  background: linear-gradient(135deg, #e63946 0%, #c1121f 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.25);
+}
+
+.remove-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+  filter: brightness(1.05);
+}
+
+.register-btn:active,
+.remove-btn:active {
+  transform: translateY(0);
+}
+
+/* ===== Alert Banners ===== */
+.import-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-top: 1.5rem;
+  animation: slideInAlert 0.3s ease;
+}
+
+@keyframes slideInAlert {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-alert {
+  background: rgba(0, 210, 138, 0.1);
+  border: 1px solid rgba(0, 210, 138, 0.3);
+  color: var(--pogo-green);
+}
+
+.error-alert {
+  background: rgba(230, 57, 70, 0.1);
+  border: 1px solid rgba(230, 57, 70, 0.3);
+  color: #e63946;
+}
+
+
+/* ===== Volantino Rilasciati ===== */
+.flyer-header-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.flyer-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.flyer-stats-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--pogo-gradient);
+  border-radius: 14px;
+  padding: 0.75rem 1.5rem;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 4px 15px rgba(27, 124, 252, 0.3);
+}
+
+.badge-num {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.badge-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+}
+
+/* Filtro generazione */
+.flyer-gen-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.gen-filter-btn {
+  background: transparent;
+  border: 1.5px solid var(--border-color);
+  border-radius: 99px;
+  padding: 0.4rem 0.9rem;
+  font-family: var(--font-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gen-filter-btn:hover {
+  border-color: var(--pogo-blue);
+  color: var(--pogo-blue);
+}
+
+.gen-filter-btn.active {
+  background: var(--pogo-gradient);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 2px 10px rgba(27, 124, 252, 0.3);
+}
+
+/* Copy flyer button */
+.copy-flyer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.65rem 1.2rem;
+  font-family: var(--font-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.copy-flyer-btn:hover {
+  background: var(--pogo-gradient);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 15px rgba(27, 124, 252, 0.25);
+}
+
+/* Schede per generazione */
+.flyer-gen-card {
+  padding: 1.5rem;
+}
+
+.flyer-gen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.flyer-gen-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  background: var(--pogo-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.flyer-gen-count {
+  background: light-dark(rgba(0,0,0,0.06), rgba(255,255,255,0.08));
+  border: 1px solid var(--border-color);
+  border-radius: 99px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* Grid dei chip pokemon */
+.flyer-pokemon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+.flyer-pokemon-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.4rem;
+  border-radius: 10px;
+  background: light-dark(rgba(0,0,0,0.02), rgba(255,255,255,0.03));
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.flyer-pokemon-chip:hover {
+  border-color: var(--border-color);
+  background: light-dark(rgba(0,0,0,0.04), rgba(255,255,255,0.06));
+  transform: translateY(-2px);
+}
+
+.flyer-chip-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.flyer-chip-sprite {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.flyer-chip-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+}

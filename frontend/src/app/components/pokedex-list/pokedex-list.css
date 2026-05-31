@@ -1336,3 +1336,60 @@
   }
 }
 
+/* ==========================================================================
+   Special Forms 4-States Visual Treatments (Pokémon GO Style)
+   ========================================================================== */
+
+/* State 1: Completely Unreleased Species */
+.pokemon-card.state-unreleased {
+  opacity: 0.45;
+  filter: grayscale(100%);
+  pointer-events: none !important; /* Disables all interactions */
+}
+
+/* State 2: Released but selected special form is unavailable (e.g. shiny unreleased) */
+.pokemon-card.state-unavailable {
+  opacity: 0.7;
+  filter: grayscale(85%);
+  border-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.03)) !important;
+  box-shadow: none !important;
+  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pokemon-card.state-unavailable:hover {
+  opacity: 0.9;
+  filter: grayscale(35%);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Button style for unavailable special forms (State 2) */
+.action-btn.unavailable {
+  background: light-dark(rgba(0, 0, 0, 0.02), rgba(255, 255, 255, 0.02)) !important;
+  border-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.04)) !important;
+  color: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.25)) !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+}
+
+.action-btn.unavailable .shiny-icon {
+  opacity: 0.4;
+  filter: grayscale(100%);
+}
+
+/* State 3: Released and available, but missing (Trainer hasn't caught it) */
+.pokemon-card.state-missing {
+  /* Standard uncaught/silhouette or regular-caught coloring. Fully dynamic. */
+}
+
+/* State 4: Caught special form */
+.pokemon-card.state-caught {
+  /* Inherits glorious shiny-active, perfect-active, etc. active glow borders! */
+}
+
+/* Card click active press micro-interaction */
+.pokemon-card[style*="cursor: pointer"]:active {
+  transform: translateY(-2px) scale(0.99) !important;
+  transition: transform 0.05s ease !important;
+}

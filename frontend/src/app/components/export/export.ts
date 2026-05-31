@@ -245,7 +245,6 @@ const EVOLVES_FROM: Record<string, string> = {
   'Luxio': 'Shinx',
   'Luxray': 'Luxio',
   'Rampardos': 'Cranidos',
-  'Shieldon': 'Shieldon',
   'Bastiodon': 'Shieldon',
   'Wormadam': 'Burmy',
   'Mothim': 'Burmy',
@@ -302,12 +301,10 @@ const EVOLVES_FROM: Record<string, string> = {
   'Leavanny': 'Swadloon',
   'Whimsicott': 'Cottonee',
   'Lilligant': 'Petilil',
-  'Sandile': 'Sandile',
   'Krokorok': 'Sandile',
   'Krookodile': 'Krokorok',
   'Darmanitan': 'Darumaka',
   'Crustle': 'Dwebble',
-  'Scraggy': 'Scraggy',
   'Scrafty': 'Scraggy',
   'Cofagrigus': 'Yamask',
   'Carracosta': 'Tirtouga',
@@ -526,6 +523,14 @@ export class ExportComponent implements OnInit, OnDestroy {
   isLoading = signal<boolean>(true);
   showCopyToast = signal<boolean>(false);
 
+  // Sotto-navigazione Esporta / Importa / Volantino
+  activeTab = signal<string>('export'); // 'export', 'import', 'flyer'
+  importInput = signal<string>('');
+  importCategory = signal<string>('regular');
+  importSuccessMessage = signal<string>('');
+  importErrorMessage = signal<string>('');
+  flyerGenFilter = signal<number>(0); // 0 = tutte le generazioni
+
   username = '';
   private sub = new Subscription();
 
@@ -598,6 +603,130 @@ export class ExportComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Cambia sotto-tab
+  onTabChange(tab: string) {
+    this.activeTab.set(tab);
+    this.importSuccessMessage.set('');
+    this.importErrorMessage.set('');
+  }
+
+  // Restituisce la lista di tutti i pokemon rilasciati, raggruppati per generazione
+  releasedByGeneration(): { gen: number; label: string; pokemon: PokedexDTO[] }[] {
+    const list = this.pokemonList();
+    const filterGen = this.flyerGenFilter();
+    const genLabels: Record<number, string> = {
+      1: 'Gen I — Kanto',
+      2: 'Gen II — Johto',
+      3: 'Gen III — Hoenn',
+      4: 'Gen IV — Sinnoh',
+      5: 'Gen V — Unova',
+      6: 'Gen VI — Kalos',
+      7: 'Gen VII — Alola',
+      8: 'Gen VIII — Galar',
+      9: 'Gen IX — Paldea',
+    };
+
+    const byGen = new Map<number, PokedexDTO[]>();
+    for (const p of list) {
+      if (!this.isReleased(p.name)) continue;
+      const gen = p.generation ?? 1;
+      if (!byGen.has(gen)) byGen.set(gen, []);
+      byGen.get(gen)!.push(p);
+    }
+
+    const result = Array.from(byGen.entries())
+      .sort(([a], [b]) => a - b)
+      .filter(([gen]) => filterGen === 0 || gen === filterGen)
+      .map(([gen, pokemon]) => ({
+        gen,
+        label: genLabels[gen] ?? `Gen ${gen}`,
+        pokemon: pokemon.sort((a, b) => a.id - b.id)
+      }));
+
+    return result;
+  }
+
+  // Conta totale pokemon rilasciati
+  releasedTotal(): number {
+    return this.pokemonList().filter(p => this.isReleased(p.name)).length;
+  }
+
+  // Copia il volantino come testo
+  copyFlyer() {
+    const groups = this.releasedByGeneration();
+    const lines: string[] = [`=== PoGODex — Pokemon Rilasciati (${this.releasedTotal()}) ===`];
+    for (const g of groups) {
+      lines.push(`\n${g.label} (${g.pokemon.length})`);
+      lines.push(g.pokemon.map(p => `#${p.id} ${p.name}`).join('\n'));
+    }
+    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+      this.showCopyToast.set(true);
+      setTimeout(() => this.showCopyToast.set(false), 2500);
+    });
+  }
+
+  // Esegue il parsing delle stringhe del tipo: "1-6, 9, 25-30"
+  parsePokemonIds(input: string): number[] {
+    const ids = new Set<number>();
+    const segments = input.split(',');
+    
+    for (const segment of segments) {
+      const trimmed = segment.trim();
+      if (!trimmed) continue;
+      
+      if (trimmed.includes('-')) {
+        const parts = trimmed.split('-');
+        if (parts.length === 2) {
+          const start = parseInt(parts[0].trim(), 10);
+          const end = parseInt(parts[1].trim(), 10);
+          if (!isNaN(start) && !isNaN(end) && start <= end) {
+            for (let i = start; i <= end; i++) {
+              ids.add(i);
+            }
+          }
+        }
+      } else {
+        const num = parseInt(trimmed, 10);
+        if (!isNaN(num)) {
+          ids.add(num);
+        }
+      }
+    }
+    return Array.from(ids).sort((a, b) => a - b);
+  }
+
+  // Esegue l'importazione massiva richiamando l'API bulk backend
+  onImport(value: boolean) {
+    const user = this.activeUser();
+    if (!user) return;
+
+    const ids = this.parsePokemonIds(this.importInput());
+    if (ids.length === 0) {
+      this.importSuccessMessage.set('');
+      this.importErrorMessage.set(this.i18n.translate('import.error.empty'));
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.pokedexService.bulkUpdateEntries(user.id, ids, this.importCategory(), value).subscribe({
+      next: (res) => {
+        this.isLoading.set(false);
+        this.importErrorMessage.set('');
+        this.importSuccessMessage.set(this.i18n.translate('import.success') + res.count);
+        this.importInput.set(''); // Pulisce il campo al successo
+        
+        // Ricarica i dati del pokedex locale per aggiornare istantaneamente tutte le viste
+        this.loadPokedexData(user.id);
+      },
+      error: (err) => {
+        console.error('Errore nell\'importazione massiva:', err);
+        this.isLoading.set(false);
+        this.importSuccessMessage.set('');
+        this.importErrorMessage.set(this.i18n.translate('import.error.failed'));
+      }
+    });
+  }
+
   // Helpers per la qualificazione e il rilascio del Pokemon
   canMega(name: string): boolean {
     const baseName = name.split(' (')[0];
@@ -641,8 +770,10 @@ export class ExportComponent implements OnInit, OnDestroy {
   // Ottiene la lista di tutti gli antenati evolutivi di un Pokemon
   getAncestors(name: string): string[] {
     const ancestors: string[] = [];
+    const visited = new Set<string>(); // Guardia anti-ciclo
     let parent = this.getParentName(name);
-    while (parent) {
+    while (parent && !visited.has(parent)) {
+      visited.add(parent);
       ancestors.push(parent);
       parent = this.getParentName(parent);
     }

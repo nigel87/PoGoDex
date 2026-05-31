@@ -80,4 +80,16 @@ export class PokedexService {
       params: { userId: userId.toString(), category, mode }
     });
   }
+
+  /**
+   * Aggiorna lo stato di cattura di più Pokémon contemporaneamente (Bulk Import).
+   */
+  bulkUpdateEntries(userId: number, pokemonIds: number[], category: string, value: boolean): Observable<{ success: boolean, count: number }> {
+    return this.http.post<{ success: boolean, count: number }>(`${this.apiUrl}/bulk`, {
+      userId,
+      pokemonIds,
+      category,
+      value
+    });
+  }
 }
