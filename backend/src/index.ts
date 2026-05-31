@@ -432,25 +432,15 @@ async function startServer() {
       }
     });
 
-    // Helper per verificare se la richiesta proviene da localhost (loopback)
-    function isLocalRequest(req: express.Request): boolean {
-      const ip = req.ip || req.socket.remoteAddress || '';
-      return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
-    }
-
     const configPath = path.join(__dirname, '../../frontend/src/app/services/pokemon-config.ts');
 
     // =================================================================
-    // 7. GET /api/admin/config - Carica le liste capaci (Solo Locale)
+    // 6.6. GET /api/pokemon-config - Carica le liste di configurazione (Pubblico)
     // =================================================================
-    app.get('/api/admin/config', (req, res) => {
-      if (!isLocalRequest(req)) {
-        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
-      }
-
+    app.get('/api/pokemon-config', (req, res) => {
       try {
         if (!fs.existsSync(configPath)) {
-          return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [] });
+          return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [], shinyUnreleasedCapable: [] });
         }
 
         const content = fs.readFileSync(configPath, 'utf-8');
@@ -473,8 +463,57 @@ async function startServer() {
         const megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
         const gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
         const unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
+        const shinyUnreleasedCapable = extractArray(content, 'SHINY_UNRELEASED_SPECIES');
 
-        res.json({ shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable });
+        res.json({ shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable, shinyUnreleasedCapable });
+      } catch (err) {
+        console.error('Errore nel recupero pubblico della configurazione:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // Helper per verificare se la richiesta proviene da localhost (loopback)
+    function isLocalRequest(req: express.Request): boolean {
+      const ip = req.ip || req.socket.remoteAddress || '';
+      return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
+    }
+
+    // =================================================================
+    // 7. GET /api/admin/config - Carica le liste capaci (Solo Locale)
+    // =================================================================
+    app.get('/api/admin/config', (req, res) => {
+      if (!isLocalRequest(req)) {
+        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
+      }
+
+      try {
+        if (!fs.existsSync(configPath)) {
+          return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [], shinyUnreleasedCapable: [] });
+        }
+
+        const content = fs.readFileSync(configPath, 'utf-8');
+
+        function extractArray(fileContent: string, arrayName: string): string[] {
+          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+          const match = fileContent.match(regex);
+          if (!match) return [];
+          const arrayBody = match[1];
+          const nameRegex = /['"](.*?)['"]/g;
+          const names: string[] = [];
+          let nameMatch;
+          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
+            names.push(nameMatch[1].replace(/\\'/g, "'"));
+          }
+          return names;
+        }
+
+        const shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
+        const megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
+        const gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
+        const unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
+        const shinyUnreleasedCapable = extractArray(content, 'SHINY_UNRELEASED_SPECIES');
+
+        res.json({ shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable, shinyUnreleasedCapable });
       } catch (err) {
         console.error('Errore nel recupero della configurazione:', err);
         res.status(500).json({ error: 'Errore interno del server' });
@@ -489,9 +528,9 @@ async function startServer() {
         return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
       }
 
-      const { shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable } = req.body;
+      const { shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable, shinyUnreleasedCapable } = req.body;
 
-      if (!Array.isArray(shadowCapable) || !Array.isArray(megaCapable) || !Array.isArray(gigamaxCapable) || !Array.isArray(unreleasedCapable)) {
+      if (!Array.isArray(shadowCapable) || !Array.isArray(megaCapable) || !Array.isArray(gigamaxCapable) || !Array.isArray(unreleasedCapable) || !Array.isArray(shinyUnreleasedCapable)) {
         return res.status(400).json({ error: 'Formato dati non valido' });
       }
 
@@ -500,34 +539,7 @@ async function startServer() {
         const megaLines = megaCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
         const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
         const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-
-        let shinyUnreleasedLines = '';
-        try {
-          if (fs.existsSync(configPath)) {
-            const currentContent = fs.readFileSync(configPath, 'utf-8');
-            const regex = /export\s+const\s+SHINY_UNRELEASED_SPECIES\s*=\s*\[([\s\S]*?)\];/;
-            const match = currentContent.match(regex);
-            if (match) {
-              shinyUnreleasedLines = match[1].trim();
-            }
-          }
-        } catch (_) {}
-
-        if (!shinyUnreleasedLines) {
-          shinyUnreleasedLines = `  'Grookey', 'Thwackey', 'Rillaboom', 'Scorbunny', 'Raboot', 'Cinderace', 'Sobble', 'Drizzile', 'Inteleon',
-  'Sprigatito', 'Floragato', 'Meowscarada', 'Fuecoco', 'Crocalor', 'Skeledirge', 'Quaxly', 'Quaxwell', 'Quaquaval',
-  'Victini', 'Keldeo', 'Meloetta', 'Honedge', 'Doublade', 'Aegislash', 'Hoopa', 'Volcanion', 'Magearna', 'Marshadow',
-  'Cosmog', 'Cosmoem', 'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon', 'Nickit', 'Thievul', 'Yamper', 'Boltund',
-  'Gossifleur', 'Eldegoss', 'Rolycoly', 'Carkol', 'Coalossal', 'Applin', 'Flapple', 'Appletun', 'Cramorant',
-  'Sizzlipede', 'Centiskorch', 'Clobbopus', 'Grapploct', 'Sinistea', 'Polteageist', 'Hatenna', 'Hattrem', 'Hatterene',
-  'Snom', 'Frosmoth', 'Stonjourner', 'Indeedee', 'Morpeko', 'Cufant', 'Copperajah', 'Duraludon', 'Dreepy', 'Drakloak',
-  'Dragapult', 'Eternatus', 'Kubfu', 'Urshifu', 'Zarude', 'Regieleki', 'Regidrago', 'Spectrier', 'Glastrier', 'Calyrex', 'Enamorus',
-  'Pawmi', 'Pawmo', 'Pawmot', 'Tarountula', 'Spidops', 'Nymble', 'Lokix', 'Tandemaus', 'Maushold', 'Fidough', 'Dachsbun',
-  'Smoliv', 'Dolliv', 'Arboliva', 'Nacli', 'Naclstack', 'Garganacl', 'Charcadet', 'Armarouge', 'Ceruledge', 'Tadbulb', 'Bellibolt',
-  'Wattrel', 'Kilowattrel', 'Shroodle', 'Grafaiai', 'Toedscool', 'Toedscruel', 'Klawf', 'Wiglett', 'Wugtrio', 'Flittle',
-  'Espathra', 'Tinkatink', 'Tinkatuff', 'Tinkaton', 'Varoom', 'Revavroom', 'Orthworm', 'Glimmet', 'Glimmora', 'Greavard',
-  'Houndstone', 'Flamigo', 'Cetoddle', 'Cetitan', 'Dondozo', 'Kingambit', 'Frigibax', 'Arctibax', 'Baxcalibur', 'Dipplin'`;
-        }
+        const shinyUnreleasedLines = shinyUnreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
 
         const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
 ${shadowLines}
@@ -546,7 +558,7 @@ ${unreleasedLines}
 ];
 
 export const SHINY_UNRELEASED_SPECIES = [
-  ${shinyUnreleasedLines}
+${shinyUnreleasedLines}
 ];
 `;
 
@@ -558,6 +570,130 @@ export const SHINY_UNRELEASED_SPECIES = [
       } catch (err) {
         console.error('Errore nel salvataggio della configurazione:', err);
         res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    async function performShinyAutoSync(): Promise<string[]> {
+      // Helper per la normalizzazione dei nomi per il confronto robusto
+      function cleanStringForMatch(str: string): string {
+        return str
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/’/g, "'")
+          .replace(/♀/g, 'f')
+          .replace(/♂/g, 'm')
+          .replace(/[^a-z0-9]/g, '');
+      }
+
+      console.log('[Auto-Sync] Avvio sincronizzazione Shiny automatica. Contatto pogoapi.net...');
+      const response = await fetch('https://pogoapi.net/api/v1/shiny_pokemon.json');
+      if (!response.ok) {
+        throw new Error(`PoGoAPI returned status ${response.status}`);
+      }
+      const shinyData = await response.json() as Record<string, { id: number; name: string }>;
+
+      const releasedShinyNames = new Set(
+        Object.values(shinyData).map(p => p.name.trim())
+      );
+      const cleanedReleasedShinyNames = new Set(
+        Array.from(releasedShinyNames).map(name => cleanStringForMatch(name))
+      );
+
+      const seedPath = path.join(__dirname, 'pokemon.json');
+      if (!fs.existsSync(seedPath)) {
+        throw new Error('File pokemon.json non trovato');
+      }
+      const pokemonData = JSON.parse(fs.readFileSync(seedPath, 'utf-8')) as Array<{ name: string }>;
+
+      const shinyUnreleasedSet = new Set<string>();
+      for (const p of pokemonData) {
+        const baseName = p.name.split(' (')[0];
+        const cleanedBaseName = cleanStringForMatch(baseName);
+
+        if (!cleanedReleasedShinyNames.has(cleanedBaseName)) {
+          shinyUnreleasedSet.add(baseName);
+        }
+      }
+
+      const shinyUnreleasedCapable = Array.from(shinyUnreleasedSet).sort();
+
+      // Legge le altre liste capaci per non sovrascriverle
+      let shadowCapable: string[] = [];
+      let megaCapable: string[] = [];
+      let gigamaxCapable: string[] = [];
+      let unreleasedCapable: string[] = [];
+
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf-8');
+        function extractArray(fileContent: string, arrayName: string): string[] {
+          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+          const match = fileContent.match(regex);
+          if (!match) return [];
+          const arrayBody = match[1];
+          const nameRegex = /['"](.*?)['"]/g;
+          const names: string[] = [];
+          let nameMatch;
+          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
+            names.push(nameMatch[1].replace(/\\'/g, "'"));
+          }
+          return names;
+        }
+
+        shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
+        megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
+        gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
+        unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
+      }
+
+      const shadowLines = shadowCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+      const megaLines = megaCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+      const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+      const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+      const shinyUnreleasedLines = shinyUnreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+
+      const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
+${shadowLines}
+];
+
+export const MEGA_CAPABLE_SPECIES = [
+${megaLines}
+];
+
+export const GIGAMAX_CAPABLE_SPECIES = [
+${gigaLines}
+];
+
+export const UNRELEASED_SPECIES = [
+${unreleasedLines}
+];
+
+export const SHINY_UNRELEASED_SPECIES = [
+${shinyUnreleasedLines}
+];
+`;
+
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, tsContent, 'utf-8');
+
+      console.log(`[Auto-Sync] Shiny auto-sincronizzati con successo su disk. Trovati ${shinyUnreleasedCapable.length} shiny non rilasciati.`);
+      return shinyUnreleasedCapable;
+    }
+
+    // =================================================================
+    // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Solo Locale)
+    // =================================================================
+    app.post('/api/admin/sync-shinies', async (req, res) => {
+      if (!isLocalRequest(req)) {
+        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
+      }
+
+      try {
+        const shinyUnreleasedCapable = await performShinyAutoSync();
+        res.json({ success: true, shinyUnreleasedCapable });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica degli shiny:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione automatica con PoGoAPI: ' + String(err) });
       }
     });
 
@@ -575,6 +711,28 @@ export const SHINY_UNRELEASED_SPECIES = [
       console.log(`================================================================`);
       console.log(`   [Node OK] Server REST in ascolto su http://${host}:${port}!`);
       console.log(`================================================================`);
+
+      // 10. Esegui la sincronizzazione automatica degli shiny all'avvio in background
+      setTimeout(async () => {
+        try {
+          console.log('[Startup Background Worker] Avvio sincronizzazione Shiny programmata...');
+          await performShinyAutoSync();
+          console.log('[Startup Background Worker] Sincronizzazione Shiny iniziale completata con successo.');
+        } catch (err) {
+          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Shiny all\'avvio:', err);
+        }
+      }, 5000); // Ritardo di 5 secondi per far avviare il server liberamente
+
+      // 11. Esegui la sincronizzazione automatica ogni 24 ore
+      setInterval(async () => {
+        try {
+          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny giornaliera...');
+          await performShinyAutoSync();
+          console.log('[Periodic Background Worker] Sincronizzazione Shiny giornaliera completata con successo.');
+        } catch (err) {
+          console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica Shiny periodica:', err);
+        }
+      }, 24 * 60 * 60 * 1000); // 24 ore
     });
 
   } catch (err) {

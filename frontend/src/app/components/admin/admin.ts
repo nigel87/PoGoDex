@@ -28,6 +28,8 @@ export class AdminComponent implements OnInit {
   megaSet = new Set<string>();
   gigamaxSet = new Set<string>();
   unreleasedSet = new Set<string>();
+  shinyUnreleasedSet = new Set<string>();
+  isSyncing = signal<boolean>(false);
 
   // Elenco completo di tutti i Pokémon del catalogo
   pokemonList = signal<PokedexDTO[]>([]);
@@ -81,6 +83,7 @@ export class AdminComponent implements OnInit {
         this.megaSet = new Set(config.megaCapable || []);
         this.gigamaxSet = new Set(config.gigamaxCapable || []);
         this.unreleasedSet = new Set(config.unreleasedCapable || []);
+        this.shinyUnreleasedSet = new Set(config.shinyUnreleasedCapable || []);
         this.isLoading.set(false);
         
         console.log('[Admin Debug] isLoading impostato a false. shadowCapable size:', this.shadowSet.size);
@@ -122,22 +125,32 @@ export class AdminComponent implements OnInit {
     return !this.unreleasedSet.has(baseName);
   }
 
+  isShinyReleased(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return !this.shinyUnreleasedSet.has(baseName);
+  }
+
   // Toggle delle checkbox
-  toggleCapability(name: string, type: 'shadow' | 'mega' | 'gigamax' | 'release') {
+  toggleCapability(name: string, type: 'shadow' | 'mega' | 'gigamax' | 'release' | 'shiny') {
     const baseName = name.split(' (')[0];
     let set: Set<string>;
 
     if (type === 'shadow') set = this.shadowSet;
     else if (type === 'mega') set = this.megaSet;
     else if (type === 'gigamax') set = this.gigamaxSet;
-    else {
-      // Per 'release', la checkbox rappresenta se è rilasciato.
-      // Se era rilasciato (NON nel set dei non rilasciati), lo togliamo dai rilasciati -> lo aggiungiamo a unreleasedSet.
-      // Se non era rilasciato (nel set dei non rilasciati), lo togliamo da unreleasedSet.
+    else if (type === 'release') {
       if (this.unreleasedSet.has(baseName)) {
         this.unreleasedSet.delete(baseName);
       } else {
         this.unreleasedSet.add(baseName);
+      }
+      return;
+    } else {
+      // type === 'shiny'
+      if (this.shinyUnreleasedSet.has(baseName)) {
+        this.shinyUnreleasedSet.delete(baseName);
+      } else {
+        this.shinyUnreleasedSet.add(baseName);
       }
       return;
     }
@@ -161,7 +174,8 @@ export class AdminComponent implements OnInit {
       shadowCapable: Array.from(this.shadowSet).sort(),
       megaCapable: Array.from(this.megaSet).sort(),
       gigamaxCapable: Array.from(this.gigamaxSet).sort(),
-      unreleasedCapable: Array.from(this.unreleasedSet).sort()
+      unreleasedCapable: Array.from(this.unreleasedSet).sort(),
+      shinyUnreleasedCapable: Array.from(this.shinyUnreleasedSet).sort()
     };
 
     this.http.post<any>(this.adminApiUrl, payload).subscribe({
@@ -190,5 +204,32 @@ export class AdminComponent implements OnInit {
       }
     }
     return '#' + baseId.toString().padStart(3, '0');
+  }
+
+  syncShinies() {
+    if (this.isSyncing()) return;
+
+    this.isSyncing.set(true);
+    this.saveSuccess.set(false);
+    this.saveError.set('');
+
+    const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/admin/sync-shinies`
+      : '/api/admin/sync-shinies';
+
+    this.http.post<any>(syncApiUrl, {}).subscribe({
+      next: (res) => {
+        this.isSyncing.set(false);
+        this.saveSuccess.set(true);
+        this.loadCatalogAndConfig();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      error: (err) => {
+        console.error('Errore nella sincronizzazione degli shiny:', err);
+        this.saveError.set(err.error?.error || 'Errore durante la sincronizzazione automatica degli shiny.');
+        this.isSyncing.set(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
   }
 }

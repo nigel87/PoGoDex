@@ -18,7 +18,11 @@
       </div>
       <div class="header-actions">
         <button [routerLink]="['/']" class="admin-btn cancel-btn">{{ 'admin.btn.exit' | translate }}</button>
-        <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving()">
+        <button (click)="syncShinies()" class="admin-btn sync-btn" [disabled]="isLoading() || isSaving() || isSyncing()">
+          <span *ngIf="!isSyncing()">🔄 {{ 'admin.btn.sync' | translate }}</span>
+          <span *ngIf="isSyncing()" class="btn-spinner"></span>
+        </button>
+        <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || isSyncing()">
           <span *ngIf="!isSaving()">{{ 'admin.btn.save' | translate }}</span>
           <span *ngIf="isSaving()" class="btn-spinner"></span>
         </button>
@@ -76,6 +80,7 @@
               <th class="col-name">{{ 'admin.col.name' | translate }}</th>
               <th class="col-types">{{ 'admin.col.types' | translate }}</th>
               <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
+              <th class="col-check text-center shiny-header">{{ 'admin.col.shiny' | translate }}</th>
               <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
               <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
               <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
@@ -103,6 +108,16 @@
                     type="checkbox" 
                     [checked]="isReleased(p.name)" 
                     (change)="toggleCapability(p.name, 'release')">
+                  <span class="checkmark"></span>
+                </label>
+              </td>
+              <!-- Shiny check -->
+              <td class="col-check text-center">
+                <label class="custom-checkbox shiny-checkbox">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isShinyReleased(p.name)" 
+                    (change)="toggleCapability(p.name, 'shiny')">
                   <span class="checkmark"></span>
                 </label>
               </td>

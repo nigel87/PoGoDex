@@ -1,6 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { 
+  SHADOW_CAPABLE_SPECIES, 
+  MEGA_CAPABLE_SPECIES, 
+  GIGAMAX_CAPABLE_SPECIES, 
+  UNRELEASED_SPECIES, 
+  SHINY_UNRELEASED_SPECIES 
+} from './pokemon-config';
 
 export interface PokedexDTO {
   id: number;
@@ -93,6 +100,51 @@ export class PokedexService {
       pokemonIds,
       category,
       value
+    });
+  }
+
+  /**
+   * Carica dinamicamente la configurazione dal backend e aggiorna in-place gli array statici.
+   */
+  loadConfig(): Promise<void> {
+    const configUrl = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/pokemon-config`
+      : '/api/pokemon-config';
+
+    return new Promise((resolve) => {
+      this.http.get<any>(configUrl).subscribe({
+        next: (config) => {
+          if (config) {
+            if (Array.isArray(config.shadowCapable)) {
+              SHADOW_CAPABLE_SPECIES.length = 0;
+              SHADOW_CAPABLE_SPECIES.push(...config.shadowCapable);
+            }
+            if (Array.isArray(config.megaCapable)) {
+              MEGA_CAPABLE_SPECIES.length = 0;
+              MEGA_CAPABLE_SPECIES.push(...config.megaCapable);
+            }
+            if (Array.isArray(config.gigamaxCapable)) {
+              GIGAMAX_CAPABLE_SPECIES.length = 0;
+              GIGAMAX_CAPABLE_SPECIES.push(...config.gigamaxCapable);
+            }
+            if (Array.isArray(config.unreleasedCapable)) {
+              UNRELEASED_SPECIES.length = 0;
+              UNRELEASED_SPECIES.push(...config.unreleasedCapable);
+            }
+            if (Array.isArray(config.shinyUnreleasedCapable)) {
+              SHINY_UNRELEASED_SPECIES.length = 0;
+              SHINY_UNRELEASED_SPECIES.push(...config.shinyUnreleasedCapable);
+            }
+            console.log('[PokedexService] Configurazione dinamica caricata ed applicata in-place con successo.');
+          }
+          resolve();
+        },
+        error: (err) => {
+          console.error('[PokedexService] Errore nel caricamento dinamico della configurazione:', err);
+          // Fallback silenzioso per usare i valori statici originari
+          resolve();
+        }
+      });
     });
   }
 }
