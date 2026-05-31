@@ -89,16 +89,18 @@ export class StatsComponent implements OnInit, OnDestroy {
     let gigamaxCaught = 0;
 
     for (const p of filtered) {
-      if (p.regular) regularCaught++;
-      if (p.shadow) shadowCaught++;
-      if (p.purified) purifiedCaught++;
-      if (p.perfect) perfectCaught++;
-      if (p.lucky) luckyCaught++;
-      if (p.xxl) xxlCaught++;
-      if (p.xxs) xxsCaught++;
-      if (p.shiny) shinyCaught++;
-      if (p.mega) megaCaught += (p.mega === 3 ? 2 : 1);
-      if (p.gigamax) gigamaxCaught++;
+      if (p.regular && this.settingsService.isButtonVisible(p.name, p.id, 'regular')) regularCaught++;
+      if (p.shadow && this.settingsService.isButtonVisible(p.name, p.id, 'shadow')) shadowCaught++;
+      if (p.purified && this.settingsService.isButtonVisible(p.name, p.id, 'purified')) purifiedCaught++;
+      if (p.perfect && this.settingsService.isButtonVisible(p.name, p.id, 'perfect')) perfectCaught++;
+      if (p.lucky && this.settingsService.isButtonVisible(p.name, p.id, 'lucky')) luckyCaught++;
+      if (p.xxl && this.settingsService.isButtonVisible(p.name, p.id, 'xxl')) xxlCaught++;
+      if (p.xxs && this.settingsService.isButtonVisible(p.name, p.id, 'xxs')) xxsCaught++;
+      if (p.shiny && this.settingsService.isButtonVisible(p.name, p.id, 'shiny')) shinyCaught++;
+      if (p.mega && this.settingsService.isButtonVisible(p.name, p.id, 'mega')) {
+        megaCaught += (p.mega === 3 ? 2 : 1);
+      }
+      if (p.gigamax && this.settingsService.isButtonVisible(p.name, p.id, 'gigamax')) gigamaxCaught++;
     }
 
     return {

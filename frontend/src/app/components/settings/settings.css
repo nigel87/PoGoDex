@@ -380,3 +380,26 @@
   font-size: 1.2rem;
   transition: transform 0.2s ease;
 }
+
+/* Disabled Pill for non-trackable configurations */
+.checkbox-pill-btn.disabled-pill {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: light-dark(rgba(0, 0, 0, 0.015), rgba(255, 255, 255, 0.01));
+  border-style: dashed;
+}
+
+.checkbox-pill-btn.disabled-pill:hover {
+  background: light-dark(rgba(0, 0, 0, 0.015), rgba(255, 255, 255, 0.01));
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+  transform: none;
+}
+
+.pill-checkbox-indicator.locked {
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05));
+  border-color: var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

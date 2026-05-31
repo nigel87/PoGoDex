@@ -78,7 +78,37 @@
           </div>
         </div>
 
-        <!-- Opzioni pulsanti per forme regionali, visibile solo se raggruppamento attivo -->
+      </div>
+
+      <!-- Card 2: Pokémon Quality Tracking Configuration (NEW) -->
+      <div class="glass-card settings-card active-card">
+        <div class="card-icon-wrapper display-icon" style="background: rgba(155, 89, 182, 0.1); color: #9b59b6;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </div>
+        
+        <div class="settings-meta">
+          <h3>{{ 'settings.tracking_card.title' | translate }}</h3>
+          <p class="card-desc">{{ 'settings.tracking_card.desc' | translate }}</p>
+        </div>
+
+        <!-- 1. Normal Pokémon -->
+        <div class="sub-settings-panel">
+          <h4 class="sub-panel-title">{{ 'settings.normal_buttons.title' | translate }}</h4>
+          <p class="sub-panel-desc">{{ 'settings.normal_buttons.desc' | translate }}</p>
+          <div class="checkbox-pills-grid">
+            <button 
+              *ngFor="let btn of availableButtons" 
+              type="button" 
+              class="checkbox-pill-btn" 
+              [class.active]="isButtonCheckedForCategory('normal', btn.value)"
+              (click)="toggleButtonForCategory('normal', btn.value)">
+              <span class="pill-checkbox-indicator"></span>
+              {{ 'pokedex.btn.' + btn.value | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Regional Forms (Visible only if grouped) -->
         <div class="sub-settings-panel" *ngIf="groupRegionals()">
           <h4 class="sub-panel-title">{{ 'settings.regional_buttons.title' | translate }}</h4>
           <p class="sub-panel-desc">{{ 'settings.regional_buttons.desc' | translate }}</p>
@@ -87,11 +117,60 @@
               *ngFor="let btn of availableButtons" 
               type="button" 
               class="checkbox-pill-btn" 
-              [class.active]="isButtonChecked(btn.value)"
-              (click)="toggleRegionalButton(btn.value)">
+              [class.active]="isButtonCheckedForCategory('regional', btn.value)"
+              (click)="toggleButtonForCategory('regional', btn.value)">
               <span class="pill-checkbox-indicator"></span>
               {{ 'pokedex.btn.' + btn.value | translate }}
             </button>
+          </div>
+        </div>
+
+        <!-- 3. Legendaries & Ultra Beasts -->
+        <div class="sub-settings-panel">
+          <h4 class="sub-panel-title">{{ 'settings.legendary_buttons.title' | translate }}</h4>
+          <p class="sub-panel-desc">{{ 'settings.legendary_buttons.desc' | translate }}</p>
+          <div class="checkbox-pills-grid">
+            <button 
+              *ngFor="let btn of availableButtons" 
+              type="button" 
+              class="checkbox-pill-btn" 
+              [class.active]="isButtonCheckedForCategory('legendary', btn.value)"
+              (click)="toggleButtonForCategory('legendary', btn.value)">
+              <span class="pill-checkbox-indicator"></span>
+              {{ 'pokedex.btn.' + btn.value | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Mythicals (lucky disabled) -->
+        <div class="sub-settings-panel">
+          <h4 class="sub-panel-title">{{ 'settings.mythical_buttons.title' | translate }}</h4>
+          <p class="sub-panel-desc">{{ 'settings.mythical_buttons.desc' | translate }}</p>
+          <div class="checkbox-pills-grid">
+            <ng-container *ngFor="let btn of availableButtons">
+              <!-- Regular tracking button -->
+              <button 
+                *ngIf="btn.value !== 'lucky'"
+                type="button" 
+                class="checkbox-pill-btn" 
+                [class.active]="isButtonCheckedForCategory('mythical', btn.value)"
+                (click)="toggleButtonForCategory('mythical', btn.value)">
+                <span class="pill-checkbox-indicator"></span>
+                {{ 'pokedex.btn.' + btn.value | translate }}
+              </button>
+              
+              <!-- Lucky button disabled -->
+              <button 
+                *ngIf="btn.value === 'lucky'"
+                type="button" 
+                class="checkbox-pill-btn disabled-pill" 
+                [class.active]="false"
+                [disabled]="true"
+                [title]="i18n.currentLang() === 'it' ? 'I Pokémon Misteriosi non possono essere scambiati' : 'Mythical Pokémon cannot be traded'">
+                <span class="pill-checkbox-indicator locked"></span>
+                {{ 'pokedex.btn.lucky' | translate }} 🔒
+              </button>
+            </ng-container>
           </div>
         </div>
       </div>

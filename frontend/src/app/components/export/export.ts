@@ -8,7 +8,7 @@ import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
-import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MYTHICAL_POKEMON, LEGENDARY_POKEMON, ULTRA_BEASTS } from '../../services/pokemon-config';
 
 // Evolutionary parent mapping (child -> parent)
 const EVOLVES_FROM: Record<string, string> = {
@@ -491,29 +491,10 @@ const EVOLVES_FROM: Record<string, string> = {
   'Baxcalibur': 'Arctibax'
 };
 
-const MYTHICAL_POKEMON = new Set([
-  'Mew', 'Celebi', 'Jirachi', 'Deoxys', 'Phione', 'Manaphy', 'Darkrai', 'Shaymin', 'Arceus',
-  'Victini', 'Meloetta', 'Genesect', 'Keldeo', 'Diancie', 'Hoopa', 'Volcanion', 'Magearna',
-  'Marshadow', 'Zeraora', 'Meltan', 'Melmetal', 'Zarude', 'Pecharunt'
-]);
+const MYTHICAL_POKEMON_SET = new Set(MYTHICAL_POKEMON);
+const LEGENDARY_POKEMON_SET = new Set(LEGENDARY_POKEMON);
+const ULTRA_BEASTS_SET = new Set(ULTRA_BEASTS);
 
-const LEGENDARY_POKEMON = new Set([
-  'Articuno', 'Zapdos', 'Moltres', 'Mewtwo', 'Raikou', 'Entei', 'Suicune', 'Lugia', 'Ho-Oh',
-  'Regirock', 'Regice', 'Registeel', 'Latias', 'Latios', 'Kyogre', 'Groudon', 'Rayquaza',
-  'Uxie', 'Mesprit', 'Azelf', 'Dialga', 'Palkia', 'Heatran', 'Regigigas', 'Giratina', 'Cresselia',
-  'Cobalion', 'Terrakion', 'Virizion', 'Tornadus', 'Thundurus', 'Reshiram', 'Zekrom', 'Landorus',
-  'Kyurem', 'Xerneas', 'Yveltal', 'Zygarde', 'Type: Null', 'Silvally', 'Tapu Koko', 'Tapu Lele',
-  'Tapu Bulu', 'Tapu Fini', 'Cosmog', 'Cosmoem', 'Solgaleo', 'Lunala', 'Necrozma', 'Zacian',
-  'Zamazenta', 'Eternatus', 'Kubfu', 'Urshifu', 'Regieleki', 'Regidrago', 'Glastrier', 'Spectrier',
-  'Calyrex', 'Enamorus', 'Wo-Chien', 'Chien-Pao', 'Ting-Lu', 'Chi-Yu', 'Koraidon', 'Miraidon',
-  'Okidogi', 'Munkidori', 'Fezandipiti', 'Ogerpon', 'Gouging Fire', 'Raging Bolt', 'Iron Boulder',
-  'Iron Crown', 'Terapagos'
-]);
-
-const ULTRA_BEASTS = new Set([
-  'Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord',
-  'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon'
-]);
 
 @Component({
   selector: 'app-export',
@@ -808,12 +789,14 @@ export class ExportComponent implements OnInit, OnDestroy {
 
   isMythical(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return MYTHICAL_POKEMON.has(baseName);
+    if (baseName === 'Meltan' || baseName === 'Melmetal') return false;
+    return MYTHICAL_POKEMON_SET.has(baseName);
   }
 
   isLegendaryOrUltraBeast(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return LEGENDARY_POKEMON.has(baseName) || ULTRA_BEASTS.has(baseName);
+    if (baseName === 'Meltan' || baseName === 'Melmetal') return true;
+    return LEGENDARY_POKEMON_SET.has(baseName) || ULTRA_BEASTS_SET.has(baseName);
   }
 
   // Verifica se un Pokemon specifico manca nella categoria selezionata
@@ -829,6 +812,11 @@ export class ExportComponent implements OnInit, OnDestroy {
 
     // 2) Esclude leggendari e ultracreature se disattivato
     if (!this.includeLegendaries() && this.isLegendaryOrUltraBeast(p.name)) {
+      return false;
+    }
+
+    // 3) Verifica se il tracciamento di questa qualità è abilitato per questa specie
+    if (!this.settingsService.isButtonVisible(p.name, p.id, category)) {
       return false;
     }
 

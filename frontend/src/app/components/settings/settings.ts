@@ -79,14 +79,36 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.settingsService.setSimplifyExport(newVal);
   }
 
-  // Verifica se un bottone è selezionato
-  isButtonChecked(value: string): boolean {
-    return this.settingsService.isButtonEnabledForRegional(value);
+  // Verifica se un bottone è selezionato per una determinata categoria
+  isButtonCheckedForCategory(category: 'normal' | 'regional' | 'legendary' | 'mythical', value: string): boolean {
+    if (category === 'normal') {
+      return this.settingsService.normalButtons().includes(value);
+    } else if (category === 'regional') {
+      return this.settingsService.regionalButtons().includes(value);
+    } else if (category === 'legendary') {
+      return this.settingsService.legendaryButtons().includes(value);
+    } else {
+      return this.settingsService.mythicalButtons().includes(value);
+    }
   }
 
-  // Togglare la selezione di un bottone
-  toggleRegionalButton(value: string) {
-    const current = [...this.settingsService.regionalButtons()];
+  // Togglare la selezione di un bottone per una determinata categoria
+  toggleButtonForCategory(category: 'normal' | 'regional' | 'legendary' | 'mythical', value: string) {
+    if (category === 'mythical' && value === 'lucky') {
+      return; // Misteriosi non scambiabili
+    }
+
+    let current: string[] = [];
+    if (category === 'normal') {
+      current = [...this.settingsService.normalButtons()];
+    } else if (category === 'regional') {
+      current = [...this.settingsService.regionalButtons()];
+    } else if (category === 'legendary') {
+      current = [...this.settingsService.legendaryButtons()];
+    } else {
+      current = [...this.settingsService.mythicalButtons()];
+    }
+
     const index = current.indexOf(value);
     if (index > -1) {
       // Consenti rimozione solo se rimane almeno un bottone attivo per evitare card vuote
@@ -96,7 +118,16 @@ export class SettingsComponent implements OnInit, OnDestroy {
     } else {
       current.push(value);
     }
-    this.settingsService.setRegionalButtons(current);
+
+    if (category === 'normal') {
+      this.settingsService.setNormalButtons(current);
+    } else if (category === 'regional') {
+      this.settingsService.setRegionalButtons(current);
+    } else if (category === 'legendary') {
+      this.settingsService.setLegendaryButtons(current);
+    } else {
+      this.settingsService.setMythicalButtons(current);
+    }
   }
 
   changeLanguage(lang: Language) {

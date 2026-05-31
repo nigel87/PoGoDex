@@ -647,34 +647,32 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
         continue;
       }
 
-      const isRegional = p.id >= 10000;
-
-      const checkRegular = isRegional ? this.settingsService.isButtonEnabledForRegional('regular') : true;
+      const checkRegular = this.showButtonForPokemon(p, 'regular');
       if (checkRegular && !p.regular) return false;
 
-      const checkShiny = isRegional ? this.settingsService.isButtonEnabledForRegional('shiny') : true;
+      const checkShiny = this.showButtonForPokemon(p, 'shiny');
       if (checkShiny && !p.shiny) return false;
 
-      const checkShadow = isRegional ? this.settingsService.isButtonEnabledForRegional('shadow') : true;
+      const checkShadow = this.showButtonForPokemon(p, 'shadow');
       if (checkShadow && this.canShadow(p.name) && !p.shadow) return false;
 
-      const checkPurified = isRegional ? this.settingsService.isButtonEnabledForRegional('purified') : true;
+      const checkPurified = this.showButtonForPokemon(p, 'purified');
       if (checkPurified && this.canShadow(p.name) && !p.purified) return false;
 
-      const checkPerfect = isRegional ? this.settingsService.isButtonEnabledForRegional('perfect') : true;
+      const checkPerfect = this.showButtonForPokemon(p, 'perfect');
       if (checkPerfect && !p.perfect) return false;
 
-      const checkLucky = isRegional ? this.settingsService.isButtonEnabledForRegional('lucky') : true;
+      const checkLucky = this.showButtonForPokemon(p, 'lucky');
       if (checkLucky && !p.lucky) return false;
 
-      const checkXxl = isRegional ? this.settingsService.isButtonEnabledForRegional('xxl') : true;
+      const checkXxl = this.showButtonForPokemon(p, 'xxl');
       if (checkXxl && !p.xxl) return false;
 
-      const checkXxs = isRegional ? this.settingsService.isButtonEnabledForRegional('xxs') : true;
+      const checkXxs = this.showButtonForPokemon(p, 'xxs');
       if (checkXxs && !p.xxs) return false;
 
       if (this.canMega(p.name)) {
-        const checkMega = isRegional ? this.settingsService.isButtonEnabledForRegional('mega') : true;
+        const checkMega = this.showButtonForPokemon(p, 'mega');
         if (checkMega) {
           if (this.hasTwoMegas(p.name)) {
             if (p.mega !== 3) return false;
@@ -685,7 +683,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       }
 
       if (this.canGigamax(p.name)) {
-        const checkGiga = isRegional ? this.settingsService.isButtonEnabledForRegional('gigamax') : true;
+        const checkGiga = this.showButtonForPokemon(p, 'gigamax');
         if (checkGiga && !p.gigamax) return false;
       }
     }
@@ -747,10 +745,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
   // Verifica se un certo bottone di azione deve essere visualizzato per il Pokémon corrente
   showButtonForPokemon(p: PokedexDTO, buttonType: string): boolean {
-    if (p.id >= 10000 && this.settingsService.groupRegionals()) {
-      return this.settingsService.isButtonEnabledForRegional(buttonType);
-    }
-    return true; // Sempre visibile per i Pokémon base o se il raggruppamento è disattivato
+    return this.settingsService.isButtonVisible(p.name, p.id, buttonType);
   }
 
   ngOnInit() {
