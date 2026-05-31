@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
@@ -108,7 +108,7 @@ const GIGAMAX_ID_MAP: { [key: number]: number } = {
   templateUrl: './pokedex-list.html',
   styleUrl: './pokedex-list.css'
 })
-export class PokedexList implements OnInit, OnDestroy {
+export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   // Lista originale e stati utente
   pokemonList = signal<PokedexDTO[]>([]);
   usersList = signal<User[]>([]);
@@ -134,6 +134,12 @@ export class PokedexList implements OnInit, OnDestroy {
     const id = this.activeDetailBasePokemonId();
     if (!id) return null;
     return this.pokemonList().find(p => p.id === id) || null;
+  });
+
+  @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
+  limit = signal<number>(50);
+  visibleList = computed(() => {
+    return this.filteredList().slice(0, this.limit());
   });
 
   // Segnali dei filtri
@@ -517,7 +523,21 @@ export class PokedexList implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     public i18n: I18nService
-  ) { }
+  ) {
+    // Resetta automaticamente il limite a 50 quando cambia un qualsiasi filtro
+    effect(() => {
+      this.searchQuery();
+      this.selectedStatus();
+      this.selectedType();
+      this.selectedFormFilter();
+      this.selectedRegion();
+      this.settingsService.groupRegionals();
+      
+      setTimeout(() => {
+        this.limit.set(50);
+      });
+    });
+  }
 
   // Helper per verificare se un singolo Pokémon soddisfa i filtri attivi
   private matchesFilters(p: PokedexDTO, query: string, status: string, type: string, formFilter: string, region: string): boolean {
@@ -768,8 +788,39 @@ export class PokedexList implements OnInit, OnDestroy {
     );
   }
 
+  private observer: IntersectionObserver | null = null;
+
+  ngAfterViewInit() {
+    this.setupIntersectionObserver();
+  }
+
+  setupIntersectionObserver() {
+    if (typeof window === 'undefined') return;
+
+    this.observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        if (this.limit() < this.filteredList().length) {
+          console.log('[Lazy Rendering] Caricamento di ulteriori 50 Pokémon...');
+          this.limit.set(this.limit() + 50);
+        }
+      }
+    }, {
+      root: null,
+      rootMargin: '200px', // inizia a caricare prima che entri a schermo per una transizione fluida
+      threshold: 0.1
+    });
+
+    if (this.scrollAnchor) {
+      this.observer.observe(this.scrollAnchor.nativeElement);
+    }
+  }
+
   ngOnDestroy() {
     this.sub.unsubscribe();
+    if (this.observer) {
+      this.observer.disconnect();
+    }
   }
 
   // Carica l'elenco dei giocatori

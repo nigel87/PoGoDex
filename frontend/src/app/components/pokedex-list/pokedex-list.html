@@ -176,7 +176,7 @@
     <!-- Cards Grid -->
     <div *ngIf="!isLoading() && filteredList().length > 0" class="pokedex-grid" [class.compact-grid]="settingsService.layout() === 'compact'">
       <div 
-        *ngFor="let base of filteredList()" 
+        *ngFor="let base of visibleList()" 
         class="glass-card pokemon-card"
         [class.caught-active]="selectedFormFilter() === 'all' ? getActiveForm(base).regular : getCardState(getActiveForm(base), selectedFormFilter()) === 4"
         [class.shadow-active]="getActiveForm(base).shadow"
@@ -400,6 +400,14 @@
           </div>
         </ng-container>
       </div>
+    </div>
+
+    <!-- Ancora reattiva per il caricamento lazy (Infinite Scroll) -->
+    <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1.5rem 0;"></div>
+
+    <!-- Indicatore visivo di fine lista -->
+    <div class="end-of-list-text" *ngIf="visibleList().length === filteredList().length && filteredList().length > 0">
+      ✨ {{ i18n.currentLang() === 'it' ? 'Hai visualizzato tutti i Pokémon' : 'You have viewed all Pokémon' }} ✨
     </div>
   </main>
 
