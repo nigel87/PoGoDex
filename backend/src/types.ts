@@ -13,6 +13,9 @@ export interface Pokemon {
   type2?: string | null;
   generation: number;
   spriteUrl: string;
+  megaVarietyId?: number | null;
+  megaVarietyId2?: number | null;
+  gigamaxVarietyId?: number | null;
 }
 
 export interface PokedexEntry {
@@ -47,6 +50,9 @@ export interface PokedexDTO {
   shiny: boolean;
   mega: number;
   gigamax: boolean;
+  megaVarietyId?: number | null;
+  megaVarietyId2?: number | null;
+  gigamaxVarietyId?: number | null;
 }
 
 export interface PokedexStats {

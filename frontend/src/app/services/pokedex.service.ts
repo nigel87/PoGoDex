@@ -19,6 +19,9 @@ export interface PokedexDTO {
   shiny: boolean; // Pokémon Cromatico (Shiny)
   mega: number;  // Pokémon Mega (0 = none, 1 = Mega X/standard, 2 = Mega Y, 3 = both)
   gigamax: boolean; // Pokémon Gigamax
+  megaVarietyId?: number | null;
+  megaVarietyId2?: number | null;
+  gigamaxVarietyId?: number | null;
 }
 
 export interface PokedexStats {

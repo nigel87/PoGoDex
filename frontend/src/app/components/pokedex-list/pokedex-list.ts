@@ -282,26 +282,51 @@ export class PokedexList implements OnInit, OnDestroy {
     }
 
     if (category === 'mega' && this.canMega(p.name)) {
-      const mapping = MEGA_ID_MAP[baseId];
-      if (mapping) {
-        let megaId = typeof mapping === 'number' ? mapping : mapping.x;
-        // Se Mewtwo/Charizard e ha Mega Y attivo, mostriamo Y, altrimenti X
-        if (typeof mapping === 'object') {
-          const override = (p as any).megaFormOverride;
-          if (override === 'y') {
-            megaId = mapping.y;
-          } else if (override === 'x') {
-            megaId = mapping.x;
-          } else {
-            megaId = p.mega === 2 ? mapping.y : mapping.x;
+      let megaId: number | null | undefined = undefined;
+      const basePoke = p.id >= 10000 ? this.pokemonList().find(x => x.id < 10000 && x.name.split(' (')[0] === p.name.split(' (')[0]) : p;
+      
+      const megaVId = basePoke?.megaVarietyId;
+      const megaVId2 = basePoke?.megaVarietyId2;
+
+      if (this.hasTwoMegas(p.name)) {
+        const override = (p as any).megaFormOverride;
+        if (override === 'y') {
+          megaId = megaVId2;
+        } else if (override === 'x') {
+          megaId = megaVId;
+        } else {
+          megaId = p.mega === 2 ? megaVId2 : megaVId;
+        }
+      } else {
+        megaId = megaVId;
+      }
+
+      // Se non risolto dinamicamente dal DB, usiamo il fallback statico
+      if (!megaId) {
+        const mapping = MEGA_ID_MAP[baseId];
+        if (mapping) {
+          megaId = typeof mapping === 'number' ? mapping : mapping.x;
+          if (typeof mapping === 'object') {
+            const override = (p as any).megaFormOverride;
+            if (override === 'y') {
+              megaId = mapping.y;
+            } else if (override === 'x') {
+              megaId = mapping.x;
+            } else {
+              megaId = p.mega === 2 ? mapping.y : mapping.x;
+            }
           }
         }
+      }
+
+      if (megaId) {
         return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + megaId + '.png';
       }
     }
 
     if (category === 'gigamax' && this.canGigamax(p.name)) {
-      const gmaxId = GIGAMAX_ID_MAP[baseId];
+      const basePoke = p.id >= 10000 ? this.pokemonList().find(x => x.id < 10000 && x.name.split(' (')[0] === p.name.split(' (')[0]) : p;
+      let gmaxId = basePoke?.gigamaxVarietyId || GIGAMAX_ID_MAP[baseId];
       if (gmaxId) {
         return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/' + gmaxId + '.png';
       }

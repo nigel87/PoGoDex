@@ -147,7 +147,10 @@ async function startServer() {
             xxl: entry ? !!entry.xxl : false,
             shiny: entry ? !!entry.shiny : false,
             mega: entry ? (entry.mega || 0) : 0,
-            gigamax: entry ? !!entry.gigamax : false
+            gigamax: entry ? !!entry.gigamax : false,
+            megaVarietyId: p.megaVarietyId || null,
+            megaVarietyId2: p.megaVarietyId2 || null,
+            gigamaxVarietyId: p.gigamaxVarietyId || null
           };
         });
 
@@ -212,7 +215,10 @@ async function startServer() {
           xxl: dto.xxl,
           shiny: dto.shiny,
           mega: dto.mega,
-          gigamax: dto.gigamax
+          gigamax: dto.gigamax,
+          megaVarietyId: pokemon.megaVarietyId || null,
+          megaVarietyId2: pokemon.megaVarietyId2 || null,
+          gigamaxVarietyId: pokemon.gigamaxVarietyId || null
         };
 
         res.json(updatedDto);

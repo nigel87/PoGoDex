@@ -55,9 +55,23 @@ async function initializeTables(database: Database) {
       type1 TEXT NOT NULL,
       type2 TEXT,
       generation INTEGER NOT NULL,
-      spriteUrl TEXT NOT NULL
+      spriteUrl TEXT NOT NULL,
+      megaVarietyId INTEGER DEFAULT NULL,
+      megaVarietyId2 INTEGER DEFAULT NULL,
+      gigamaxVarietyId INTEGER DEFAULT NULL
     );
   `);
+
+  // Esegue migrazioni safe per database preesistenti
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId2 INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN gigamaxVarietyId INTEGER DEFAULT NULL;');
+  } catch (_) {}
 
   // Tabella PokedexEntries (con spunte di cattura integer 0/1)
   await database.exec(`
