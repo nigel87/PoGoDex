@@ -1,0 +1,24 @@
+{
+  "name": "PoGODex - Pokémon GO Pokedex & Stats",
+  "short_name": "PoGODex",
+  "description": "Un Pokédex completo e reattivo per monitorare e ottimizzare le tue collezioni in Pokémon GO.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090e1a",
+  "theme_color": "#1b7cfc",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

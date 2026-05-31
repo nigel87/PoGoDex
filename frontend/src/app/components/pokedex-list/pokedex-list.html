@@ -221,7 +221,9 @@
               [src]="getCardSpriteUrl(p, selectedFormFilter())" 
               [alt]="p.name" 
               class="pokemon-sprite"
-              loading="lazy">
+              [loading]="visibleList().indexOf(base) < 12 ? 'eager' : 'lazy'"
+              [attr.fetchpriority]="visibleList().indexOf(base) < 6 ? 'high' : 'auto'"
+              decoding="async">
           </div>
 
           <!-- Pokemon Info -->
@@ -487,7 +489,8 @@
               <img 
                 [src]="getCardSpriteUrl(p, selectedFormFilter())" 
                 [alt]="p.name" 
-                class="drawer-pokemon-sprite">
+                class="drawer-pokemon-sprite"
+                decoding="async">
             </div>
 
             <!-- Regional forms inside the drawer (Solo se raggruppamento attivo e nessuna regione specifica selezionata) -->
