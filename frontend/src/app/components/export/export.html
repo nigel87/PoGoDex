@@ -101,6 +101,27 @@
             </button>
           </div>
         </div>
+
+        <!-- Leggendari & Ultracreature -->
+        <div class="control-group">
+          <label>{{ i18n.currentLang() === 'it' ? 'Leggendari & Ultracreature' : 'Legendaries & Ultra Beasts' }}</label>
+          <div class="toggle-group">
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="!includeLegendaries()"
+              (click)="includeLegendaries.set(false)">
+              {{ i18n.currentLang() === 'it' ? 'Escludi' : 'Exclude' }}
+            </button>
+            <button 
+              type="button" 
+              class="toggle-btn" 
+              [class.active]="includeLegendaries()"
+              (click)="includeLegendaries.set(true)">
+              {{ i18n.currentLang() === 'it' ? 'Includi' : 'Include' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Result String Display -->

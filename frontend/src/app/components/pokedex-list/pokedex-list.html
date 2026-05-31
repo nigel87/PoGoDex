@@ -190,8 +190,8 @@
         [class.state-unavailable]="getCardState(getActiveForm(base), selectedFormFilter()) === 2"
         [class.state-missing]="getCardState(getActiveForm(base), selectedFormFilter()) === 3"
         [class.state-caught]="getCardState(getActiveForm(base), selectedFormFilter()) === 4"
-        (click)="settingsService.layout() === 'compact' ? openBottomSheet(base) : onCardClick(getActiveForm(base))"
-        [style.cursor]="settingsService.layout() === 'compact' || (selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3) ? 'pointer' : 'default'">
+        (click)="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') ? openBottomSheet(base) : onCardClick(getActiveForm(base))"
+        [style.cursor]="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') || (selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3) ? 'pointer' : 'default'">
         
         <ng-container *ngIf="getActiveForm(base) as p">
           <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
@@ -232,8 +232,8 @@
               <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
             </div>
             
-            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo e ci sono varianti) -->
-            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && getRegionalForms(base).length > 0">
+            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata e ci sono varianti) -->
+            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0">
               <button 
                 type="button" 
                 class="region-pill-btn" 
@@ -482,8 +482,8 @@
                 class="drawer-pokemon-sprite">
             </div>
 
-            <!-- Regional forms inside the drawer -->
-            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && getRegionalForms(bp).length > 0">
+            <!-- Regional forms inside the drawer (Solo se raggruppamento attivo e nessuna regione specifica selezionata) -->
+            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0">
               <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Varianti Regionali:' : 'Regional Forms:' }}</span>
               <div class="drawer-region-pills">
                 <button 

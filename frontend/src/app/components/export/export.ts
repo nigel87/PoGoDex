@@ -491,6 +491,30 @@ const EVOLVES_FROM: Record<string, string> = {
   'Baxcalibur': 'Arctibax'
 };
 
+const MYTHICAL_POKEMON = new Set([
+  'Mew', 'Celebi', 'Jirachi', 'Deoxys', 'Phione', 'Manaphy', 'Darkrai', 'Shaymin', 'Arceus',
+  'Victini', 'Meloetta', 'Genesect', 'Keldeo', 'Diancie', 'Hoopa', 'Volcanion', 'Magearna',
+  'Marshadow', 'Zeraora', 'Meltan', 'Melmetal', 'Zarude', 'Pecharunt'
+]);
+
+const LEGENDARY_POKEMON = new Set([
+  'Articuno', 'Zapdos', 'Moltres', 'Mewtwo', 'Raikou', 'Entei', 'Suicune', 'Lugia', 'Ho-Oh',
+  'Regirock', 'Regice', 'Registeel', 'Latias', 'Latios', 'Kyogre', 'Groudon', 'Rayquaza',
+  'Uxie', 'Mesprit', 'Azelf', 'Dialga', 'Palkia', 'Heatran', 'Regigigas', 'Giratina', 'Cresselia',
+  'Cobalion', 'Terrakion', 'Virizion', 'Tornadus', 'Thundurus', 'Reshiram', 'Zekrom', 'Landorus',
+  'Kyurem', 'Xerneas', 'Yveltal', 'Zygarde', 'Type: Null', 'Silvally', 'Tapu Koko', 'Tapu Lele',
+  'Tapu Bulu', 'Tapu Fini', 'Cosmog', 'Cosmoem', 'Solgaleo', 'Lunala', 'Necrozma', 'Zacian',
+  'Zamazenta', 'Eternatus', 'Kubfu', 'Urshifu', 'Regieleki', 'Regidrago', 'Glastrier', 'Spectrier',
+  'Calyrex', 'Enamorus', 'Wo-Chien', 'Chien-Pao', 'Ting-Lu', 'Chi-Yu', 'Koraidon', 'Miraidon',
+  'Okidogi', 'Munkidori', 'Fezandipiti', 'Ogerpon', 'Gouging Fire', 'Raging Bolt', 'Iron Boulder',
+  'Iron Crown', 'Terapagos'
+]);
+
+const ULTRA_BEASTS = new Set([
+  'Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord',
+  'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon'
+]);
+
 @Component({
   selector: 'app-export',
   standalone: true,
@@ -519,6 +543,7 @@ export class ExportComponent implements OnInit, OnDestroy {
   selectedMode = signal<string>('list'); // 'list' o 'negation'
   selectedFormat = signal<string>('number'); // 'number' o 'name'
   searchString = signal<string>('');
+  includeLegendaries = signal<boolean>(false);
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
   showCopyToast = signal<boolean>(false);
@@ -550,6 +575,7 @@ export class ExportComponent implements OnInit, OnDestroy {
       this.selectedMode();
       this.selectedFormat();
       this.settingsService.simplifyExport();
+      this.includeLegendaries();
       
       this.generateString();
     });
@@ -780,10 +806,30 @@ export class ExportComponent implements OnInit, OnDestroy {
     return ancestors;
   }
 
+  isMythical(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return MYTHICAL_POKEMON.has(baseName);
+  }
+
+  isLegendaryOrUltraBeast(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return LEGENDARY_POKEMON.has(baseName) || ULTRA_BEASTS.has(baseName);
+  }
+
   // Verifica se un Pokemon specifico manca nella categoria selezionata
   isMissingForCategory(p: PokedexDTO, category: string): boolean {
     if (!this.isReleased(p.name)) {
       return false; // Se non rilasciato non è da esportare
+    }
+
+    // 1) Esclude i misteriosi in quanto non scambiabili
+    if (this.isMythical(p.name)) {
+      return false;
+    }
+
+    // 2) Esclude leggendari e ultracreature se disattivato
+    if (!this.includeLegendaries() && this.isLegendaryOrUltraBeast(p.name)) {
+      return false;
     }
 
     switch (category) {
