@@ -43,7 +43,8 @@ async function initializeTables(database: Database) {
       name TEXT UNIQUE NOT NULL,
       email TEXT,
       googleId TEXT,
-      avatarUrl TEXT
+      avatarUrl TEXT,
+      lastUpdated INTEGER DEFAULT 0
     );
   `);
 
@@ -63,6 +64,9 @@ async function initializeTables(database: Database) {
   `);
 
   // Esegue migrazioni safe per database preesistenti
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN lastUpdated INTEGER DEFAULT 0;');
+  } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId INTEGER DEFAULT NULL;');
   } catch (_) {}

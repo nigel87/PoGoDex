@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { 
   SHADOW_CAPABLE_SPECIES, 
   MEGA_CAPABLE_SPECIES, 
@@ -53,7 +53,51 @@ export class PokedexService {
     ? `http://${window.location.hostname}:8085/api/pokedex`
     : '/api/pokedex';
 
-  constructor(private http: HttpClient) {}
+  // Buffer queue and debounce timers for Pokedex updates
+  private updateQueue = new Map<number, PokedexDTO>();
+  private debounceTimer: any = null;
+  private activeUserId: number | null = null;
+
+  constructor(private http: HttpClient) {
+    // Flush any pending queue items immediately if the browser tab is closed/refreshed
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        if (this.updateQueue.size > 0 && this.activeUserId !== null) {
+          console.log('[PokedexService] Chiusura della pagina rilevata. Salvataggio immediato delle spunte pendenti...');
+          this.flushQueue(this.activeUserId);
+        }
+      });
+    }
+  }
+
+  /**
+   * Invia tutte le modifiche accumulate in blocco al server in una singola transazione SQLite e svuota la coda.
+   */
+  flushQueue(userId: number) {
+    if (this.updateQueue.size === 0) return;
+
+    const updates = Array.from(this.updateQueue.values());
+    this.updateQueue.clear();
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+
+    const batchUrl = this.apiUrl.endsWith('/pokedex')
+      ? this.apiUrl.replace('/pokedex', '/pokedex/batch')
+      : `${this.apiUrl}/batch`;
+
+    console.log(`[PokedexService] Invio batch di ${updates.length} modifiche al database...`);
+    this.http.post<any>(batchUrl, { userId, updates }).subscribe({
+      next: (res) => {
+        console.log(`[PokedexService] Batch di ${updates.length} modifiche salvato con successo sul database!`);
+      },
+      error: (err) => {
+        console.error('[PokedexService] Errore nel salvataggio in batch delle modifiche:', err);
+      }
+    });
+  }
 
   /**
    * Recupera la lista di tutti i Pokémon con il relativo stato di cattura di un determinato utente.
@@ -65,12 +109,25 @@ export class PokedexService {
   }
 
   /**
-   * Aggiorna lo stato di cattura di un determinato Pokémon e utente.
+   * Accoda la modifica per il Pokémon e l'utente correnti, attivando il debounce a 1.5s.
+   * Ritorna immediatamente un Observable ottimistico con il DTO modificato.
    */
   updateEntry(userId: number, pokemonId: number, dto: PokedexDTO): Observable<PokedexDTO> {
-    return this.http.put<PokedexDTO>(`${this.apiUrl}/${pokemonId}`, dto, {
-      params: { userId: userId.toString() }
-    });
+    this.activeUserId = userId;
+
+    // Accoda o sovrascrive la modifica con il DTO più recente
+    this.updateQueue.set(pokemonId, dto);
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
+    this.debounceTimer = setTimeout(() => {
+      this.flushQueue(userId);
+    }, 1500);
+
+    // Ritorna un observable ottimistico istantaneo per aggiornare la UI a latenza zero
+    return of(dto);
   }
 
   /**

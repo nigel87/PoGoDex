@@ -55,6 +55,16 @@ async function startServer() {
     console.log('Esecuzione seeding...');
     await runSeeder(db);
 
+    // Helper per aggiornare il timestamp lastUpdated per il Pokédex di un utente
+    async function touchUserLastUpdated(userId: number) {
+      try {
+        const timestamp = Date.now();
+        await db.run('UPDATE users SET lastUpdated = ? WHERE id = ?', timestamp, userId);
+      } catch (err) {
+        log('ERROR', `Errore nell'aggiornamento lastUpdated per utente ${userId}`, err);
+      }
+    }
+
     // Auto-cleanup di profili fantasma generati da navigazioni crawler su rotte riservate
     try {
       const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api'];
@@ -149,9 +159,27 @@ async function startServer() {
         return res.status(400).json({ error: 'userId è richiesto' });
       }
 
+      const parsedUserId = parseInt(userId as string, 10);
+
       try {
+        // Query preventiva del timestamp lastUpdated dell'utente
+        const userRow = await db.get<{ lastUpdated: number }>('SELECT lastUpdated FROM users WHERE id = ?', parsedUserId);
+        const lastUpdated = userRow?.lastUpdated || 0;
+
+        // Genera l'ETag dinamico per il Pokédex di questo utente
+        const etag = `W/"user_${parsedUserId}_${lastUpdated}"`;
+
+        // Verifica se l'ETag corrisponde a quello del client
+        const clientEtag = req.headers['if-none-match'];
+        if (clientEtag === etag) {
+          return res.status(304).end();
+        }
+
+        // Impostiamo l'header ETag per consentire il caching del browser
+        res.setHeader('ETag', etag);
+
         const pokemons = await db.all('SELECT * FROM pokemons ORDER BY id ASC');
-        const entries = await db.all('SELECT * FROM pokedex_entries WHERE userId = ?', userId);
+        const entries = await db.all('SELECT * FROM pokedex_entries WHERE userId = ?', parsedUserId);
         
         // Mappa delle spunte di cattura (chiave pokemonId)
         const entriesMap = new Map<number, any>();
@@ -228,6 +256,9 @@ async function startServer() {
           dto.mega || 0,
           dto.gigamax ? 1 : 0
         );
+
+        // Aggiorna il timestamp lastUpdated per questo utente
+        await touchUserLastUpdated(parseInt(userId as string, 10));
 
         const updatedDto: PokedexDTO = {
           id: pokemon.id,
@@ -423,11 +454,68 @@ async function startServer() {
         }
 
         await db.run('COMMIT');
+        
+        // Aggiorna il timestamp lastUpdated per questo utente
+        await touchUserLastUpdated(parseInt(userId as string, 10));
+
         log('INFO', `Bulk import completato`, { userId, category, count: validIds.length, skipped });
         res.json({ success: true, count: validIds.length, skipped });
       } catch (err) {
         try { await db.run('ROLLBACK'); } catch (_) {}
         log('ERROR', 'Errore nell\'importazione massiva', { err: String(err), userId, category });
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 6. POST /api/pokedex/batch - Salvataggio massivo e transazionale delle spunte
+    // =================================================================
+    app.post('/api/pokedex/batch', async (req, res) => {
+      const { userId, updates } = req.body;
+      if (!userId || !Array.isArray(updates)) {
+        return res.status(400).json({ error: 'userId e updates sono richiesti e updates deve essere un array' });
+      }
+
+      if (updates.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+
+      const tStart = Date.now();
+      try {
+        await db.run('BEGIN TRANSACTION');
+
+        for (const dto of updates) {
+          await db.run(`
+            INSERT OR REPLACE INTO pokedex_entries 
+            (userId, pokemonId, regular, shadow, purified, perfect, lucky, xxs, xxl, shiny, mega, gigamax)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+          `,
+            userId,
+            dto.id,
+            dto.regular ? 1 : 0,
+            dto.shadow ? 1 : 0,
+            dto.purified ? 1 : 0,
+            dto.perfect ? 1 : 0,
+            dto.lucky ? 1 : 0,
+            dto.xxs ? 1 : 0,
+            dto.xxl ? 1 : 0,
+            dto.shiny ? 1 : 0,
+            dto.mega || 0,
+            dto.gigamax ? 1 : 0
+          );
+        }
+
+        await db.run('COMMIT');
+        
+        // Aggiorna il timestamp lastUpdated per questo utente
+        await touchUserLastUpdated(parseInt(userId as string, 10));
+
+        const elapsed = Date.now() - tStart;
+        log('INFO', `Transazione batch completata con successo in ${elapsed}ms`, { userId, count: updates.length });
+        res.json({ success: true, count: updates.length });
+      } catch (err) {
+        try { await db.run('ROLLBACK'); } catch (_) {}
+        log('ERROR', 'Errore durante la transazione batch', { err: String(err), userId });
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
