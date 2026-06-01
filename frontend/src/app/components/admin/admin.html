@@ -96,7 +96,7 @@
               <td class="col-sprite">
                 <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
               </td>
-              <td class="col-name font-bold">{{ p.name }}</td>
+              <td class="col-name font-bold">{{ getPokemonAdminName(p) }}</td>
               <td class="col-types">
                 <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
                 <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>

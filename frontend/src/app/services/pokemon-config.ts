@@ -607,9 +607,8 @@ export const UNRELEASED_SPECIES = [
   'Ting Lu',
   'Type: Null',
   'Veluza',
-  'Vivillon (Fancy)',
-  'Vivillon (Pokeball)',
   'Vivillon (Modern)',
+  'Vivillon (Pokeball)',
   'Walking Wake',
   'Wishiwashi',
   'Wo Chien'
@@ -769,7 +768,6 @@ export const SHINY_UNRELEASED_SPECIES = [
   'Varoom',
   'Veluza',
   'Victini',
-  'Vivillon (Fancy)',
   'Vivillon (Pokeball)',
   'Volcanion',
   'Walking Wake',

@@ -731,7 +731,6 @@
           <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(bp.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(bp.name) ? 0.4 : 1">
             <!-- Regular -->
             <button 
-              *ngIf="showButtonForPokemon(bp, 'regular')"
               type="button" 
               class="action-btn regular-btn" 
               [class.active]="bp.regular"
@@ -741,7 +740,7 @@
             </button>
             <!-- Shiny -->
             <button 
-              *ngIf="!isShinyUnreleased(bp.name) && showButtonForPokemon(bp, 'shiny')"
+              *ngIf="!isShinyUnreleased(bp.name)"
               type="button" 
               class="action-btn shiny-btn" 
               [class.active]="bp.shiny"
@@ -751,7 +750,6 @@
             </button>
             <!-- Perfect -->
             <button 
-              *ngIf="showButtonForPokemon(bp, 'perfect')"
               type="button" 
               class="action-btn perfect-btn" 
               [class.active]="bp.perfect"
@@ -771,7 +769,6 @@
           <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(alt.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(alt.name) ? 0.4 : 1">
             <!-- Regular -->
             <button 
-              *ngIf="showButtonForPokemon(alt, 'regular')"
               type="button" 
               class="action-btn regular-btn" 
               [class.active]="alt.regular"
@@ -781,7 +778,7 @@
             </button>
             <!-- Shiny -->
             <button 
-              *ngIf="!isShinyUnreleased(alt.name) && showButtonForPokemon(alt, 'shiny')"
+              *ngIf="!isShinyUnreleased(alt.name)"
               type="button" 
               class="action-btn shiny-btn" 
               [class.active]="alt.shiny"
@@ -791,7 +788,6 @@
             </button>
             <!-- Perfect -->
             <button 
-              *ngIf="showButtonForPokemon(alt, 'perfect')"
               type="button" 
               class="action-btn perfect-btn" 
               [class.active]="alt.perfect"

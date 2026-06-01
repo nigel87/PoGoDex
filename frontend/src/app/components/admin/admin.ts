@@ -208,6 +208,46 @@ export class AdminComponent implements OnInit {
     return '#' + baseId.toString().padStart(3, '0');
   }
 
+  getPokemonAdminName(p: any): string {
+    let displayName = p.name;
+    const isIt = this.i18n.currentLang() === 'it';
+    if (isIt && displayName.startsWith('Vivillon')) {
+      const match = displayName.match(/\(([^)]+)\)/);
+      if (match) {
+        const formName = match[1];
+        const itMap: { [key: string]: string } = {
+          'Meadow': 'Giardinfiore',
+          'Archipelago': 'Arcipelago',
+          'Continental': 'Continentale',
+          'Elegant': 'Eleganza',
+          'Garden': 'Prato',
+          'High Plains': 'Sabbia',
+          'Icy Snow': 'Manto di Neve',
+          'Jungle': 'Giungla',
+          'Marine': 'Marino',
+          'Modern': 'Moderno',
+          'Monsoon': 'Pluviale',
+          'Ocean': 'Oceanico',
+          'Polar': 'Nordico',
+          'River': 'Fluviale',
+          'Sandstorm': 'Deserto',
+          'Savanna': 'Savana',
+          'Sun': 'Solare',
+          'Tundra': 'Nevi Perenni',
+          'Fancy': 'Trendy',
+          'Pokeball': 'Pokeball'
+        };
+        const translatedForm = itMap[formName];
+        if (translatedForm) {
+          return `Vivillon (Motivo ${translatedForm})`;
+        }
+      } else if (displayName === 'Vivillon') {
+        return 'Vivillon (Motivo Giardinfiore)';
+      }
+    }
+    return displayName;
+  }
+
   syncShinies() {
     if (this.isSyncing()) return;
 
