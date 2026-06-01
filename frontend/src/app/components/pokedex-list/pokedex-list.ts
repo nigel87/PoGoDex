@@ -296,61 +296,10 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getPokemonCardName(p: any): string {
-    let displayName = p.name;
+    let displayName = p.name.split(' (')[0];
     if (p.megaFormOverride) {
-      displayName = p.name + ' (Mega ' + p.megaFormOverride.toUpperCase() + ')';
+      displayName += ' (Mega ' + p.megaFormOverride.toUpperCase() + ')';
     }
-
-    const isIt = this.i18n.currentLang() === 'it';
-    if (isIt) {
-      // Se il Pokémon è Vivillon, traduciamo le sue forme
-      if (displayName.startsWith('Vivillon')) {
-        const match = displayName.match(/\(([^)]+)\)/);
-        if (match) {
-          const formName = match[1];
-          const itMap: { [key: string]: string } = {
-            'Archipelago': 'Motivo Arcipelago',
-            'Continental': 'Motivo Continentale',
-            'Elegant': 'Motivo Eleganza',
-            'Garden': 'Motivo Prato',
-            'High Plains': 'Motivo Sabbia',
-            'Icy Snow': 'Motivo Manto di Neve',
-            'Jungle': 'Motivo Giungla',
-            'Marine': 'Motivo Marino',
-            'Modern': 'Motivo Moderno',
-            'Monsoon': 'Motivo Pluviale',
-            'Ocean': 'Motivo Oceanico',
-            'Polar': 'Motivo Nordico',
-            'River': 'Motivo Fluviale',
-            'Sandstorm': 'Motivo Deserto',
-            'Savanna': 'Motivo Savana',
-            'Sun': 'Motivo Solare',
-            'Tundra': 'Motivo Nevi Perenni',
-            'Fancy': 'Motivo Trendy',
-            'Pokeball': 'Motivo Pokeball'
-          };
-          const translatedForm = itMap[formName];
-          if (translatedForm) {
-            return `Vivillon (${translatedForm})`;
-          }
-        } else if (displayName === 'Vivillon') {
-          // La forma base è Meadow (Giardinfiore)
-          return 'Vivillon (Motivo Giardinfiore)';
-        }
-      }
-    } else {
-      // English: se è il base Vivillon, specifichiamo Meadow Pattern
-      if (displayName === 'Vivillon') {
-        return 'Vivillon (Meadow Pattern)';
-      } else if (displayName.startsWith('Vivillon')) {
-        const match = displayName.match(/\(([^)]+)\)/);
-        if (match) {
-          const formName = match[1];
-          return `Vivillon (${formName} Pattern)`;
-        }
-      }
-    }
-
     return displayName;
   }
 

@@ -232,6 +232,7 @@
               </span>
             </div>
             <div class="size-badges">
+              <span class="size-badge form-badge" *ngIf="getFormRegion(p) !== 'Base'">{{ getFormRegion(p) }}</span>
               <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">{{ 'pokedex.unreleased' | translate }}</span>
             </div>
           </div>
@@ -496,11 +497,12 @@
 
           <!-- Header: ID, Name, Crown, Types -->
           <div class="drawer-header">
-            <div class="drawer-header-left">
+            <div class="drawer-header-left" style="display: flex; align-items: center; gap: 0.5rem;">
               <span class="drawer-pokemon-id">{{ formatId(p) }}</span>
               <span class="drawer-completion-crown" [class.premium]="isModalFormSpecies(bp.name)" *ngIf="isSpeciesCompleted(bp)" [title]="(isModalFormSpecies(bp.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
                 {{ isModalFormSpecies(bp.name) ? '💎' : '👑' }}
               </span>
+              <span class="size-badge form-badge" *ngIf="getFormRegion(p) !== 'Base'">{{ getFormRegion(p) }}</span>
             </div>
             <h2 class="drawer-pokemon-name">{{ getPokemonCardName(p) }}</h2>
             <div class="drawer-types-row">

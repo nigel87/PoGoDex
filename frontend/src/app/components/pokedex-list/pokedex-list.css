@@ -677,6 +677,10 @@
 
 .size-badge.xxs { background: #3a86c8; }
 .size-badge.xxl { background: #f77f00; }
+.size-badge.form-badge {
+  background: var(--pogo-blue);
+  box-shadow: 0 0 8px rgba(0, 162, 232, 0.2);
+}
 
 /* Image Container */
 .image-container {
