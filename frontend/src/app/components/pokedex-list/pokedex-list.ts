@@ -859,6 +859,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     const list = this.pokemonList();
     const regionals = this.settingsService.groupRegionals() ? this.getRegionalForms(basePokemon) : [];
     const allForms = [basePokemon, ...regionals];
+    const isModalForm = this.isModalFormSpecies(basePokemon.name);
 
     for (const p of allForms) {
       // Se il Pokémon non è rilasciato e l'impostazione includeUnreleased è falsa, lo ignoriamo nei progressi completamento
@@ -872,38 +873,47 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       const checkShiny = this.showButtonForPokemon(p, 'shiny');
       if (checkShiny && !p.shiny) return false;
 
-      const checkShadow = this.showButtonForPokemon(p, 'shadow');
-      if (checkShadow && this.canShadow(p.name) && !p.shadow) return false;
-
-      const checkPurified = this.showButtonForPokemon(p, 'purified');
-      if (checkPurified && this.canShadow(p.name) && !p.purified) return false;
-
       const checkPerfect = this.showButtonForPokemon(p, 'perfect');
       if (checkPerfect && !p.perfect) return false;
 
-      const checkLucky = this.showButtonForPokemon(p, 'lucky');
-      if (checkLucky && !p.lucky) return false;
+      // Per i Pokémon a modale (Vivillon, Furfrou, ecc.), i bottoni speciali (lucky, taglie, shadow) 
+      // si tracciano solo sulla card generale/base (p.id < 10000), le altre varianti nel modale richiedono solo reg/shiny/100!
+      const isAltOfModalForm = isModalForm && p.id >= 10000;
 
-      const checkXxl = this.showButtonForPokemon(p, 'xxl');
-      if (checkXxl && !p.xxl) return false;
+      if (!isAltOfModalForm) {
+        const checkShadow = this.showButtonForPokemon(p, 'shadow');
+        if (checkShadow && this.canShadow(p.name) && !p.shadow) return false;
 
-      const checkXxs = this.showButtonForPokemon(p, 'xxs');
-      if (checkXxs && !p.xxs) return false;
+        const checkPurified = this.showButtonForPokemon(p, 'purified');
+        if (checkPurified && this.canShadow(p.name) && !p.purified) return false;
 
-      if (this.canMega(p.name)) {
-        const checkMega = this.showButtonForPokemon(p, 'mega');
-        if (checkMega) {
-          if (this.hasTwoMegas(p.name)) {
-            if (p.mega !== 3) return false;
-          } else {
-            if (!p.mega) return false;
-          }
-        }
+        const checkLucky = this.showButtonForPokemon(p, 'lucky');
+        if (checkLucky && !p.lucky) return false;
+
+        const checkXxl = this.showButtonForPokemon(p, 'xxl');
+        if (checkXxl && !p.xxl) return false;
+
+        const checkXxs = this.showButtonForPokemon(p, 'xxs');
+        if (checkXxs && !p.xxs) return false;
       }
 
-      if (this.canGigamax(p.name)) {
-        const checkGiga = this.showButtonForPokemon(p, 'gigamax');
-        if (checkGiga && !p.gigamax) return false;
+      // Per le mega e gigamax, verifichiamo solo per la specie base
+      if (p.id < 10000) {
+        if (this.canMega(p.name)) {
+          const checkMega = this.showButtonForPokemon(p, 'mega');
+          if (checkMega) {
+            if (this.hasTwoMegas(p.name)) {
+              if (p.mega !== 3) return false;
+            } else {
+              if (!p.mega) return false;
+            }
+          }
+        }
+
+        if (this.canGigamax(p.name)) {
+          const checkGiga = this.showButtonForPokemon(p, 'gigamax');
+          if (checkGiga && !p.gigamax) return false;
+        }
       }
     }
 
@@ -1224,6 +1234,11 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
         this.pokemonList.update(list =>
           list.map(p => p.id === pokemon.id ? res : p)
         );
+        // Forza l'aggiornamento del Pokémon attivo nel modale per sincronizzare lo stato in tempo reale
+        const activeModal = this.activeModalPokemon();
+        if (activeModal && activeModal.id === pokemon.id) {
+          this.activeModalPokemon.set(res);
+        }
       },
       error: (err) => {
         console.error('Errore nell\'aggiornamento dello stato di cattura:', err);

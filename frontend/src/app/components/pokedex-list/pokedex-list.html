@@ -227,7 +227,9 @@
           <div class="card-header">
             <div class="card-header-left" style="display: flex; align-items: center; gap: 0.35rem;">
               <span class="pokemon-id">{{ formatId(p) }}</span>
-              <span class="completion-crown" *ngIf="isSpeciesCompleted(base)" [title]="'pokedex.crown_title' | translate">👑</span>
+              <span class="completion-crown" [class.premium]="isModalFormSpecies(base.name)" *ngIf="isSpeciesCompleted(base)" [title]="(isModalFormSpecies(base.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
+                {{ isModalFormSpecies(base.name) ? '💎' : '👑' }}
+              </span>
             </div>
             <div class="size-badges">
               <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">{{ 'pokedex.unreleased' | translate }}</span>
@@ -496,7 +498,9 @@
           <div class="drawer-header">
             <div class="drawer-header-left">
               <span class="drawer-pokemon-id">{{ formatId(p) }}</span>
-              <span class="drawer-completion-crown" *ngIf="isSpeciesCompleted(bp)" [title]="'pokedex.crown_title' | translate">👑</span>
+              <span class="drawer-completion-crown" [class.premium]="isModalFormSpecies(bp.name)" *ngIf="isSpeciesCompleted(bp)" [title]="(isModalFormSpecies(bp.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
+                {{ isModalFormSpecies(bp.name) ? '💎' : '👑' }}
+              </span>
             </div>
             <h2 class="drawer-pokemon-name">{{ getPokemonCardName(p) }}</h2>
             <div class="drawer-types-row">
@@ -751,54 +755,6 @@
               [title]="'pokedex.btn.perfect.title' | translate">
               100
             </button>
-            <!-- Lucky -->
-            <button 
-              *ngIf="showButtonForPokemon(bp, 'lucky')"
-              type="button" 
-              class="action-btn lucky-btn" 
-              [class.active]="bp.lucky"
-              (click)="toggleForm(bp, 'lucky')"
-              [title]="'pokedex.btn.lucky.title' | translate">
-              Lck
-            </button>
-            <!-- XXL -->
-            <button 
-              *ngIf="showButtonForPokemon(bp, 'xxl')"
-              type="button" 
-              class="action-btn xxl-btn" 
-              [class.active]="bp.xxl"
-              (click)="toggleForm(bp, 'xxl')"
-              [title]="'pokedex.btn.xxl.title' | translate">
-              XXL
-            </button>
-            <!-- XXS -->
-            <button 
-              *ngIf="showButtonForPokemon(bp, 'xxs')"
-              type="button" 
-              class="action-btn xxs-btn" 
-              [class.active]="bp.xxs"
-              (click)="toggleForm(bp, 'xxs')"
-              [title]="'pokedex.btn.xxs.title' | translate">
-              XXS
-            </button>
-            <!-- Shadow -->
-            <button 
-              *ngIf="canShadow(bp.name) && showButtonForPokemon(bp, 'shadow')"
-              type="button" 
-              class="action-btn shadow-btn" 
-              [class.active]="bp.shadow"
-              (click)="toggleForm(bp, 'shadow')">
-              Sha
-            </button>
-            <!-- Purified -->
-            <button 
-              *ngIf="canShadow(bp.name) && showButtonForPokemon(bp, 'purified')"
-              type="button" 
-              class="action-btn purified-btn" 
-              [class.active]="bp.purified"
-              (click)="toggleForm(bp, 'purified')">
-              Pur
-            </button>
           </div>
         </div>
         
@@ -838,54 +794,6 @@
               (click)="toggleForm(alt, 'perfect')"
               [title]="'pokedex.btn.perfect.title' | translate">
               100
-            </button>
-            <!-- Lucky -->
-            <button 
-              *ngIf="showButtonForPokemon(alt, 'lucky')"
-              type="button" 
-              class="action-btn lucky-btn" 
-              [class.active]="alt.lucky"
-              (click)="toggleForm(alt, 'lucky')"
-              [title]="'pokedex.btn.lucky.title' | translate">
-              Lck
-            </button>
-            <!-- XXL -->
-            <button 
-              *ngIf="showButtonForPokemon(alt, 'xxl')"
-              type="button" 
-              class="action-btn xxl-btn" 
-              [class.active]="alt.xxl"
-              (click)="toggleForm(alt, 'xxl')"
-              [title]="'pokedex.btn.xxl.title' | translate">
-              XXL
-            </button>
-            <!-- XXS -->
-            <button 
-              *ngIf="showButtonForPokemon(alt, 'xxs')"
-              type="button" 
-              class="action-btn xxs-btn" 
-              [class.active]="alt.xxs"
-              (click)="toggleForm(alt, 'xxs')"
-              [title]="'pokedex.btn.xxs.title' | translate">
-              XXS
-            </button>
-            <!-- Shadow -->
-            <button 
-              *ngIf="canShadow(alt.name) && showButtonForPokemon(alt, 'shadow')"
-              type="button" 
-              class="action-btn shadow-btn" 
-              [class.active]="alt.shadow"
-              (click)="toggleForm(alt, 'shadow')">
-              Sha
-            </button>
-            <!-- Purified -->
-            <button 
-              *ngIf="canShadow(alt.name) && showButtonForPokemon(alt, 'purified')"
-              type="button" 
-              class="action-btn purified-btn" 
-              [class.active]="alt.purified"
-              (click)="toggleForm(alt, 'purified')">
-              Pur
             </button>
           </div>
         </div>

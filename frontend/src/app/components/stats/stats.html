@@ -120,7 +120,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().luckyCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().luckyCaught }} / {{ luckyCapableTotal() }}</p>
             <p class="label">{{ 'stats.lucky' | translate }}</p>
           </div>
         </div>
@@ -136,7 +136,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().xxlCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().xxlCaught }} / {{ xxlCapableTotal() }}</p>
             <p class="label">{{ 'stats.xxl' | translate }}</p>
           </div>
         </div>
@@ -152,7 +152,7 @@
             </div>
           </div>
           <div class="gauge-details">
-            <p class="captured-count">{{ stats().xxsCaught }} / {{ stats().total }}</p>
+            <p class="captured-count">{{ stats().xxsCaught }} / {{ xxsCapableTotal() }}</p>
             <p class="label">{{ 'stats.xxs' | translate }}</p>
           </div>
         </div>

@@ -1193,12 +1193,29 @@
   filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.4));
 }
 
+.completion-crown.premium, .drawer-completion-crown.premium {
+  text-shadow: 0 0 10px rgba(0, 245, 212, 0.8), 0 0 20px rgba(0, 245, 212, 0.4);
+  filter: drop-shadow(0 0 3px rgba(0, 245, 212, 0.6));
+  animation: premium-shimmer 2s infinite ease-in-out;
+}
+
 @keyframes crown-bounce {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
   }
   50% {
     transform: translateY(-3px) rotate(8deg);
+  }
+}
+
+@keyframes premium-shimmer {
+  0%, 100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 3px rgba(0, 245, 212, 0.6));
+  }
+  50% {
+    transform: translateY(-3px) scale(1.18) rotate(15deg);
+    filter: drop-shadow(0 0 8px rgba(0, 245, 212, 0.9));
   }
 }
 

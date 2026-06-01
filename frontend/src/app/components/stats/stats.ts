@@ -5,7 +5,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexStats, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
-import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 
@@ -121,6 +121,11 @@ export class StatsComponent implements OnInit, OnDestroy {
   // Espone stats per mantenere la retrocompatibilità del template HTML
   stats = computed(() => this.computedStats());
 
+  isModalFormSpecies(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return MODAL_FORMS_SPECIES.includes(baseName);
+  }
+
   // Totabili idonei dinamici
   shadowCapableTotal = computed(() => {
     return this.filteredPokemon().filter(p => this.canShadow(p.name)).length;
@@ -142,14 +147,35 @@ export class StatsComponent implements OnInit, OnDestroy {
     return this.filteredPokemon().filter(p => this.canGigamax(p.name)).length;
   });
 
+  luckyCapableTotal = computed(() => {
+    return this.filteredPokemon().filter(p => {
+      const isAltOfModal = this.isModalFormSpecies(p.name) && p.id >= 10000;
+      return !isAltOfModal && this.settingsService.isButtonVisible(p.name, p.id, 'lucky');
+    }).length;
+  });
+
+  xxlCapableTotal = computed(() => {
+    return this.filteredPokemon().filter(p => {
+      const isAltOfModal = this.isModalFormSpecies(p.name) && p.id >= 10000;
+      return !isAltOfModal && this.settingsService.isButtonVisible(p.name, p.id, 'xxl');
+    }).length;
+  });
+
+  xxsCapableTotal = computed(() => {
+    return this.filteredPokemon().filter(p => {
+      const isAltOfModal = this.isModalFormSpecies(p.name) && p.id >= 10000;
+      return !isAltOfModal && this.settingsService.isButtonVisible(p.name, p.id, 'xxs');
+    }).length;
+  });
+
   // Percentuali computate reattivamente basate su computedStats ed i corretti denominatori
   regularPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().regularCaught / this.computedStats().total) * 100) : 0);
   shadowPct = computed(() => this.shadowCapableTotal() > 0 ? Math.round((this.computedStats().shadowCaught / this.shadowCapableTotal()) * 100) : 0);
   purifiedPct = computed(() => this.shadowCapableTotal() > 0 ? Math.round((this.computedStats().purifiedCaught / this.shadowCapableTotal()) * 100) : 0);
   perfectPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().perfectCaught / this.computedStats().total) * 100) : 0);
-  luckyPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().luckyCaught / this.computedStats().total) * 100) : 0);
-  xxlPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().xxlCaught / this.computedStats().total) * 100) : 0);
-  xxsPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().xxsCaught / this.computedStats().total) * 100) : 0);
+  luckyPct = computed(() => this.luckyCapableTotal() > 0 ? Math.round((this.computedStats().luckyCaught / this.luckyCapableTotal()) * 100) : 0);
+  xxlPct = computed(() => this.xxlCapableTotal() > 0 ? Math.round((this.computedStats().xxlCaught / this.xxlCapableTotal()) * 100) : 0);
+  xxsPct = computed(() => this.xxsCapableTotal() > 0 ? Math.round((this.computedStats().xxsCaught / this.xxsCapableTotal()) * 100) : 0);
   shinyPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().shinyCaught / this.computedStats().total) * 100) : 0);
   megaPct = computed(() => this.megaCapableTotal() > 0 ? Math.round((this.computedStats().megaCaught / this.megaCapableTotal()) * 100) : 0);
   gigamaxPct = computed(() => this.gigamaxCapableTotal() > 0 ? Math.round((this.computedStats().gigamaxCaught / this.gigamaxCapableTotal()) * 100) : 0);

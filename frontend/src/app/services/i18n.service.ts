@@ -39,6 +39,7 @@ export class I18nService {
       'pokedex.modal.create': 'Crea Profilo',
       'pokedex.unreleased': '🔒 Non Rilasciato',
       'pokedex.crown_title': 'Specie Completata al 100% (Tutte le spunte attive)',
+      'pokedex.premium_title': 'Collezione Forme Completata al 100% (Estremamente Raro!)',
       'pokedex.add_player': 'Aggiungi Giocatore',
       'pokedex.select_player': 'Cambia Giocatore',
 
@@ -234,6 +235,7 @@ export class I18nService {
       'pokedex.modal.create': 'Create Profile',
       'pokedex.unreleased': '🔒 Unreleased',
       'pokedex.crown_title': 'Species Completed 100% (All checkboxes active)',
+      'pokedex.premium_title': '100% Complete Form Collection (Extremely Rare!)',
       'pokedex.add_player': 'Add Player',
       'pokedex.select_player': 'Switch Player',
 
