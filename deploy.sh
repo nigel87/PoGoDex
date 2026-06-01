@@ -8,17 +8,61 @@
 # using rsync.
 # ==============================================================================
 
-# Destination server configuration (Adjust these variables as needed)
-DEST_USER="nigel"
-DEST_HOST="raspberrypi"
-DEST_PATH="/home/nigel/PoGODex/"
-
 # ANSI styling colors
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Load environment variables from .env file if it exists at root
+ENV_FILE=".env"
+if [ -f "$ENV_FILE" ]; then
+    # Parse out comments and blank lines, then export them
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
+
+# Retrieve from environment or .env file (NO personal hardcoded defaults in Git!)
+DEST_USER="${POGODEX_DEPLOY_USER}"
+DEST_HOST="${POGODEX_DEPLOY_HOST}"
+DEST_PATH="${POGODEX_DEPLOY_PATH}"
+SSH_KEY_PATH="${POGODEX_DEPLOY_KEY:-}"
+
+# Check for required variables
+MISSING_VARS=()
+if [ -z "$DEST_USER" ]; then MISSING_VARS+=("POGODEX_DEPLOY_USER"); fi
+if [ -z "$DEST_HOST" ]; then MISSING_VARS+=("POGODEX_DEPLOY_HOST"); fi
+if [ -z "$DEST_PATH" ]; then MISSING_VARS+=("POGODEX_DEPLOY_PATH"); fi
+
+if [ ${#MISSING_VARS[@]} -ne 0 ]; then
+    echo -e "${RED}❌ ERRORE: Mancano le seguenti variabili di configurazione obbligatorie per il deploy:${NC}"
+    for var in "${MISSING_VARS[@]}"; do
+        echo -e "  - ${YELLOW}$var${NC}"
+    done
+    echo -e "\nPuoi configurarle in due modi:"
+    echo -e "  1. Crea un file ${GREEN}.env${NC} alla radice del progetto copiando ${GREEN}.env.example${NC} e inserendo i tuoi dati."
+    echo -e "  2. Esporta le variabili direttamente nella tua shell prima di eseguire lo script (es: export POGODEX_DEPLOY_HOST=...)"
+    echo -e "\nAbortisco il deploy."
+    exit 1
+fi
+
+# Configure SSH target options (supports custom SSH keys)
+SSH_KEY_ARG=""
+RSYNC_SSH_ARG=""
+if [ ! -z "$SSH_KEY_PATH" ]; then
+    SSH_KEY_ARG="-i $SSH_KEY_PATH"
+    RSYNC_SSH_ARG="-e \"ssh -i $SSH_KEY_PATH\""
+    echo -e "${YELLOW}Using custom SSH key: $SSH_KEY_PATH${NC}"
+fi
+
+# Define SSH multiplex socket path (Connection Sharing)
+SSH_SOCKET="/tmp/pogodex_ssh_mux_${DEST_HOST}_${DEST_USER}"
+
+# Ensure cleanup of the master multiplex socket at script exit
+cleanup_mux() {
+    ssh -O exit -o ControlPath="$SSH_SOCKET" "${DEST_USER}"@"${DEST_HOST}" 2>/dev/null
+}
+trap cleanup_mux EXIT INT TERM
 
 echo -e "${BLUE}================================================================${NC}"
 echo -e "${BLUE}             PoGODex Remote Project Synchronization             ${NC}"
@@ -106,33 +150,51 @@ else
 fi
 cd ..
 
-# 2. Ensure the remote destination directory exists
-echo -e "\n${YELLOW}[2/3] Preparing remote directory structure...${NC}"
-if ssh "${DEST_USER}"@"${DEST_HOST}" "mkdir -p ${DEST_PATH}"; then
+# 2. Ensure the remote destination directory exists & establish Master connection
+echo -e "\n${YELLOW}[2/3] Preparing remote directory structure (Establishing Master SSH connection)...${NC}"
+if ssh -o ControlMaster=auto -o ControlPath="$SSH_SOCKET" -o ControlPersist=5m $SSH_KEY_ARG "${DEST_USER}"@"${DEST_HOST}" "mkdir -p ${DEST_PATH}"; then
     echo -e "${GREEN}✓ Remote directory created or verified.${NC}"
 else
     echo -e "${RED}✗ Failed to connect or create remote directory. Verify SSH connection.${NC}"
     exit 1
 fi
 
-# 3. Synchronize files using rsync, excluding node_modules, logs, and database
-echo -e "\n${YELLOW}[3/3] Synchronizing source files via rsync...${NC}"
-rsync -avz --delete \
-  --exclude 'node_modules/' \
-  --exclude '.git/' \
-  --exclude '.DS_Store' \
-  --exclude 'backend/dist/' \
-  --exclude 'backend/data/' \
-  --exclude 'backend/backend.log' \
-  --exclude 'frontend/frontend.log' \
-  ./ "${DEST_USER}"@"${DEST_HOST}":"${DEST_PATH}"
+# 3. Synchronize files using rsync, reusing the Master SSH multiplex connection
+echo -e "\n${YELLOW}[3/3] Synchronizing source files via rsync (Reusing SSH connection)...${NC}"
+if [ ! -z "$RSYNC_SSH_ARG" ]; then
+    rsync -avz --delete \
+      -e "ssh -i $SSH_KEY_PATH -o ControlPath=$SSH_SOCKET" \
+      --exclude 'node_modules/' \
+      --exclude '.git/' \
+      --exclude '.DS_Store' \
+      --exclude 'backend/dist/' \
+      --exclude 'backend/data/' \
+      --exclude 'backend/backend.log' \
+      --exclude 'frontend/frontend.log' \
+      ./ "${DEST_USER}"@"${DEST_HOST}":"${DEST_PATH}"
+else
+    rsync -avz --delete \
+      -e "ssh -o ControlPath=$SSH_SOCKET" \
+      --exclude 'node_modules/' \
+      --exclude '.git/' \
+      --exclude '.DS_Store' \
+      --exclude 'backend/dist/' \
+      --exclude 'backend/data/' \
+      --exclude 'backend/backend.log' \
+      --exclude 'frontend/frontend.log' \
+      ./ "${DEST_USER}"@"${DEST_HOST}":"${DEST_PATH}"
+fi
 
 if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}================================================================${NC}"
     echo -e "${GREEN}                      DEPLOY SUCCESSFUL!                        ${NC}"
     echo -e "${GREEN}================================================================${NC}"
     echo -e "To launch your app, connect to the remote server and execute:"
-    echo -e "  ${YELLOW}ssh ${DEST_USER}@${DEST_HOST}${NC}"
+    if [ ! -z "$SSH_KEY_PATH" ]; then
+        echo -e "  ${YELLOW}ssh -i $SSH_KEY_PATH ${DEST_USER}@${DEST_HOST}${NC}"
+    else
+        echo -e "  ${YELLOW}ssh ${DEST_USER}@${DEST_HOST}${NC}"
+    fi
     echo -e "  ${YELLOW}cd ${DEST_PATH}${NC}"
     echo -e "  ${YELLOW}./start-app.sh${NC}"
     echo -e "${GREEN}================================================================${NC}"

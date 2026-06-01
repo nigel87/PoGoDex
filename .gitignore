@@ -27,6 +27,11 @@ backend/data/
 backend/backend.log
 backend/.env
 
+# Local Environment configurations
+.env
+.env.local
+.env.*
+
 # Local logs
 *.log
 
