@@ -233,11 +233,17 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isReleased(name: string): boolean {
+    if (UNRELEASED_SPECIES.includes(name)) {
+      return false;
+    }
     const baseName = name.split(' (')[0];
     return !UNRELEASED_SPECIES.includes(baseName);
   }
 
   isShinyUnreleased(name: string): boolean {
+    if (SHINY_UNRELEASED_SPECIES.includes(name)) {
+      return true;
+    }
     const baseName = name.split(' (')[0];
     return SHINY_UNRELEASED_SPECIES.includes(baseName);
   }
@@ -290,10 +296,62 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getPokemonCardName(p: any): string {
+    let displayName = p.name;
     if (p.megaFormOverride) {
-      return p.name + ' (Mega ' + p.megaFormOverride.toUpperCase() + ')';
+      displayName = p.name + ' (Mega ' + p.megaFormOverride.toUpperCase() + ')';
     }
-    return p.name;
+
+    const isIt = this.i18n.currentLang() === 'it';
+    if (isIt) {
+      // Se il Pokémon è Vivillon, traduciamo le sue forme
+      if (displayName.startsWith('Vivillon')) {
+        const match = displayName.match(/\(([^)]+)\)/);
+        if (match) {
+          const formName = match[1];
+          const itMap: { [key: string]: string } = {
+            'Archipelago': 'Motivo Arcipelago',
+            'Continental': 'Motivo Continentale',
+            'Elegant': 'Motivo Eleganza',
+            'Garden': 'Motivo Prato',
+            'High Plains': 'Motivo Sabbia',
+            'Icy Snow': 'Motivo Manto di Neve',
+            'Jungle': 'Motivo Giungla',
+            'Marine': 'Motivo Marino',
+            'Modern': 'Motivo Moderno',
+            'Monsoon': 'Motivo Pluviale',
+            'Ocean': 'Motivo Oceanico',
+            'Polar': 'Motivo Nordico',
+            'River': 'Motivo Fluviale',
+            'Sandstorm': 'Motivo Deserto',
+            'Savanna': 'Motivo Savana',
+            'Sun': 'Motivo Solare',
+            'Tundra': 'Motivo Nevi Perenni',
+            'Fancy': 'Motivo Trendy',
+            'Pokeball': 'Motivo Pokeball'
+          };
+          const translatedForm = itMap[formName];
+          if (translatedForm) {
+            return `Vivillon (${translatedForm})`;
+          }
+        } else if (displayName === 'Vivillon') {
+          // La forma base è Meadow (Giardinfiore)
+          return 'Vivillon (Motivo Giardinfiore)';
+        }
+      }
+    } else {
+      // English: se è il base Vivillon, specifichiamo Meadow Pattern
+      if (displayName === 'Vivillon') {
+        return 'Vivillon (Meadow Pattern)';
+      } else if (displayName.startsWith('Vivillon')) {
+        const match = displayName.match(/\(([^)]+)\)/);
+        if (match) {
+          const formName = match[1];
+          return `Vivillon (${formName} Pattern)`;
+        }
+      }
+    }
+
+    return displayName;
   }
 
   getCardSpriteUrl(p: PokedexDTO, category: string): string {
@@ -315,6 +373,10 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
         let formSuffix = match[1].toLowerCase().trim()
           .replace(/\s+/g, '-')
           .replace(/['’]/g, '');
+        
+        if (formSuffix === 'pokeball') {
+          formSuffix = 'poke-ball';
+        }
         
         // Se la specie è Spinda, PokeAPI non ha i motivi, usiamo lo sprite base
         if (baseName === 'Spinda') {
@@ -525,8 +587,8 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     const result: PokedexDTO[] = [];
 
     for (const base of basePokemons) {
-      // 2. Recuperiamo le forme regionali associate a questo Pokémon base tramite parentId
-      const regionals = list.filter(r => r.parentId === base.id);
+      // 2. Recuperiamo le forme regionali associate a questo Pokémon base tramite parentId (filtrando le non rilasciate se includeUnreleased è disattivato)
+      const regionals = list.filter(r => r.parentId === base.id && (this.settingsService.includeUnreleased() || this.isReleased(r.name)));
       const allForms = [base, ...regionals];
 
       // 3. Troviamo quali forme di questa specie soddisfano i filtri correnti
@@ -786,10 +848,10 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     this.selectedRegion.set(regionValue);
   }
 
-  // Tira fuori le forme regionali registrate per un Pokémon base
+  // Tira fuori le forme regionali registrate per un Pokémon base (filtrando le non rilasciate se includeUnreleased è disattivato)
   getRegionalForms(basePokemon: PokedexDTO): PokedexDTO[] {
     const list = this.pokemonList();
-    return list.filter(p => p.parentId === basePokemon.id);
+    return list.filter(p => p.parentId === basePokemon.id && (this.settingsService.includeUnreleased() || this.isReleased(p.name)));
   }
 
   // Verifica se la specie del Pokémon (compresi eventuali regionali se raggruppati) è completata al 100%
@@ -863,6 +925,47 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
   // Ottiene l'etichetta abbreviata della regione o della forma speciale (es. Base, Alola, Galar, Attack, Sunny, ecc.)
   getFormRegion(p: PokedexDTO): string {
+    const isIt = this.i18n.currentLang() === 'it';
+    const baseName = p.name.split(' (')[0];
+
+    if (baseName === 'Vivillon') {
+      let formName = 'Meadow'; // Default for base
+      if (p.id >= 10000) {
+        const match = p.name.match(/\(([^)]+)\)/);
+        if (match) {
+          formName = match[1];
+        }
+      }
+
+      if (isIt) {
+        const itMap: { [key: string]: string } = {
+          'Meadow': 'Giardinfiore',
+          'Archipelago': 'Arcipelago',
+          'Continental': 'Continentale',
+          'Elegant': 'Eleganza',
+          'Garden': 'Prato',
+          'High Plains': 'Sabbia',
+          'Icy Snow': 'Manto di Neve',
+          'Jungle': 'Giungla',
+          'Marine': 'Marino',
+          'Modern': 'Moderno',
+          'Monsoon': 'Pluviale',
+          'Ocean': 'Oceanico',
+          'Polar': 'Nordico',
+          'River': 'Fluviale',
+          'Sandstorm': 'Deserto',
+          'Savanna': 'Savana',
+          'Sun': 'Solare',
+          'Tundra': 'Nevi Perenni',
+          'Fancy': 'Trendy',
+          'Pokeball': 'Pokeball'
+        };
+        return itMap[formName] || formName;
+      } else {
+        return formName;
+      }
+    }
+
     if (p.id < 10000) return 'Base';
     const name = p.name.toLowerCase();
     if (name.includes('alolan')) return this.i18n.translate('region.alola');

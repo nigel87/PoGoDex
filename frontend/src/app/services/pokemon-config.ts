@@ -607,6 +607,7 @@ export const UNRELEASED_SPECIES = [
   'Ting Lu',
   'Type: Null',
   'Veluza',
+  'Vivillon (Pokeball)',
   'Walking Wake',
   'Wishiwashi',
   'Wo Chien'

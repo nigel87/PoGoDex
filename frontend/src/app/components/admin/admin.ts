@@ -121,11 +121,13 @@ export class AdminComponent implements OnInit {
   }
 
   isReleased(name: string): boolean {
+    if (this.unreleasedSet.has(name)) return false;
     const baseName = name.split(' (')[0];
     return !this.unreleasedSet.has(baseName);
   }
 
   isShinyReleased(name: string): boolean {
+    if (this.shinyUnreleasedSet.has(name)) return false;
     const baseName = name.split(' (')[0];
     return !this.shinyUnreleasedSet.has(baseName);
   }
@@ -135,30 +137,30 @@ export class AdminComponent implements OnInit {
     const baseName = name.split(' (')[0];
     let set: Set<string>;
 
-    if (type === 'shadow') set = this.shadowSet;
-    else if (type === 'mega') set = this.megaSet;
-    else if (type === 'gigamax') set = this.gigamaxSet;
-    else if (type === 'release') {
-      if (this.unreleasedSet.has(baseName)) {
-        this.unreleasedSet.delete(baseName);
+    if (type === 'shadow') {
+      set = this.shadowSet;
+      if (set.has(baseName)) set.delete(baseName);
+      else set.add(baseName);
+    } else if (type === 'mega') {
+      set = this.megaSet;
+      if (set.has(baseName)) set.delete(baseName);
+      else set.add(baseName);
+    } else if (type === 'gigamax') {
+      set = this.gigamaxSet;
+      if (set.has(baseName)) set.delete(baseName);
+      else set.add(baseName);
+    } else if (type === 'release') {
+      if (this.unreleasedSet.has(name)) {
+        this.unreleasedSet.delete(name);
       } else {
-        this.unreleasedSet.add(baseName);
+        this.unreleasedSet.add(name);
       }
-      return;
-    } else {
-      // type === 'shiny'
-      if (this.shinyUnreleasedSet.has(baseName)) {
-        this.shinyUnreleasedSet.delete(baseName);
+    } else if (type === 'shiny') {
+      if (this.shinyUnreleasedSet.has(name)) {
+        this.shinyUnreleasedSet.delete(name);
       } else {
-        this.shinyUnreleasedSet.add(baseName);
+        this.shinyUnreleasedSet.add(name);
       }
-      return;
-    }
-
-    if (set.has(baseName)) {
-      set.delete(baseName);
-    } else {
-      set.add(baseName);
     }
   }
 
