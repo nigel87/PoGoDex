@@ -16,6 +16,7 @@ export interface Pokemon {
   megaVarietyId?: number | null;
   megaVarietyId2?: number | null;
   gigamaxVarietyId?: number | null;
+  parentId?: number | null;
 }
 
 export interface PokedexEntry {
@@ -53,6 +54,7 @@ export interface PokedexDTO {
   megaVarietyId?: number | null;
   megaVarietyId2?: number | null;
   gigamaxVarietyId?: number | null;
+  parentId?: number | null;
 }
 
 export interface PokedexStats {

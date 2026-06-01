@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
-import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES, EVOLVES_FROM } from '../../services/pokemon-config';
+import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES, EVOLVES_FROM, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 
@@ -114,6 +114,8 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   usersList = signal<User[]>([]);
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
+  activeModalPokemon = signal<PokedexDTO | null>(null);
+
 
   // Stati modale creazione giocatore
   showUserModal = signal<boolean>(false);
@@ -302,6 +304,30 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       const basePoke = this.pokemonList().find(x => x.id < 10000 && x.name === baseName);
       if (basePoke) {
         baseId = basePoke.id;
+      }
+    }
+
+    // Gestione specifica per i Pokémon con molteplici forme (Unown, Vivillon, Furfrou, Spinda)
+    const baseName = p.name.split(' (')[0];
+    if (MODAL_FORMS_SPECIES.includes(baseName) && p.id >= 10000) {
+      const match = p.name.match(/\(([^)]+)\)/);
+      if (match) {
+        let formSuffix = match[1].toLowerCase().trim()
+          .replace(/\s+/g, '-')
+          .replace(/['’]/g, '');
+        
+        // Se la specie è Spinda, PokeAPI non ha i motivi, usiamo lo sprite base
+        if (baseName === 'Spinda') {
+          if (category === 'shiny') {
+            return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/327.png';
+          }
+          return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/327.png';
+        }
+        
+        if (category === 'shiny') {
+          return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${baseId}-${formSuffix}.png`;
+        }
+        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${baseId}-${formSuffix}.png`;
       }
     }
 
@@ -499,8 +525,8 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     const result: PokedexDTO[] = [];
 
     for (const base of basePokemons) {
-      // 2. Recuperiamo le forme regionali associate a questo Pokémon base
-      const regionals = list.filter(r => r.id >= 10000 && r.name.startsWith(base.name + ' ('));
+      // 2. Recuperiamo le forme regionali associate a questo Pokémon base tramite parentId
+      const regionals = list.filter(r => r.parentId === base.id);
       const allForms = [base, ...regionals];
 
       // 3. Troviamo quali forme di questa specie soddisfano i filtri correnti
@@ -763,7 +789,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   // Tira fuori le forme regionali registrate per un Pokémon base
   getRegionalForms(basePokemon: PokedexDTO): PokedexDTO[] {
     const list = this.pokemonList();
-    return list.filter(p => p.id >= 10000 && p.name.startsWith(basePokemon.name + ' ('));
+    return list.filter(p => p.parentId === basePokemon.id);
   }
 
   // Verifica se la specie del Pokémon (compresi eventuali regionali se raggruppati) è completata al 100%
@@ -835,7 +861,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     return basePokemon; // Default
   }
 
-  // Ottiene l'etichetta abbreviata della regione (es. Base, Alola, Galar, Hisui, Paldea)
+  // Ottiene l'etichetta abbreviata della regione o della forma speciale (es. Base, Alola, Galar, Attack, Sunny, ecc.)
   getFormRegion(p: PokedexDTO): string {
     if (p.id < 10000) return 'Base';
     const name = p.name.toLowerCase();
@@ -843,8 +869,30 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     if (name.includes('galarian')) return this.i18n.translate('region.galar');
     if (name.includes('hisuian')) return this.i18n.translate('region.hisui');
     if (name.includes('paldean')) return this.i18n.translate('region.paldea');
+    
+    // Fallback: estrae il testo tra parentesi per altre forme speciali (es. Attack, Sunny, Pattern 2, ecc.)
+    const match = p.name.match(/\(([^)]+)\)/);
+    if (match) {
+      const formName = match[1];
+      return formName.charAt(0).toUpperCase() + formName.slice(1);
+    }
     return this.i18n.currentLang() === 'it' ? 'Forma' : 'Form';
   }
+
+  isModalFormSpecies(name: string): boolean {
+    const baseName = name.split(' (')[0];
+    return MODAL_FORMS_SPECIES.includes(baseName);
+  }
+
+  getModalButtonLabel(name: string): string {
+    const baseName = name.split(' (')[0];
+    const isIt = this.i18n.currentLang() === 'it';
+    if (baseName === 'Unown') return isIt ? 'Mostra Lettere' : 'Show Letters';
+    if (baseName === 'Vivillon') return isIt ? 'Mostra Motivi' : 'Show Patterns';
+    if (baseName === 'Furfrou') return isIt ? 'Mostra Tagli' : 'Show Trims';
+    return isIt ? 'Mostra Forme' : 'Show Forms';
+  }
+
 
   // Ottiene l'etichetta tradotta del tipo Pokémon
   getTypeLabel(typeValue: string): string {

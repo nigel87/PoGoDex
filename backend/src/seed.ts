@@ -35,8 +35,15 @@ export async function runSeeder(db: Database) {
     await db.run('BEGIN TRANSACTION;');
     
     const insertStmt = await db.prepare(`
-      INSERT OR IGNORE INTO pokemons (id, name, type1, type2, generation, spriteUrl)
-      VALUES (?, ?, ?, ?, ?, ?);
+      INSERT INTO pokemons (id, name, type1, type2, generation, spriteUrl, parentId)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        type1 = excluded.type1,
+        type2 = excluded.type2,
+        generation = excluded.generation,
+        spriteUrl = excluded.spriteUrl,
+        parentId = excluded.parentId;
     `);
 
     for (const p of pokemonData) {
@@ -46,7 +53,8 @@ export async function runSeeder(db: Database) {
         p.type1,
         p.type2 || null,
         p.generation,
-        p.spriteUrl
+        p.spriteUrl,
+        p.parentId !== undefined ? p.parentId : null
       );
     }
 

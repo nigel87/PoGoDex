@@ -36,6 +36,14 @@ export async function getDb(): Promise<Database> {
 }
 
 async function initializeTables(database: Database) {
+  // Tabella schema_migrations
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      name TEXT PRIMARY KEY,
+      executedAt INTEGER NOT NULL
+    );
+  `);
+
   // Tabella Users
   await database.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -59,7 +67,8 @@ async function initializeTables(database: Database) {
       spriteUrl TEXT NOT NULL,
       megaVarietyId INTEGER DEFAULT NULL,
       megaVarietyId2 INTEGER DEFAULT NULL,
-      gigamaxVarietyId INTEGER DEFAULT NULL
+      gigamaxVarietyId INTEGER DEFAULT NULL,
+      parentId INTEGER DEFAULT NULL
     );
   `);
 
@@ -75,6 +84,9 @@ async function initializeTables(database: Database) {
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN gigamaxVarietyId INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN parentId INTEGER DEFAULT NULL;');
   } catch (_) {}
 
   // Tabella PokedexEntries (con spunte di cattura integer 0/1)
@@ -97,4 +109,46 @@ async function initializeTables(database: Database) {
       FOREIGN KEY (pokemonId) REFERENCES pokemons (id) ON DELETE CASCADE
     );
   `);
+
+  // Esegue migrazioni di dati in modo automatico se non ancora eseguite
+  try {
+    const migrationName = 'migrate_custom_form_ids_v1';
+    const row = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+      migrationName
+    );
+    
+    if (row && row.count === 0) {
+      console.log(`[Database Migration] Esecuzione migrazione automatica degli ID in pokedex_entries: ${migrationName}...`);
+      
+      // Eseguiamo gli aggiornamenti ID in pokedex_entries
+      await database.exec('BEGIN TRANSACTION;');
+      
+      // Sposta Unown
+      await database.exec('UPDATE pokedex_entries SET pokemonId = pokemonId + 10059 WHERE pokemonId >= 10043 AND pokemonId <= 10069;');
+      // Sposta Spinda 2-8
+      await database.exec('UPDATE pokedex_entries SET pokemonId = pokemonId + 9922 WHERE pokemonId >= 10080 AND pokemonId <= 10086;');
+      // Sposta Spinda 9
+      await database.exec('UPDATE pokedex_entries SET pokemonId = 20009 WHERE pokemonId = 10278;');
+      // Sposta Vivillon motivi
+      await database.exec('UPDATE pokedex_entries SET pokemonId = pokemonId + 10075 WHERE pokemonId >= 10126 AND pokemonId <= 10142;');
+      // Sposta Vivillon Fancy/Pokeball
+      await database.exec('UPDATE pokedex_entries SET pokemonId = pokemonId + 9945 WHERE pokemonId >= 10273 AND pokemonId <= 10274;');
+      // Sposta Furfrou tagli (Diamond e Debutante inclusi, liberando 10188 e 10189)
+      await database.exec('UPDATE pokedex_entries SET pokemonId = pokemonId + 10115 WHERE pokemonId >= 10186 AND pokemonId <= 10194;');
+      
+      // Registriamo l'esecuzione della migrazione
+      await database.run(
+        'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+        migrationName,
+        Date.now()
+      );
+      
+      await database.exec('COMMIT;');
+      console.log(`[Database Migration] Migrazione ${migrationName} completata con successo!`);
+    }
+  } catch (err) {
+    try { await database.exec('ROLLBACK;'); } catch (_) {}
+    console.error('[Database Migration] Errore critico durante la migrazione:', err);
+  }
 }

@@ -4,7 +4,7 @@
     <div class="header-content">
       <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
         <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v1.4.0</span>
+        <span class="app-version">v1.4.1</span>
       </div>
       
       <div class="header-right-group">
@@ -253,8 +253,8 @@
               <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
             </div>
             
-            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata e ci sono varianti) -->
-            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0">
+            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata, ci sono varianti e non è specie a modale) -->
+            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && !isModalFormSpecies(base.name)">
               <button 
                 type="button" 
                 class="region-pill-btn" 
@@ -269,6 +269,16 @@
                 [class.active]="p.id === reg.id"
                 (click)="selectFormForCard(base.id, reg.id); $event.stopPropagation()">
                 {{ getFormRegion(reg) }}
+              </button>
+            </div>
+
+            <!-- Modal Trigger Button per specie con molteplici forme (es: Unown, Vivillon) -->
+            <div class="modal-trigger-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && isModalFormSpecies(base.name)">
+              <button 
+                type="button" 
+                class="modal-trigger-btn"
+                (click)="activeModalPokemon.set(base); $event.stopPropagation()">
+                <span>✨ {{ getModalButtonLabel(base.name) }}</span>
               </button>
             </div>
           </div>
@@ -512,8 +522,8 @@
                 decoding="async">
             </div>
 
-            <!-- Regional forms inside the drawer (Solo se raggruppamento attivo e nessuna regione specifica selezionata) -->
-            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0">
+            <!-- Regional forms inside the drawer (Solo se raggruppamento attivo, nessuna regione specifica selezionata e non è specie a modale) -->
+            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && !isModalFormSpecies(bp.name)">
               <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Varianti Regionali:' : 'Regional Forms:' }}</span>
               <div class="drawer-region-pills">
                 <button 
@@ -530,6 +540,19 @@
                   [class.active]="p.id === reg.id"
                   (click)="selectFormForDetailCard(reg.id)">
                   {{ getFormRegion(reg) }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Modal Trigger Button inside compact drawer -->
+            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && isModalFormSpecies(bp.name)">
+              <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Forme Speciali:' : 'Special Forms:' }}</span>
+              <div class="drawer-region-pills">
+                <button 
+                  type="button" 
+                  class="modal-trigger-btn width-100"
+                  (click)="activeModalPokemon.set(bp); closeBottomSheet(); $event.stopPropagation()">
+                  <span>✨ {{ getModalButtonLabel(bp.name) }}</span>
                 </button>
               </div>
             </div>
@@ -674,6 +697,199 @@
         </div>
         </div> <!-- Close drawer-content-scroll -->
       </ng-container></ng-container>
+    </div>
+  </div>
+</div>
+
+<!-- Glassmorphic Grid Modal per Pokémon con molteplici forme (Unown, Vivillon, Spinda, Furfrou) -->
+<div class="glass-modal-backdrop" *ngIf="activeModalPokemon() as bp" (click)="activeModalPokemon.set(null)">
+  <div class="glass-modal-container" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="header-title-group">
+        <span class="modal-dex-id">{{ formatId(bp) }}</span>
+        <h3>{{ bp.name }} - {{ i18n.currentLang() === 'it' ? 'Elenco Forme' : 'Forms List' }}</h3>
+      </div>
+      <button class="close-modal-btn" (click)="activeModalPokemon.set(null)">×</button>
+    </div>
+    
+    <div class="modal-body-scroll">
+      <div class="forms-grid">
+        <!-- Card Base -->
+        <div class="form-grid-card">
+          <div class="form-art-wrapper">
+            <img [src]="getCardSpriteUrl(bp, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
+          </div>
+          <span class="form-pill-name">Base</span>
+          <div class="caught-actions-grid mini">
+            <!-- Regular -->
+            <button 
+              *ngIf="showButtonForPokemon(bp, 'regular')"
+              type="button" 
+              class="action-btn regular-btn" 
+              [class.active]="bp.regular"
+              (click)="toggleForm(bp, 'regular')"
+              [title]="'pokedex.btn.regular.title' | translate">
+              Reg
+            </button>
+            <!-- Shiny -->
+            <button 
+              *ngIf="!isShinyUnreleased(bp.name) && showButtonForPokemon(bp, 'shiny')"
+              type="button" 
+              class="action-btn shiny-btn" 
+              [class.active]="bp.shiny"
+              (click)="toggleForm(bp, 'shiny')"
+              [title]="'pokedex.btn.shiny.title' | translate">
+              Shy
+            </button>
+            <!-- Perfect -->
+            <button 
+              *ngIf="showButtonForPokemon(bp, 'perfect')"
+              type="button" 
+              class="action-btn perfect-btn" 
+              [class.active]="bp.perfect"
+              (click)="toggleForm(bp, 'perfect')"
+              [title]="'pokedex.btn.perfect.title' | translate">
+              100
+            </button>
+            <!-- Lucky -->
+            <button 
+              *ngIf="showButtonForPokemon(bp, 'lucky')"
+              type="button" 
+              class="action-btn lucky-btn" 
+              [class.active]="bp.lucky"
+              (click)="toggleForm(bp, 'lucky')"
+              [title]="'pokedex.btn.lucky.title' | translate">
+              Lck
+            </button>
+            <!-- XXL -->
+            <button 
+              *ngIf="showButtonForPokemon(bp, 'xxl')"
+              type="button" 
+              class="action-btn xxl-btn" 
+              [class.active]="bp.xxl"
+              (click)="toggleForm(bp, 'xxl')"
+              [title]="'pokedex.btn.xxl.title' | translate">
+              XXL
+            </button>
+            <!-- XXS -->
+            <button 
+              *ngIf="showButtonForPokemon(bp, 'xxs')"
+              type="button" 
+              class="action-btn xxs-btn" 
+              [class.active]="bp.xxs"
+              (click)="toggleForm(bp, 'xxs')"
+              [title]="'pokedex.btn.xxs.title' | translate">
+              XXS
+            </button>
+            <!-- Shadow -->
+            <button 
+              *ngIf="canShadow(bp.name) && showButtonForPokemon(bp, 'shadow')"
+              type="button" 
+              class="action-btn shadow-btn" 
+              [class.active]="bp.shadow"
+              (click)="toggleForm(bp, 'shadow')">
+              Sha
+            </button>
+            <!-- Purified -->
+            <button 
+              *ngIf="canShadow(bp.name) && showButtonForPokemon(bp, 'purified')"
+              type="button" 
+              class="action-btn purified-btn" 
+              [class.active]="bp.purified"
+              (click)="toggleForm(bp, 'purified')">
+              Pur
+            </button>
+          </div>
+        </div>
+        
+        <!-- Card Forme Alternative -->
+        <div class="form-grid-card" *ngFor="let alt of getRegionalForms(bp)">
+          <div class="form-art-wrapper">
+            <img [src]="getCardSpriteUrl(alt, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
+          </div>
+          <span class="form-pill-name">{{ getFormRegion(alt) }}</span>
+          <div class="caught-actions-grid mini">
+            <!-- Regular -->
+            <button 
+              *ngIf="showButtonForPokemon(alt, 'regular')"
+              type="button" 
+              class="action-btn regular-btn" 
+              [class.active]="alt.regular"
+              (click)="toggleForm(alt, 'regular')"
+              [title]="'pokedex.btn.regular.title' | translate">
+              Reg
+            </button>
+            <!-- Shiny -->
+            <button 
+              *ngIf="!isShinyUnreleased(alt.name) && showButtonForPokemon(alt, 'shiny')"
+              type="button" 
+              class="action-btn shiny-btn" 
+              [class.active]="alt.shiny"
+              (click)="toggleForm(alt, 'shiny')"
+              [title]="'pokedex.btn.shiny.title' | translate">
+              Shy
+            </button>
+            <!-- Perfect -->
+            <button 
+              *ngIf="showButtonForPokemon(alt, 'perfect')"
+              type="button" 
+              class="action-btn perfect-btn" 
+              [class.active]="alt.perfect"
+              (click)="toggleForm(alt, 'perfect')"
+              [title]="'pokedex.btn.perfect.title' | translate">
+              100
+            </button>
+            <!-- Lucky -->
+            <button 
+              *ngIf="showButtonForPokemon(alt, 'lucky')"
+              type="button" 
+              class="action-btn lucky-btn" 
+              [class.active]="alt.lucky"
+              (click)="toggleForm(alt, 'lucky')"
+              [title]="'pokedex.btn.lucky.title' | translate">
+              Lck
+            </button>
+            <!-- XXL -->
+            <button 
+              *ngIf="showButtonForPokemon(alt, 'xxl')"
+              type="button" 
+              class="action-btn xxl-btn" 
+              [class.active]="alt.xxl"
+              (click)="toggleForm(alt, 'xxl')"
+              [title]="'pokedex.btn.xxl.title' | translate">
+              XXL
+            </button>
+            <!-- XXS -->
+            <button 
+              *ngIf="showButtonForPokemon(alt, 'xxs')"
+              type="button" 
+              class="action-btn xxs-btn" 
+              [class.active]="alt.xxs"
+              (click)="toggleForm(alt, 'xxs')"
+              [title]="'pokedex.btn.xxs.title' | translate">
+              XXS
+            </button>
+            <!-- Shadow -->
+            <button 
+              *ngIf="canShadow(alt.name) && showButtonForPokemon(alt, 'shadow')"
+              type="button" 
+              class="action-btn shadow-btn" 
+              [class.active]="alt.shadow"
+              (click)="toggleForm(alt, 'shadow')">
+              Sha
+            </button>
+            <!-- Purified -->
+            <button 
+              *ngIf="canShadow(alt.name) && showButtonForPokemon(alt, 'purified')"
+              type="button" 
+              class="action-btn purified-btn" 
+              [class.active]="alt.purified"
+              (click)="toggleForm(alt, 'purified')">
+              Pur
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

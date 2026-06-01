@@ -776,7 +776,6 @@ export const SHINY_UNRELEASED_SPECIES = [
   'Zeraora',
   'Zygarde'
 ];
-
 export const MYTHICAL_POKEMON = [
   'Mew', 'Celebi', 'Jirachi', 'Deoxys', 'Phione', 'Manaphy', 'Darkrai', 'Shaymin', 'Arceus',
   'Victini', 'Meloetta', 'Genesect', 'Keldeo', 'Diancie', 'Hoopa', 'Volcanion', 'Magearna',
@@ -1279,4 +1278,6 @@ export const EVOLVES_FROM: Record<string, string> = {
   'Arctibax': 'Frigibax',
   'Baxcalibur': 'Arctibax'
 };
+
+export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
 
