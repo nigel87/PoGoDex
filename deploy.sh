@@ -25,6 +25,76 @@ echo -e "${BLUE}             PoGODex Remote Project Synchronization             
 echo -e "${BLUE}================================================================${NC}"
 echo -e "Target Server: ${YELLOW}${DEST_USER}@${DEST_HOST}:${DEST_PATH}${NC}"
 
+# ==============================================================================
+# Centralized Version Management System (Auto-Increment)
+# ==============================================================================
+VERSION_FILE="version.json"
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(grep -o '"version": "[^"]*' "$VERSION_FILE" | cut -d'"' -f4)
+else
+    CURRENT_VERSION="1.4.1"
+    echo -e "{" > "$VERSION_FILE"
+    echo -e "  \"version\": \"$CURRENT_VERSION\"" >> "$VERSION_FILE"
+    echo -e "}" >> "$VERSION_FILE"
+fi
+
+echo -e "\n${BLUE}================================================================${NC}"
+echo -e "${YELLOW}               APPLICATION VERSION MANAGEMENT                   ${NC}"
+echo -e "${BLUE}================================================================${NC}"
+echo -e "Current App Version: ${GREEN}v$CURRENT_VERSION${NC}"
+read -p "Do you want to increment the version number for this deploy? [y/N]: " increment_choice
+
+if [[ "$increment_choice" =~ ^[Yy]$ ]]; then
+    # Parse version parts
+    IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+    patch_inc=$((patch + 1))
+    minor_inc=$((minor + 1))
+    major_inc=$((major + 1))
+    
+    echo -e "\nSelect version increment type:"
+    echo -e "  1) Patch Release (${GREEN}v$CURRENT_VERSION${NC} -> ${GREEN}v$major.$minor.$patch_inc${NC})"
+    echo -e "  2) Minor Feature (${GREEN}v$CURRENT_VERSION${NC} -> ${GREEN}v$major.$minor_inc.0${NC})"
+    echo -e "  3) Major Version (${GREEN}v$CURRENT_VERSION${NC} -> ${GREEN}v$major_inc.0.0${NC})"
+    read -p "Choice [1]: " choice
+    choice=${choice:-1}
+    
+    if [ "$choice" -eq 1 ]; then
+        NEW_VERSION="$major.$minor.$patch_inc"
+    elif [ "$choice" -eq 2 ]; then
+        NEW_VERSION="$major.$minor_inc.0"
+    elif [ "$choice" -eq 3 ]; then
+        NEW_VERSION="$major_inc.0.0"
+    else
+        NEW_VERSION="$CURRENT_VERSION"
+    fi
+    
+    echo -e "${GREEN}✓ Incrementing version to v$NEW_VERSION...${NC}"
+else
+    NEW_VERSION="$CURRENT_VERSION"
+    echo -e "${YELLOW}✓ Keeping current version v$NEW_VERSION.${NC}"
+fi
+
+# 1. Update version.json at the root
+echo "{" > "$VERSION_FILE"
+echo "  \"version\": \"$NEW_VERSION\"" >> "$VERSION_FILE"
+echo "}" >> "$VERSION_FILE"
+
+# 2. Update generated version.ts in the frontend
+echo "export const APP_VERSION = '$NEW_VERSION';" > frontend/src/app/version.ts
+
+# 3. Synchronize versions in frontend and backend package.json files
+node -e "
+const fs = require('fs');
+['frontend/package.json', 'backend/package.json'].forEach(file => {
+  if (fs.existsSync(file)) {
+    const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+    pkg.version = '$NEW_VERSION';
+    fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+  }
+});
+"
+echo -e "${GREEN}✓ Centralized version v$NEW_VERSION synchronized successfully across all files!${NC}"
+
 # 1. Compile the Angular Frontend locally to save CPU/RAM on the remote server
 echo -e "\n${YELLOW}[1/3] Compiling Angular Frontend locally on Mac/PC...${NC}"
 cd frontend

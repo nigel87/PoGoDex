@@ -26,6 +26,18 @@ cleanup() {
 # Assicura che la funzione cleanup venga eseguita su CTRL+C (SIGINT) o chiusura (SIGTERM)
 trap cleanup SIGINT SIGTERM
 
+# Centralized Version Management System (Auto-Generator)
+VERSION_FILE="version.json"
+if [ ! -f "$VERSION_FILE" ]; then
+    echo "{" > "$VERSION_FILE"
+    echo "  \"version\": \"1.4.1\"" >> "$VERSION_FILE"
+    echo "}" >> "$VERSION_FILE"
+fi
+CURRENT_VERSION=$(grep -o '"version": "[^"]*' "$VERSION_FILE" | cut -d'"' -f4)
+if [ ! -f "frontend/src/app/version.ts" ]; then
+    echo "export const APP_VERSION = '$CURRENT_VERSION';" > frontend/src/app/version.ts
+fi
+
 # 1. Verifica disponibilità delle porte (solo processi in ascolto locale LISTEN)
 echo -e "${YELLOW}Verifica disponibilità delle porte...${NC}"
 PORT_8085=$(lsof -t -i:8085 -sTCP:LISTEN)

@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
+import { APP_VERSION } from '../../version';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES, EVOLVES_FROM, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
@@ -115,6 +116,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
   activeModalPokemon = signal<PokedexDTO | null>(null);
+  version = APP_VERSION;
 
 
   // Stati modale creazione giocatore
