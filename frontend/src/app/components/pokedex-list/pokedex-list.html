@@ -270,6 +270,7 @@
                 type="button" 
                 class="region-pill-btn" 
                 [class.active]="p.id === reg.id"
+                [class.is-unreleased]="!isReleased(reg.name)"
                 (click)="selectFormForCard(base.id, reg.id); $event.stopPropagation()">
                 {{ getFormRegion(reg) }}
               </button>
@@ -544,6 +545,7 @@
                   type="button" 
                   class="region-pill-btn" 
                   [class.active]="p.id === reg.id"
+                  [class.is-unreleased]="!isReleased(reg.name)"
                   (click)="selectFormForDetailCard(reg.id)">
                   {{ getFormRegion(reg) }}
                 </button>
@@ -721,12 +723,12 @@
     <div class="modal-body-scroll">
       <div class="forms-grid">
         <!-- Card Base -->
-        <div class="form-grid-card">
+        <div class="form-grid-card" [class.is-unreleased]="!isReleased(bp.name)">
           <div class="form-art-wrapper">
             <img [src]="getCardSpriteUrl(bp, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
           </div>
           <span class="form-pill-name">{{ getFormRegion(bp) }}</span>
-          <div class="caught-actions-grid mini">
+          <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(bp.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(bp.name) ? 0.4 : 1">
             <!-- Regular -->
             <button 
               *ngIf="showButtonForPokemon(bp, 'regular')"
@@ -761,12 +763,12 @@
         </div>
         
         <!-- Card Forme Alternative -->
-        <div class="form-grid-card" *ngFor="let alt of getRegionalForms(bp)">
+        <div class="form-grid-card" *ngFor="let alt of getRegionalForms(bp)" [class.is-unreleased]="!isReleased(alt.name)">
           <div class="form-art-wrapper">
             <img [src]="getCardSpriteUrl(alt, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
           </div>
           <span class="form-pill-name">{{ getFormRegion(alt) }}</span>
-          <div class="caught-actions-grid mini">
+          <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(alt.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(alt.name) ? 0.4 : 1">
             <!-- Regular -->
             <button 
               *ngIf="showButtonForPokemon(alt, 'regular')"

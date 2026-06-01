@@ -1929,6 +1929,26 @@
   transition: all 0.3s ease;
 }
 
+.form-grid-card.is-unreleased {
+  opacity: 0.55;
+  filter: grayscale(85%);
+}
+
+.form-grid-card.is-unreleased:hover {
+  opacity: 0.85;
+  filter: grayscale(20%);
+}
+
+.form-grid-card.is-unreleased .form-sprite {
+  filter: brightness(0.7) contrast(0.95);
+}
+
+.region-pill-btn.is-unreleased {
+  opacity: 0.45;
+  filter: grayscale(80%);
+  cursor: not-allowed !important;
+}
+
 .form-grid-card:hover {
   transform: translateY(-4px);
   border-color: rgba(255, 255, 255, 0.15);
