@@ -16,6 +16,21 @@ export class I18nService {
       'nav.stats': 'Statistiche',
       'nav.export': 'Esporta',
       'nav.settings': 'Impostazioni',
+      'nav.quests': 'Ricerche',
+
+      // Sezione Quest
+      'quest.title': 'Ricerche sul Campo',
+      'quest.subtitle': 'Scopri quali ricompense ti mancano per completare la tua collezione Shiny e 100% (I dati CP fanno riferimento al Livello 15).',
+      'quest.show_completed': 'Mostra Completate',
+      'quest.hide_completed': 'Nascondi Completate',
+      'quest.priority.high': 'Ricerche ad Alta Priorità',
+      'quest.priority.medium': 'Ricerche a Media Priorità',
+      'quest.priority.low': 'Ricerche Completate',
+      'quest.reward': 'Ricompensa:',
+      'quest.missing_shiny': 'Shiny mancante',
+      'quest.missing_perfect': '100% mancante',
+      'quest.no_active_user': 'Nessun allenatore attivo. Seleziona un profilo.',
+      'quest.reorder_tooltip': 'Usa le frecce per ordinare manualmente',
 
       // Landing Page
       'landing.title': 'Benvenuto Allenatore',
@@ -212,6 +227,21 @@ export class I18nService {
       'nav.stats': 'Stats',
       'nav.export': 'Export',
       'nav.settings': 'Settings',
+      'nav.quests': 'Quests',
+
+      // Quest Page
+      'quest.title': 'Field Research Quests',
+      'quest.subtitle': 'Find out which rewards you need to complete your Shiny and 100% collections (CP ranges are for Level 15).',
+      'quest.show_completed': 'Show Completed',
+      'quest.hide_completed': 'Hide Completed',
+      'quest.priority.high': 'High Priority Quests',
+      'quest.priority.medium': 'Medium Priority Quests',
+      'quest.priority.low': 'Completed Quests',
+      'quest.reward': 'Reward:',
+      'quest.missing_shiny': 'Shiny missing',
+      'quest.missing_perfect': '100% missing',
+      'quest.no_active_user': 'No active trainer. Please select a profile.',
+      'quest.reorder_tooltip': 'Use arrows to reorder manually',
 
       // Landing Page
       'landing.title': 'Welcome Trainer',

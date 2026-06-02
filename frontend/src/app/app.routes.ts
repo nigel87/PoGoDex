@@ -10,6 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/admin/admin').then(m => m.AdminComponent)
   },
   {
+    path: 'quest',
+    loadComponent: () => import('./components/quest/quest').then(m => m.QuestComponent)
+  },
+  {
     path: ':username',
     loadComponent: () => import('./components/pokedex-list/pokedex-list').then(m => m.PokedexList)
   },

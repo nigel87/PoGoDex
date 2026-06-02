@@ -46,6 +46,21 @@ export interface PokedexStats {
   gigamaxCaught: number;
 }
 
+export interface QuestReward {
+  pokemonId: number;
+  minCp: number;
+  maxCp: number;
+  name?: string;
+  spriteUrl?: string;
+}
+
+export interface Quest {
+  id: number;
+  name: string;
+  rewards: QuestReward[];
+  displayOrder: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -204,5 +219,25 @@ export class PokedexService {
         }
       });
     });
+  }
+
+  /**
+   * Recupera la lista di tutte le ricerche sul campo attive.
+   */
+  getQuests(): Observable<Quest[]> {
+    const url = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/quests`
+      : '/api/quests';
+    return this.http.get<Quest[]>(url);
+  }
+
+  /**
+   * Aggiorna l'ordine di visualizzazione delle ricerche sul campo.
+   */
+  reorderQuests(orderedIds: number[]): Observable<any> {
+    const url = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/quests/reorder`
+      : '/api/quests/reorder';
+    return this.http.put<any>(url, { orderedIds });
   }
 }

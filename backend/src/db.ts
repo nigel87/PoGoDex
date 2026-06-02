@@ -147,6 +147,156 @@ async function initializeTables(database: Database) {
       await database.exec('COMMIT;');
       console.log(`[Database Migration] Migrazione ${migrationName} completata con successo!`);
     }
+
+    // Nuova migrazione per creare e popolare la tabella delle quest
+    const migrationNameQuests = 'create_quests_table_v2';
+    const rowQuests = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+      migrationNameQuests
+    );
+    
+    if (rowQuests && rowQuests.count === 0) {
+      console.log(`[Database Migration] Esecuzione migrazione tabella quest e seed iniziale: ${migrationNameQuests}...`);
+      
+      await database.exec('BEGIN TRANSACTION;');
+      
+      // Creazione tabella
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS quests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          rewards TEXT NOT NULL,
+          displayOrder INTEGER DEFAULT 0
+        );
+      `);
+
+      // Default Quests
+      const defaultQuests = [
+        {
+          name: "Cattura 7 Pokémon",
+          rewards: JSON.stringify([
+            { pokemonId: 129, minCp: 104, maxCp: 117 }, // Magikarp
+            { pokemonId: 759, minCp: 540, maxCp: 588 }, // Stufful
+            { pokemonId: 767, minCp: 206, maxCp: 231 }  // Wimpod
+          ]),
+          displayOrder: 1
+        },
+        {
+          name: "Cattura 7 Pokémon di tipo Erba",
+          rewards: JSON.stringify([
+            { pokemonId: 1, minCp: 442, maxCp: 477 } // Bulbasaur
+          ]),
+          displayOrder: 2
+        },
+        {
+          name: "Cattura 7 Pokémon di tipo Fuoco",
+          rewards: JSON.stringify([
+            { pokemonId: 4, minCp: 389, maxCp: 420 } // Charmander
+          ]),
+          displayOrder: 3
+        },
+        {
+          name: "Cattura 7 Pokémon di tipo Acqua",
+          rewards: JSON.stringify([
+            { pokemonId: 7, minCp: 372, maxCp: 405 } // Squirtle
+          ]),
+          displayOrder: 4
+        },
+        {
+          name: "Fai 3 bei tiri di fila",
+          rewards: JSON.stringify([
+            { pokemonId: 25, minCp: 395, maxCp: 429 } // Pikachu
+          ]),
+          displayOrder: 5
+        },
+        {
+          name: "Fai 3 ottimi tiri di fila",
+          rewards: JSON.stringify([
+            { pokemonId: 147, minCp: 399, maxCp: 430 } // Dratini
+          ]),
+          displayOrder: 6
+        },
+        {
+          name: "Usa 5 bacche per catturare Pokémon",
+          rewards: JSON.stringify([
+            { pokemonId: 92, minCp: 485, maxCp: 523 } // Gastly
+          ]),
+          displayOrder: 7
+        },
+        {
+          name: "Potenzia un Pokémon 5 volte",
+          rewards: JSON.stringify([
+            { pokemonId: 220, minCp: 284, maxCp: 318 } // Swinub
+          ]),
+          displayOrder: 8
+        },
+        {
+          name: "Sconfiggi 2 Reclute del Team GO Rocket",
+          rewards: JSON.stringify([
+            { pokemonId: 246, minCp: 402, maxCp: 445 } // Larvitar
+          ]),
+          displayOrder: 9
+        },
+        {
+          name: "Gira 5 Pokéstop o Palestre",
+          rewards: JSON.stringify([
+            { pokemonId: 133, minCp: 424, maxCp: 459 } // Eevee
+          ]),
+          displayOrder: 10
+        },
+        {
+          name: "Vinci 1 Raid",
+          rewards: JSON.stringify([
+            { pokemonId: 123, minCp: 1076, maxCp: 1160 } // Scyther
+          ]),
+          displayOrder: 11
+        },
+        {
+          name: "Schiudi un uovo",
+          rewards: JSON.stringify([
+            { pokemonId: 349, minCp: 101, maxCp: 117 } // Feebas
+          ]),
+          displayOrder: 12
+        },
+        {
+          name: "Fai 3 tiri curvi di fila",
+          rewards: JSON.stringify([
+            { pokemonId: 374, minCp: 379, maxCp: 418 } // Beldum
+          ]),
+          displayOrder: 13
+        },
+        {
+          name: "Fai 5 ottimi tiri curvi di fila",
+          rewards: JSON.stringify([
+            { pokemonId: 443, minCp: 433, maxCp: 477 } // Gible
+          ]),
+          displayOrder: 14
+        },
+        {
+          name: "Invia 3 Pacchi amicizia con un adesivo",
+          rewards: JSON.stringify([
+            { pokemonId: 371, minCp: 454, maxCp: 495 } // Bagon
+          ]),
+          displayOrder: 15
+        }
+      ];
+
+      const stmt = await database.prepare('INSERT INTO quests (name, rewards, displayOrder) VALUES (?, ?, ?)');
+      for (const q of defaultQuests) {
+        await stmt.run(q.name, q.rewards, q.displayOrder);
+      }
+      await stmt.finalize();
+
+      // Registriamo l'esecuzione della migrazione
+      await database.run(
+        'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+        migrationNameQuests,
+        Date.now()
+      );
+      
+      await database.exec('COMMIT;');
+      console.log(`[Database Migration] Migrazione ${migrationNameQuests} completata con successo!`);
+    }
   } catch (err) {
     try { await database.exec('ROLLBACK;'); } catch (_) {}
     console.error('[Database Migration] Errore critico durante la migrazione:', err);

@@ -768,7 +768,6 @@ export const SHINY_UNRELEASED_SPECIES = [
   'Varoom',
   'Veluza',
   'Victini',
-  'Vivillon (Pokeball)',
   'Volcanion',
   'Walking Wake',
   'Wattrel',

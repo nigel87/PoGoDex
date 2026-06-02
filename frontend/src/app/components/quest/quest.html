@@ -1,0 +1,234 @@
+<div class="quest-container">
+  <!-- Header -->
+  <header class="pogo-header">
+    <div class="header-content">
+      <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
+        <h1 class="logo">PoGO<span>Dex</span></h1>
+        <span class="app-version">v{{ version }}</span>
+      </div>
+      
+      <div class="header-right-group">
+        <nav class="navigation-tabs">
+          <a [routerLink]="['/' + (activeUser()?.name || 'default')]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
+          <a [routerLink]="['/quest']" class="nav-link active">{{ 'nav.quests' | translate }}</a>
+        </nav>
+
+        <!-- Player Switcher Dropdown (Netflix-style) -->
+        <div class="player-profile-dropdown" *ngIf="activeUser()">
+          <div class="active-player-trigger">
+            <img [src]="activeUser()?.avatarUrl" [alt]="activeUser()?.name" class="player-avatar">
+            <span class="player-name">{{ activeUser()?.name }}</span>
+            <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          
+          <div class="profile-dropdown-menu glass-card">
+            <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
+            <div class="users-list-scroll">
+              <div 
+                *ngFor="let u of usersList()" 
+                class="dropdown-user-item" 
+                [class.selected]="u.id === activeUser()?.id">
+                <button class="dropdown-user-btn" (click)="switchUser(u)">
+                  <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
+                  <span class="dropdown-user-name">{{ u.name }}</span>
+                  <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="quest-main">
+    <!-- Header Title Section -->
+    <div class="quest-header-section">
+      <h2 class="section-title">{{ 'quest.title' | translate }}</h2>
+      <p class="section-subtitle">{{ 'quest.subtitle' | translate }}</p>
+    </div>
+
+    <!-- Control Bar -->
+    <div class="quest-controls glass-card">
+      <div class="control-left">
+        <span class="active-profile-info" *ngIf="activeUser()">
+          Allenatore: <strong class="highlight-text">{{ activeUser()?.name }}</strong>
+        </span>
+      </div>
+      <div class="control-right">
+        <button class="action-btn toggle-completed-btn" (click)="toggleCompleted()">
+          <span class="btn-icon">{{ showCompleted() ? '👁️' : '👁️‍🗨️' }}</span>
+          {{ (showCompleted() ? 'quest.hide_completed' : 'quest.show_completed') | translate }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader-container" *ngIf="isLoading()">
+      <div class="spinner"></div>
+      <span>Caricamento ricerche...</span>
+    </div>
+
+    <!-- No active user warning -->
+    <div class="warning-card glass-card" *ngIf="!isLoading() && !activeUser()">
+      <p>{{ 'quest.no_active_user' | translate }}</p>
+      <a routerLink="/" class="action-btn">Scegli Profilo</a>
+    </div>
+
+    <!-- Lists of Quests -->
+    <div class="quests-lists-wrapper" *ngIf="!isLoading() && activeUser()">
+      
+      <!-- 1. HIGH PRIORITY QUESTS -->
+      <section class="quest-section" *ngIf="highPriorityQuests().length > 0">
+        <h3 class="priority-title high">
+          <span class="priority-indicator red"></span>
+          {{ 'quest.priority.high' | translate }}
+          <span class="quest-count badge-red">{{ highPriorityQuests().length }}</span>
+        </h3>
+        
+        <div class="quests-grid">
+          <div class="quest-card glass-card" *ngFor="let q of highPriorityQuests(); let i = index">
+            <!-- Order Controls -->
+            <div class="quest-reorder-controls" [title]="'quest.reorder_tooltip' | translate">
+              <button class="reorder-btn" (click)="moveUp(q, 'high')" [disabled]="i === 0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/></svg>
+              </button>
+              <button class="reorder-btn" (click)="moveDown(q, 'high')" [disabled]="i === highPriorityQuests().length - 1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>
+              </button>
+            </div>
+
+            <!-- Quest Name -->
+            <div class="quest-content">
+              <h4 class="quest-name">{{ q.name }}</h4>
+              
+              <!-- Rewards List -->
+              <div class="rewards-container">
+                <div class="reward-item glass-card" *ngFor="let r of q.rewards">
+                  <div class="reward-pokemon">
+                    <img [src]="r.spriteUrl" [alt]="r.name" class="pokemon-sprite">
+                    <span class="pokemon-name">{{ r.name }}</span>
+                  </div>
+                  <div class="reward-details">
+                    <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                    <div class="missing-badges">
+                      <span class="badge badge-shiny" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.shiny && !isShinyUnavailable(r.name)">
+                        ✨ Shiny
+                      </span>
+                      <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.perfect">
+                        💯 100%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. MEDIUM PRIORITY QUESTS -->
+      <section class="quest-section" *ngIf="mediumPriorityQuests().length > 0">
+        <h3 class="priority-title medium">
+          <span class="priority-indicator orange"></span>
+          {{ 'quest.priority.medium' | translate }}
+          <span class="quest-count badge-orange">{{ mediumPriorityQuests().length }}</span>
+        </h3>
+        
+        <div class="quests-grid">
+          <div class="quest-card glass-card" *ngFor="let q of mediumPriorityQuests(); let i = index">
+            <!-- Order Controls -->
+            <div class="quest-reorder-controls" [title]="'quest.reorder_tooltip' | translate">
+              <button class="reorder-btn" (click)="moveUp(q, 'medium')" [disabled]="i === 0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/></svg>
+              </button>
+              <button class="reorder-btn" (click)="moveDown(q, 'medium')" [disabled]="i === mediumPriorityQuests().length - 1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>
+              </button>
+            </div>
+
+            <!-- Quest Name -->
+            <div class="quest-content">
+              <h4 class="quest-name">{{ q.name }}</h4>
+              
+              <!-- Rewards List -->
+              <div class="rewards-container">
+                <div class="reward-item glass-card" *ngFor="let r of q.rewards" [class.completed]="!userNeedsPokemon(r.pokemonId)">
+                  <div class="reward-pokemon">
+                    <img [src]="r.spriteUrl" [alt]="r.name" class="pokemon-sprite">
+                    <span class="pokemon-name">{{ r.name }}</span>
+                  </div>
+                  <div class="reward-details">
+                    <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                    <div class="missing-badges">
+                      <span class="badge badge-shiny" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.shiny && !isShinyUnavailable(r.name)">
+                        ✨ Shiny
+                      </span>
+                      <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.perfect">
+                        💯 100%
+                      </span>
+                      <span class="badge badge-completed" *ngIf="!userNeedsPokemon(r.pokemonId)">
+                        ✅ Completato
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. COMPLETED / LOW PRIORITY QUESTS -->
+      <section class="quest-section completed-section" *ngIf="lowPriorityQuests().length > 0 && showCompleted()">
+        <h3 class="priority-title low">
+          <span class="priority-indicator green"></span>
+          {{ 'quest.priority.low' | translate }}
+          <span class="quest-count badge-green">{{ lowPriorityQuests().length }}</span>
+        </h3>
+        
+        <div class="quests-grid">
+          <div class="quest-card glass-card completed-quest" *ngFor="let q of lowPriorityQuests(); let i = index">
+            <!-- Order Controls -->
+            <div class="quest-reorder-controls" [title]="'quest.reorder_tooltip' | translate">
+              <button class="reorder-btn" (click)="moveUp(q, 'low')" [disabled]="i === 0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/></svg>
+              </button>
+              <button class="reorder-btn" (click)="moveDown(q, 'low')" [disabled]="i === lowPriorityQuests().length - 1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>
+              </button>
+            </div>
+
+            <!-- Quest Name -->
+            <div class="quest-content">
+              <h4 class="quest-name">{{ q.name }}</h4>
+              
+              <!-- Rewards List -->
+              <div class="rewards-container">
+                <div class="reward-item glass-card completed" *ngFor="let r of q.rewards">
+                  <div class="reward-pokemon">
+                    <img [src]="r.spriteUrl" [alt]="r.name" class="pokemon-sprite">
+                    <span class="pokemon-name">{{ r.name }}</span>
+                  </div>
+                  <div class="reward-details">
+                    <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                    <div class="missing-badges">
+                      <span class="badge badge-completed">
+                        ✅ Completato
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>

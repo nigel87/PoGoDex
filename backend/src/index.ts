@@ -67,7 +67,7 @@ async function startServer() {
 
     // Auto-cleanup di profili fantasma generati da navigazioni crawler su rotte riservate
     try {
-      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api'];
+      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests'];
       const placeholders = reserved.map(() => '?').join(',');
       const result = await db.run(
         `DELETE FROM users WHERE LOWER(name) IN (${placeholders})`,
@@ -146,6 +146,96 @@ async function startServer() {
         res.json(newUser);
       } catch (err) {
         console.error('Errore nella registrazione dell\'utente:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 2.5. GET /api/quests - Elenco delle ricerche sul campo arricchite
+    // =================================================================
+    app.get('/api/quests', async (req, res) => {
+      try {
+        const quests = await db.all('SELECT * FROM quests ORDER BY displayOrder ASC');
+        
+        // Estraiamo tutti gli ID dei pokemon coinvolti per caricarne i dettagli (nome, spriteUrl)
+        const pokemonIds = new Set<number>();
+        for (const q of quests) {
+          try {
+            const rewards = JSON.parse(q.rewards);
+            if (Array.isArray(rewards)) {
+              for (const r of rewards) {
+                if (r.pokemonId) pokemonIds.add(r.pokemonId);
+              }
+            }
+          } catch (e) {
+            console.error('Errore nel parse dei rewards della quest:', q.id, e);
+          }
+        }
+
+        let pokemonDetailsMap = new Map<number, { name: string, spriteUrl: string }>();
+        if (pokemonIds.size > 0) {
+          const placeholders = Array.from(pokemonIds).map(() => '?').join(',');
+          const pokemons = await db.all(
+            `SELECT id, name, spriteUrl FROM pokemons WHERE id IN (${placeholders})`,
+            ...Array.from(pokemonIds)
+          );
+          for (const p of pokemons) {
+            pokemonDetailsMap.set(p.id, { name: p.name, spriteUrl: p.spriteUrl });
+          }
+        }
+
+        // Arricchiamo le quest con i dettagli caricati
+        const enrichedQuests = quests.map(q => {
+          let rewards = [];
+          try {
+            rewards = JSON.parse(q.rewards);
+          } catch (e) {}
+
+          const enrichedRewards = rewards.map((r: any) => {
+            const details = pokemonDetailsMap.get(r.pokemonId);
+            return {
+              ...r,
+              name: details ? details.name : 'Unknown',
+              spriteUrl: details ? details.spriteUrl : ''
+            };
+          });
+
+          return {
+            id: q.id,
+            name: q.name,
+            rewards: enrichedRewards,
+            displayOrder: q.displayOrder
+          };
+        });
+
+        res.json(enrichedQuests);
+      } catch (err) {
+        console.error('Errore nel recupero delle quest:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 2.6. PUT /api/quests/reorder - Riordina l'elenco delle quest
+    // =================================================================
+    app.put('/api/quests/reorder', async (req, res) => {
+      const { orderedIds } = req.body;
+      if (!Array.isArray(orderedIds)) {
+        return res.status(400).json({ error: 'orderedIds è richiesto e deve essere un array' });
+      }
+
+      try {
+        await db.run('BEGIN TRANSACTION;');
+        const stmt = await db.prepare('UPDATE quests SET displayOrder = ? WHERE id = ?');
+        for (let i = 0; i < orderedIds.length; i++) {
+          await stmt.run(i + 1, orderedIds[i]);
+        }
+        await stmt.finalize();
+        await db.run('COMMIT;');
+        res.json({ success: true });
+      } catch (err) {
+        try { await db.run('ROLLBACK;'); } catch (_) {}
+        console.error('Errore durante il riordino delle quest:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
