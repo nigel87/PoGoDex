@@ -122,6 +122,9 @@
                       <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.perfect">
                         💯 100%
                       </span>
+                      <span class="badge badge-evolve" *ngIf="!userNeedsPokemon(r.pokemonId) && getRewardPriority(r.pokemonId) === 'high'">
+                        🧬 Evolve
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -157,7 +160,7 @@
               
               <!-- Rewards List -->
               <div class="rewards-container">
-                <div class="reward-item glass-card" *ngFor="let r of q.rewards" [class.completed]="!userNeedsPokemon(r.pokemonId)">
+                <div class="reward-item glass-card" *ngFor="let r of q.rewards" [class.completed]="!userNeedsPokemon(r.pokemonId) && getRewardPriority(r.pokemonId) !== 'high'">
                   <div class="reward-pokemon">
                     <img [src]="r.spriteUrl" [alt]="r.name" class="pokemon-sprite">
                     <span class="pokemon-name">{{ r.name }}</span>
@@ -171,7 +174,10 @@
                       <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r.pokemonId) && !pokemonEntries().get(r.pokemonId)?.perfect">
                         💯 100%
                       </span>
-                      <span class="badge badge-completed" *ngIf="!userNeedsPokemon(r.pokemonId)">
+                      <span class="badge badge-evolve" *ngIf="!userNeedsPokemon(r.pokemonId) && getRewardPriority(r.pokemonId) === 'high'">
+                        🧬 Evolve
+                      </span>
+                      <span class="badge badge-completed" *ngIf="!userNeedsPokemon(r.pokemonId) && getRewardPriority(r.pokemonId) !== 'high'">
                         ✅ Completato
                       </span>
                     </div>

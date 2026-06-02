@@ -7,7 +7,7 @@ import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
-import { SHINY_UNRELEASED_SPECIES } from '../../services/pokemon-config';
+import { SHINY_UNRELEASED_SPECIES, EVOLVES_FROM } from '../../services/pokemon-config';
 import { APP_VERSION } from '../../version';
 
 @Component({
@@ -125,31 +125,111 @@ export class QuestComponent implements OnInit, OnDestroy {
     return needsPerfect || needsShiny;
   }
 
-  // Classificazione Quests ad Alta Priorità: l'utente ha bisogno di TUTTI i possibili pokemon di ricompensa della quest
+  // Determina se una specie può evolversi in un'altra in Pokémon GO
+  isEvolvableInGo(fromName: string, toName: string): boolean {
+    const fromBase = fromName.split(' (')[0];
+    const toBase = toName.split(' (')[0];
+    
+    // Verifica se toBase evolve da fromBase nella catena evolutiva di base
+    let current = toBase;
+    let isDescendant = false;
+    while (EVOLVES_FROM[current]) {
+      if (EVOLVES_FROM[current] === fromBase) {
+        isDescendant = true;
+        break;
+      }
+      current = EVOLVES_FROM[current];
+    }
+    if (!isDescendant && toBase !== fromBase) {
+      return false;
+    }
+
+    // Casi speciali in cui l'evoluzione non è possibile in GO
+    if (fromBase === 'Scyther' && toBase === 'Kleavor') return false;
+    if (fromBase === 'Stantler' && toBase === 'Wyrdeer') return false;
+    if (fromBase === 'Rufflet' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Petilil' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Bergmite' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Quilava' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Dewott' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Dartrix' && toName.includes('(Hisuian)')) return false;
+    if (fromBase === 'Koffing' && toName.includes('(Galarian)')) return false;
+    if (fromBase === 'Cubone' && toName.includes('(Alolan)')) return false;
+    if (fromBase === 'Exeggcute' && toName.includes('(Alolan)')) return false;
+    
+    // Forme regionali evolutive in GO (es. Pikachu non evolve in Raichu Alolan)
+    const fromSuffix = this.getFormSuffix(fromName);
+    const toSuffix = this.getFormSuffix(toName);
+    
+    if (toSuffix && toSuffix !== fromSuffix) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  getFormSuffix(name: string): string | null {
+    const match = name.match(/\(([^)]+)\)/);
+    return match ? match[1] : null;
+  }
+
+  // Determina la priorità di una singola ricompensa basandosi su buchi evolutivi o necessità di evoluzione
+  getRewardPriority(pokemonId: number): 'high' | 'medium' | 'low' {
+    const p = this.pokemonEntries().get(pokemonId);
+    if (!p) return 'high';
+
+    const needsP = this.userNeedsPokemon(pokemonId);
+    
+    // Trova tutti i discendenti evolutivi di p in GO
+    const descendants: PokedexDTO[] = [];
+    for (const entry of this.pokemonEntries().values()) {
+      if (this.isEvolvableInGo(p.name, entry.name) && entry.id !== p.id) {
+        descendants.push(entry);
+      }
+    }
+
+    // Filtra i discendenti per ottenere solo le evoluzioni finali
+    const finals = descendants.filter(d => {
+      return !descendants.some(d2 => this.isEvolvableInGo(d.name, d2.name) && d2.id !== d.id);
+    });
+
+    const missingFinals = finals.filter(f => this.userNeedsPokemon(f.id));
+    const numMissingFinals = missingFinals.length;
+
+    if (!needsP && numMissingFinals === 0) {
+      return 'low';
+    }
+    if (needsP && numMissingFinals === 0) {
+      // Caso "buco": l'utente ha già il finale ma gli manca la forma base/intermedia
+      return 'medium';
+    }
+    // Negli altri casi (needsP && missingFinals > 0, oppure !needsP && missingFinals > 0) è Alta Priorità
+    return 'high';
+  }
+
+  // Classificazione Quests ad Alta Priorità: tutte le ricompense della quest hanno priorità 'high'
   highPriorityQuests = computed(() => {
     const list = this.questsList();
     return list.filter(q => {
-      // Se tutte le ricompense servono all'utente
-      return q.rewards.every(r => this.userNeedsPokemon(r.pokemonId));
+      return q.rewards.every(r => this.getRewardPriority(r.pokemonId) === 'high');
     });
   });
 
-  // Classificazione Quests a Media Priorità: l'utente ha bisogno di ALMENO UNO ma NON di tutti i possibili pokemon di ricompensa
+  // Classificazione Quests a Media Priorità: almeno una ricompensa serve all'utente, ma non tutte hanno priorità 'high'
   mediumPriorityQuests = computed(() => {
     const list = this.questsList();
     return list.filter(q => {
-      const needsSome = q.rewards.some(r => this.userNeedsPokemon(r.pokemonId));
-      const needsAll = q.rewards.every(r => this.userNeedsPokemon(r.pokemonId));
-      return needsSome && !needsAll;
+      const hasSomeNeed = q.rewards.some(r => this.getRewardPriority(r.pokemonId) !== 'low');
+      const allHigh = q.rewards.every(r => this.getRewardPriority(r.pokemonId) === 'high');
+      return hasSomeNeed && !allHigh;
     });
   });
 
-  // Classificazione Quests a Bassa Priorità/Completate: l'utente ha già registrato sia lo Shiny che il 100% per tutte le possibili ricompense
+  // Classificazione Quests a Bassa Priorità/Completate: tutte le ricompense hanno priorità 'low'
   lowPriorityQuests = computed(() => {
     const list = this.questsList();
     return list.filter(q => {
-      // Se per tutte le ricompense, l'utente le possiede già completate (non ne ha bisogno)
-      return q.rewards.every(r => !this.userNeedsPokemon(r.pokemonId));
+      return q.rewards.every(r => this.getRewardPriority(r.pokemonId) === 'low');
     });
   });
 
