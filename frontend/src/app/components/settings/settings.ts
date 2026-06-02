@@ -5,6 +5,7 @@ import { SettingsService } from '../../services/settings.service';
 import { I18nService, Language } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 import { Subscription } from 'rxjs';
+import { APP_VERSION } from '../../version';
 
 @Component({
   selector: 'app-settings',
@@ -14,6 +15,7 @@ import { Subscription } from 'rxjs';
   styleUrl: './settings.css'
 })
 export class SettingsComponent implements OnInit, OnDestroy {
+  version = APP_VERSION;
   groupRegionals = signal<boolean>(true);
   includeUnreleased = signal<boolean>(true);
   simplifyExport = signal<boolean>(true);
