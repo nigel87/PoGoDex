@@ -135,6 +135,7 @@ export class I18nService {
       'form.xxs': 'XXS',
       'form.mega': 'Mega',
       'form.gigamax': 'Gigamax',
+      'form.origin': 'Origine',
 
       // Caught Status filters
       'status.all': 'Tutti i Pokémon',
@@ -387,6 +388,7 @@ export class I18nService {
       'form.xxs': 'XXS',
       'form.mega': 'Mega',
       'form.gigamax': 'Gigamax',
+      'form.origin': 'Origin',
 
       // Caught Status filters
       'status.all': 'All Pokémon',

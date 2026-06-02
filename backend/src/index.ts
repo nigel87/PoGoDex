@@ -2287,6 +2287,127 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       return shinyUnreleasedCapable;
     }
 
+    async function performRaidAutoSync(): Promise<void> {
+      console.log('[Auto-Sync-Raids] Avvio sincronizzazione Raid automatica. Contatto pokemon-go-api...');
+      const response = await fetch('https://pokemon-go-api.github.io/pokemon-go-api/api/raidboss.json');
+      if (!response.ok) {
+        throw new Error(`Pokemon GO API returned status ${response.status}`);
+      }
+      const data = await response.json() as any;
+      if (!data || !data.currentList) {
+        throw new Error('Raid boss data is empty or invalid');
+      }
+
+      const list = data.currentList;
+      const parsedRaids: Array<{
+        pokemonId: number;
+        minCp: number;
+        maxCp: number;
+        tier: string;
+        isShadow: number;
+        isMega: number;
+      }> = [];
+
+      for (const tierKey of Object.keys(list)) {
+        const bosses = list[tierKey];
+        if (!Array.isArray(bosses)) continue;
+
+        for (const b of bosses) {
+          const imageSrc = b.assets?.image || '';
+          const match = imageSrc.match(/\/pm(\d+)(?:\.f([A-Z0-9]+))?\.icon\.png/);
+          if (!match) {
+            console.warn(`[Auto-Sync-Raids] Impossibile estrarre Pokédex ID dall'immagine per ${b.names?.English}: ${imageSrc}`);
+            continue;
+          }
+
+          const dexNumber = parseInt(match[1], 10);
+          const formSuffix = match[2] || '';
+          let pokemonId = dexNumber;
+
+          if (formSuffix && ['ALOLA', 'GALAR', 'HISUI', 'PALDEA', 'ORIGIN'].includes(formSuffix)) {
+            const formNameMap: Record<string, string> = {
+              'ALOLA': 'Alolan',
+              'GALAR': 'Galarian',
+              'HISUI': 'Hisuian',
+              'PALDEA': 'Paldean',
+              'ORIGIN': 'Origin'
+            };
+            const dbFormName = formNameMap[formSuffix];
+            if (dbFormName) {
+              const variety = await db.get<{ id: number }>(
+                'SELECT id FROM pokemons WHERE parentId = ? AND name LIKE ?',
+                dexNumber,
+                `%(${dbFormName})%`
+              );
+              if (variety) {
+                pokemonId = variety.id;
+              } else {
+                console.warn(`[Auto-Sync-Raids] Varietà non trovata nel DB per parentId=${dexNumber}, form=${dbFormName}`);
+                continue;
+              }
+            }
+          }
+
+          // Verifica se l'ID esiste nel database pokemons
+          const countRow = await db.get<{ count: number }>(
+            'SELECT COUNT(*) as count FROM pokemons WHERE id = ?',
+            pokemonId
+          );
+          if (!countRow || countRow.count === 0) {
+            console.warn(`[Auto-Sync-Raids] Pokémon con ID ${pokemonId} non trovato nel database. Salto.`);
+            continue;
+          }
+
+          let isShadow = 0;
+          let isMega = 0;
+          let tier = 'standard';
+
+          if (tierKey === 'mega') {
+            isMega = 1;
+            tier = 'mega';
+          } else if (tierKey === 'lvl5' || tierKey === 'ultra_beast' || tierKey === 'shadow_lvl5') {
+            tier = 'legendary';
+          } else {
+            tier = 'standard';
+          }
+
+          if (tierKey.startsWith('shadow_')) {
+            isShadow = 1;
+          }
+
+          const minCp = Array.isArray(b.cpRange) ? b.cpRange[0] : 0;
+          const maxCp = Array.isArray(b.cpRange) ? b.cpRange[1] : 0;
+
+          parsedRaids.push({
+            pokemonId,
+            minCp,
+            maxCp,
+            tier,
+            isShadow,
+            isMega
+          });
+        }
+      }
+
+      // Esegui l'aggiornamento sul database
+      await db.run('BEGIN TRANSACTION;');
+      try {
+        await db.run('DELETE FROM raids;');
+        const insertStmt = await db.prepare(
+          'INSERT INTO raids (pokemonId, minCp, maxCp, tier, isShadow, isMega) VALUES (?, ?, ?, ?, ?, ?);'
+        );
+        for (const r of parsedRaids) {
+          await insertStmt.run(r.pokemonId, r.minCp, r.maxCp, r.tier, r.isShadow, r.isMega);
+        }
+        await insertStmt.finalize();
+        await db.run('COMMIT;');
+        console.log(`[Auto-Sync-Raids] Raid auto-sincronizzati con successo. Inseriti ${parsedRaids.length} raid attivi.`);
+      } catch (err) {
+        await db.run('ROLLBACK;');
+        throw err;
+      }
+    }
+
     // =================================================================
     // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Solo Locale)
     // =================================================================
@@ -2301,6 +2422,23 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica degli shiny:', err);
         res.status(500).json({ error: 'Errore durante la sincronizzazione automatica con PoGoAPI: ' + String(err) });
+      }
+    });
+
+    // =================================================================
+    // 9.1. POST /api/admin/sync-raids - Sincronizza automaticamente i raid da Pokemon GO API (Solo Locale)
+    // =================================================================
+    app.post('/api/admin/sync-raids', async (req, res) => {
+      if (!isLocalRequest(req)) {
+        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
+      }
+
+      try {
+        await performRaidAutoSync();
+        res.json({ success: true });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica dei raid:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione dei raid: ' + String(err) });
       }
     });
 
@@ -2319,7 +2457,7 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       console.log(`   [Node OK] Server REST in ascolto su http://${host}:${port}!`);
       console.log(`================================================================`);
 
-      // 10. Esegui la sincronizzazione automatica degli shiny all'avvio in background
+      // 10. Esegui la sincronizzazione automatica degli shiny e dei raid all'avvio in background
       setTimeout(async () => {
         try {
           console.log('[Startup Background Worker] Avvio sincronizzazione Shiny programmata...');
@@ -2328,16 +2466,25 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
         } catch (err) {
           console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Shiny all\'avvio:', err);
         }
+
+        try {
+          console.log('[Startup Background Worker] Avvio sincronizzazione Raid programmata...');
+          await performRaidAutoSync();
+          console.log('[Startup Background Worker] Sincronizzazione Raid iniziale completata con successo.');
+        } catch (err) {
+          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Raid all\'avvio:', err);
+        }
       }, 5000); // Ritardo di 5 secondi per far avviare il server liberamente
 
       // 11. Esegui la sincronizzazione automatica ogni 24 ore
       setInterval(async () => {
         try {
-          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny giornaliera...');
+          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny e Raid giornaliera...');
           await performShinyAutoSync();
-          console.log('[Periodic Background Worker] Sincronizzazione Shiny giornaliera completata con successo.');
+          await performRaidAutoSync();
+          console.log('[Periodic Background Worker] Sincronizzazione Shiny e Raid giornaliera completata con successo.');
         } catch (err) {
-          console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica Shiny periodica:', err);
+          console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica periodica:', err);
         }
       }, 24 * 60 * 60 * 1000); // 24 ore
     });

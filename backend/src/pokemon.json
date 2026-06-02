@@ -10510,5 +10510,32 @@
     "generation": 6,
     "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/676-pharaoh.png",
     "parentId": 676
+  },
+  {
+    "id": 10227,
+    "name": "Dialga (Origin)",
+    "type1": "Steel",
+    "type2": "Dragon",
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10227.png",
+    "parentId": 483
+  },
+  {
+    "id": 10228,
+    "name": "Palkia (Origin)",
+    "type1": "Water",
+    "type2": "Dragon",
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10228.png",
+    "parentId": 484
+  },
+  {
+    "id": 10007,
+    "name": "Giratina (Origin)",
+    "type1": "Ghost",
+    "type2": "Dragon",
+    "generation": 4,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10007.png",
+    "parentId": 487
   }
 ]

@@ -939,6 +939,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     if (name.includes('galarian')) return this.i18n.translate('region.galar');
     if (name.includes('hisuian')) return this.i18n.translate('region.hisui');
     if (name.includes('paldean')) return this.i18n.translate('region.paldea');
+    if (name.includes('origin')) return this.i18n.translate('form.origin');
     
     // Fallback: estrae il testo tra parentesi per altre forme speciali (es. Attack, Sunny, Pattern 2, ecc.)
     const match = p.name.match(/\(([^)]+)\)/);

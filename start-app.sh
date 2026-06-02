@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script per avviare contemporaneamente il Backend (Java Spring Boot) e il Frontend (Angular 18)
+# Script per avviare contemporaneamente il Backend (Node.js Express) e il Frontend (Angular 18)
 # per l'applicazione PoGODex.
 
 # Colori per i log
