@@ -1118,15 +1118,6 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     this.userService.getUsers().subscribe({
       next: (users) => {
         this.usersList.set(users);
-
-        // Se non c'è ancora un utente attivo nel localStorage, seleziona il primo caricato NON protetto (es: default seed)
-        const currentUser = this.userService.getCurrentUser();
-        if (!currentUser && users.length > 0) {
-          const firstUnprotected = users.find(u => u.isProtected !== 1);
-          if (firstUnprotected) {
-            this.userService.setActiveUser(firstUnprotected);
-          }
-        }
       },
       error: (err) => console.error('Errore nel recupero degli utenti:', err)
     });
