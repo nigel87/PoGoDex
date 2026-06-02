@@ -1,50 +1,6 @@
 <div class="raids-container">
   <!-- Header -->
-  <header class="pogo-header">
-    <div class="header-content">
-      <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
-        <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v{{ version }}</span>
-      </div>
-      
-      <div class="header-right-group">
-        <nav class="navigation-tabs">
-          <a [routerLink]="['/' + (activeUser()?.name || 'default')]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
-          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
-          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
-          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
-          <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
-          <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
-          <a [routerLink]="['/raids']" class="nav-link active">{{ 'nav.raids' | translate }}</a>
-        </nav>
-
-        <!-- Player Switcher Dropdown -->
-        <div class="player-profile-dropdown" *ngIf="activeUser()">
-          <div class="active-player-trigger">
-            <img [src]="activeUser()?.avatarUrl" [alt]="activeUser()?.name" class="player-avatar">
-            <span class="player-name">{{ activeUser()?.name }}</span>
-            <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-          
-          <div class="profile-dropdown-menu glass-card">
-            <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
-            <div class="users-list-scroll">
-              <div 
-                *ngFor="let u of usersList()" 
-                class="dropdown-user-item" 
-                [class.selected]="u.id === activeUser()?.id">
-                <button class="dropdown-user-btn" (click)="switchUser(u)">
-                  <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
-                  <span class="dropdown-user-name">{{ u.name }}</span>
-                  <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <app-header [activeTab]="'raids'"></app-header>
 
   <!-- Main Content -->
   <main class="raids-main">

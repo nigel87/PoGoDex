@@ -1,0 +1,103 @@
+<header class="pogo-header">
+  <div class="header-content">
+    <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
+      <h1 class="logo">PoGO<span>Dex</span></h1>
+      <span class="app-version">v{{ version }}</span>
+    </div>
+    
+    <div class="header-right-group">
+      <nav class="navigation-tabs" *ngIf="username || activeUser()">
+        <a [routerLink]="['/' + (username || activeUser()?.name)]" class="nav-link" [class.active]="activeTab === 'pokedex'">{{ 'nav.pokedex' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name) + '/stats']" class="nav-link" [class.active]="activeTab === 'stats'">{{ 'nav.stats' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name) + '/export']" class="nav-link" [class.active]="activeTab === 'export'">{{ 'nav.export' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name) + '/settings']" class="nav-link" [class.active]="activeTab === 'settings'">{{ 'nav.settings' | translate }}</a>
+        <a [routerLink]="['/quest']" class="nav-link" [class.active]="activeTab === 'quests'">{{ 'nav.quests' | translate }}</a>
+        <a [routerLink]="['/eggs']" class="nav-link" [class.active]="activeTab === 'eggs'">{{ 'nav.eggs' | translate }}</a>
+        <a [routerLink]="['/raids']" class="nav-link" [class.active]="activeTab === 'raids'">{{ 'nav.raids' | translate }}</a>
+      </nav>
+
+      <!-- Player Profile dropdown - Logged In (Google details) -->
+      <div class="player-profile-dropdown" *ngIf="activeUser() as user">
+        <div class="active-player-trigger">
+          <img [src]="user.avatarUrl" [alt]="user.name" class="player-avatar">
+          <span class="player-name">{{ user.name }}</span>
+          <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </div>
+        
+        <div class="profile-dropdown-menu glass-card">
+          <div class="dropdown-header">Profilo Allenatore</div>
+          <div class="dropdown-menu-links">
+            <a [routerLink]="['/' + user.name]" class="dropdown-menu-link">
+              <span class="menu-icon">📱</span> Mio Pokédex
+            </a>
+            <a [routerLink]="['/' + user.name + '/settings']" class="dropdown-menu-link">
+              <span class="menu-icon">⚙️</span> Impostazioni
+            </a>
+            <button class="dropdown-menu-link logout-btn-item" (click)="logout()">
+              <span class="menu-icon">🚪</span> Disconnetti
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logged Out State (Login Button) -->
+      <div class="auth-login-trigger" *ngIf="!activeUser()">
+        <button class="header-login-btn" (click)="openLoginModal()">
+          <span>🔑 Accedi</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Login Modal Overlay -->
+<div class="modal-overlay" *ngIf="showLoginModal()">
+  <div class="modal-card glass-card">
+    <div class="modal-header">
+      <h3>Accedi al tuo Pokédex</h3>
+      <button class="close-modal-btn" (click)="closeLoginModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Error / Success messages -->
+      <div class="auth-message error-msg" *ngIf="loginError()">⚠️ {{ loginError() }}</div>
+      <div class="auth-message success-msg" *ngIf="loginSuccess()">✓ {{ loginSuccess() }}</div>
+
+      <!-- Step 1: Google Login -->
+      <div class="google-login-section" *ngIf="!isUsernameRequired() && !isProcessing()">
+        <p class="auth-instruction">Esegui l'accesso sicuro con il tuo account Google per salvare o rivendicare i tuoi dati:</p>
+        <div class="google-btn-wrapper">
+          <div id="google-header-btn-container"></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Choose Username (Claim / Registration) -->
+      <div class="username-setup-section" *ngIf="isUsernameRequired() && !isProcessing()">
+        <p class="auth-instruction">Questo account Google non è ancora associato ad alcun allenatore. Scegli il tuo nickname:</p>
+        <div class="input-group">
+          <label for="new-trainer-name">Nome Allenatore</label>
+          <div class="input-wrapper">
+            <span class="input-prefix">@</span>
+            <input 
+              id="new-trainer-name" 
+              type="text" 
+              placeholder="Inserisci nickname desiderato..." 
+              [value]="requestedTrainerName()"
+              (input)="onTrainerNameInput($event)"
+              class="modal-input-text"
+              (keyup.enter)="submitTrainerName()"
+              autofocus>
+          </div>
+        </div>
+        <button class="modal-btn confirm-btn" (click)="submitTrainerName()" [disabled]="!requestedTrainerName().trim()">
+          Completa Registrazione
+        </button>
+      </div>
+
+      <!-- Loading spinner -->
+      <div class="auth-processing" *ngIf="isProcessing()">
+        <div class="btn-spinner"></div>
+        <span>Elaborazione in corso...</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -10,6 +10,7 @@ import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MYTHICAL_POKEMON, LEGENDARY_POKEMON, ULTRA_BEASTS, EVOLVES_FROM } from '../../services/pokemon-config';
 import { APP_VERSION } from '../../version';
+import { HeaderComponent } from '../header/header';
 
 const MYTHICAL_POKEMON_SET = new Set(MYTHICAL_POKEMON);
 const LEGENDARY_POKEMON_SET = new Set(LEGENDARY_POKEMON);
@@ -19,7 +20,7 @@ const ULTRA_BEASTS_SET = new Set(ULTRA_BEASTS);
 @Component({
   selector: 'app-export',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './export.html',
   styleUrl: './export.css'
 })

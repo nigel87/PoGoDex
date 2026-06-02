@@ -10,6 +10,7 @@ import { APP_VERSION } from '../../version';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, SHINY_UNRELEASED_SPECIES, EVOLVES_FROM, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
+import { HeaderComponent } from '../header/header';
 
 const MEGA_ID_MAP: { [key: number]: number | { x: number, y: number } } = {
   3: 10033, // venusaur-mega
@@ -105,7 +106,7 @@ const GIGAMAX_ID_MAP: { [key: number]: number } = {
 @Component({
   selector: 'app-pokedex-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './pokedex-list.html',
   styleUrl: './pokedex-list.css'
 })

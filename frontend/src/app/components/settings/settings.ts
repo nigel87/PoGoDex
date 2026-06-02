@@ -7,11 +7,12 @@ import { TranslatePipe } from '../../services/translate.pipe';
 import { Subscription } from 'rxjs';
 import { APP_VERSION } from '../../version';
 import { UserService, User } from '../../services/user.service';
+import { HeaderComponent } from '../header/header';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslatePipe],
+  imports: [CommonModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './settings.html',
   styleUrl: './settings.css'
 })

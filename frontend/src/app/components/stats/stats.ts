@@ -9,11 +9,12 @@ import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, 
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 import { APP_VERSION } from '../../version';
+import { HeaderComponent } from '../header/header';
 
 @Component({
   selector: 'app-stats',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslatePipe],
+  imports: [CommonModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './stats.html',
   styleUrl: './stats.css'
 })

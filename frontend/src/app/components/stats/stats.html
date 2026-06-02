@@ -1,22 +1,6 @@
 <div class="stats-container">
   <!-- Header -->
-  <header class="pogo-header">
-    <div class="header-content">
-      <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
-        <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v{{ version }}</span>
-      </div>
-      <nav class="navigation-tabs">
-        <a [routerLink]="['/' + username]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
-        <a [routerLink]="['/' + username + '/stats']" class="nav-link active">{{ 'nav.stats' | translate }}</a>
-        <a [routerLink]="['/' + username + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
-        <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
-        <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
-        <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
-        <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
-      </nav>
-    </div>
-  </header>
+  <app-header [activeTab]="'stats'" [username]="username"></app-header>
 
   <!-- Private Error Block -->
   <div class="private-error-card glass-card" *ngIf="isPrivateError()">

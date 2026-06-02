@@ -1,63 +1,6 @@
 <div class="pokedex-container" [class.is-readonly]="isReadOnly()">
   <!-- Header -->
-  <header class="pogo-header">
-    <div class="header-content">
-      <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
-        <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v{{ version }}</span>
-      </div>
-      
-      <div class="header-right-group">
-        <nav class="navigation-tabs">
-          <a [routerLink]="['/' + username]" class="nav-link active">{{ 'nav.pokedex' | translate }}</a>
-          <a [routerLink]="['/' + username + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
-          <a [routerLink]="['/' + username + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
-          <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
-          <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
-          <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
-          <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
-        </nav>
-
-        <!-- Player Profile Switcher Dropdown (Netflix-style premium look) -->
-        <div class="player-profile-dropdown" *ngIf="activeUser()">
-          <div class="active-player-trigger">
-            <img [src]="activeUser()?.avatarUrl" [alt]="activeUser()?.name" class="player-avatar">
-            <span class="player-name">{{ activeUser()?.name }}</span>
-            <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </div>
-          
-          <div class="profile-dropdown-menu glass-card">
-            <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
-            <div class="users-list-scroll">
-              <div 
-                *ngFor="let u of usersList()" 
-                class="dropdown-user-item" 
-                [class.selected]="u.id === activeUser()?.id">
-                <button class="dropdown-user-btn" (click)="switchUser(u)">
-                  <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
-                  <span class="dropdown-user-name">{{ u.name }}</span>
-                  <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
-                </button>
-                <button 
-                  *ngIf="u.name.toLowerCase() !== 'default'" 
-                  class="delete-user-btn" 
-                  (click)="deleteUser($event, u)"
-                  title="Elimina allenatore">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="delete-icon"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                </button>
-              </div>
-            </div>
-            <div class="dropdown-footer">
-              <button class="add-player-btn" (click)="openNewUserModal()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                {{ 'pokedex.add_player' | translate }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <app-header [activeTab]="'pokedex'" [username]="username"></app-header>
 
   <!-- Private Error Block -->
   <div class="private-error-card glass-card" *ngIf="isPrivateError()">

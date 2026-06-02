@@ -22,30 +22,78 @@
         <p>{{ 'settings.subtitle' | translate }}</p>
       </div>
 
-      <!-- Modulo Input Nome Allenatore -->
-      <form (submit)="onSubmit(); $event.preventDefault();" class="trainer-form">
-        <div class="input-group" [class.shake]="showError()">
-          <label for="trainer-name">{{ 'landing.placeholder' | translate }}</label>
+      <!-- Error / Success messages -->
+      <div class="auth-message error-msg" *ngIf="loginError()">⚠️ {{ loginError() }}</div>
+      <div class="auth-message success-msg" *ngIf="loginSuccess()">✓ {{ loginSuccess() }}</div>
+
+      <!-- Step 1: Default View (Local Username OR Google Sign-In) -->
+      <ng-container *ngIf="!isUsernameRequired() && !isProcessing()">
+        <!-- Modulo Input Nome Allenatore -->
+        <form (submit)="onSubmit(); $event.preventDefault();" class="trainer-form">
+          <div class="input-group" [class.shake]="showError()">
+            <label for="trainer-name">{{ 'landing.placeholder' | translate }}</label>
+            <div class="input-wrapper">
+              <span class="input-prefix">@</span>
+              <input 
+                id="trainer-name"
+                type="text" 
+                [placeholder]="'landing.placeholder' | translate" 
+                [ngModel]="trainerName()" 
+                (ngModelChange)="trainerName.set($event)"
+                name="trainerName"
+                autocomplete="off"
+                required>
+            </div>
+            <span class="error-msg" *ngIf="showError()">{{ 'landing.error' | translate }}</span>
+          </div>
+
+          <button type="submit" class="submit-btn">
+            <span>{{ 'landing.btn' | translate }}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="auth-divider">
+          <span>oppure</span>
+        </div>
+
+        <!-- Google Login -->
+        <div class="google-login-section">
+          <div class="google-btn-wrapper">
+            <div id="google-landing-btn-container"></div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Step 2: Choose Username (Claim / Registration) -->
+      <div class="username-setup-section" *ngIf="isUsernameRequired() && !isProcessing()">
+        <p class="auth-instruction">Questo account Google non è ancora associato ad alcun allenatore. Scegli il tuo nickname:</p>
+        <div class="input-group">
+          <label for="new-trainer-name">Nome Allenatore</label>
           <div class="input-wrapper">
             <span class="input-prefix">@</span>
             <input 
-              id="trainer-name"
+              id="new-trainer-name" 
               type="text" 
-              [placeholder]="'landing.placeholder' | translate" 
-              [ngModel]="trainerName()" 
-              (ngModelChange)="trainerName.set($event)"
-              name="trainerName"
-              autocomplete="off"
-              required>
+              placeholder="Inserisci nickname desiderato..." 
+              [value]="requestedTrainerName()"
+              (input)="onTrainerNameInput($event)"
+              class="modal-input-text"
+              (keyup.enter)="submitTrainerName()"
+              autofocus>
           </div>
-          <span class="error-msg" *ngIf="showError()">{{ 'landing.error' | translate }}</span>
         </div>
-
-        <button type="submit" class="submit-btn">
-          <span>{{ 'landing.btn' | translate }}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        <button class="submit-btn" (click)="submitTrainerName()" [disabled]="!requestedTrainerName().trim()">
+          Completa Registrazione
         </button>
-      </form>
+      </div>
+
+      <!-- Loading spinner -->
+      <div class="auth-processing" *ngIf="isProcessing()">
+        <div class="btn-spinner"></div>
+        <span>Elaborazione in corso...</span>
+      </div>
     </div>
   </div>
 </div>

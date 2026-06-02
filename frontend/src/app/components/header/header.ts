@@ -1,30 +1,34 @@
-import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { UserService } from '../../services/user.service';
+import { UserService, User } from '../../services/user.service';
 import { TranslatePipe } from '../../services/translate.pipe';
+import { APP_VERSION } from '../../version';
 
 @Component({
-  selector: 'app-landing',
+  selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
-  templateUrl: './landing.html',
-  styleUrl: './landing.css'
+  imports: [CommonModule, RouterModule, TranslatePipe],
+  templateUrl: './header.html',
+  styleUrl: './header.css'
 })
-export class LandingComponent implements OnInit, OnDestroy {
-  trainerName = signal<string>('');
-  showError = signal<boolean>(false);
+export class HeaderComponent implements OnInit, OnDestroy {
+  @Input() activeTab: string = '';
+  @Input() username: string = '';
 
-  // Google Login States
+  version = APP_VERSION;
+  activeUser = signal<User | null>(null);
   googleClientId = signal<string | null>(null);
+
+  // Login Modal States
+  showLoginModal = signal<boolean>(false);
   isUsernameRequired = signal<boolean>(false);
   requestedTrainerName = signal<string>('');
   loginError = signal<string>('');
   loginSuccess = signal<string>('');
   isProcessing = signal<boolean>(false);
-
+  
   private googleCredentialTemp: string = '';
   private sub = new Subscription();
 
@@ -34,14 +38,13 @@ export class LandingComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    // Se c'è già un utente attivo loggato (Google), reindirizza direttamente al suo Pokédex
-    const currentUser = this.userService.getCurrentUser();
-    if (currentUser && currentUser.isProtected) {
-      this.router.navigate(['/' + currentUser.name]);
-      return;
-    }
+    this.sub.add(
+      this.userService.activeUser$.subscribe(user => {
+        this.activeUser.set(user);
+      })
+    );
 
-    // Carica il Google Client ID dal server per il login diretto
+    // Carica il Google Client ID dal server
     this.userService.getGoogleClientId().subscribe({
       next: (res) => {
         if (res.googleClientId) {
@@ -57,15 +60,29 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.sub.unsubscribe();
   }
 
-  onSubmit() {
-    const name = this.trainerName().trim();
-    if (!name) {
-      this.showError.set(true);
-      setTimeout(() => this.showError.set(false), 2000);
-      return;
+  logout() {
+    this.userService.logout();
+    this.closeLoginModal();
+    this.router.navigate(['/']);
+  }
+
+  openLoginModal() {
+    this.loginError.set('');
+    this.loginSuccess.set('');
+    this.isUsernameRequired.set(false);
+    this.requestedTrainerName.set('');
+    this.googleCredentialTemp = '';
+    this.showLoginModal.set(true);
+    
+    // Rende il bottone se presente
+    const clientId = this.googleClientId();
+    if (clientId) {
+      this.renderGoogleButton();
     }
-    // Reindirizza alla rotta dinamica del Pokédex di quel giocatore
-    this.router.navigate(['/' + name]);
+  }
+
+  closeLoginModal() {
+    this.showLoginModal.set(false);
   }
 
   initGoogleSignIn(clientId: string) {
@@ -83,7 +100,6 @@ export class LandingComponent implements OnInit, OnDestroy {
             this.handleGoogleCredential(response.credential);
           }
         });
-        this.renderGoogleButton();
       }
     }, 100);
   }
@@ -93,11 +109,11 @@ export class LandingComponent implements OnInit, OnDestroy {
     if (!google) return;
 
     setTimeout(() => {
-      const container = document.getElementById('google-landing-btn-container');
+      const container = document.getElementById('google-header-btn-container');
       if (container) {
         google.accounts.id.renderButton(
           container,
-          { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', width: 280 }
+          { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signin_with', width: 250 }
         );
       }
     }, 200);
@@ -117,6 +133,7 @@ export class LandingComponent implements OnInit, OnDestroy {
         } else {
           this.loginSuccess.set('Accesso effettuato!');
           setTimeout(() => {
+            this.closeLoginModal();
             this.router.navigate(['/' + res.user.name]);
           }, 1000);
         }
@@ -146,6 +163,7 @@ export class LandingComponent implements OnInit, OnDestroy {
         this.isProcessing.set(false);
         this.loginSuccess.set('Profilo creato!');
         setTimeout(() => {
+          this.closeLoginModal();
           this.router.navigate(['/' + res.user.name]);
         }, 1000);
       },
@@ -158,4 +176,3 @@ export class LandingComponent implements OnInit, OnDestroy {
     });
   }
 }
-

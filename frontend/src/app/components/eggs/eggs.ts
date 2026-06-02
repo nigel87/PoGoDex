@@ -9,11 +9,12 @@ import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 import { SHINY_UNRELEASED_SPECIES, EVOLVES_FROM } from '../../services/pokemon-config';
 import { APP_VERSION } from '../../version';
+import { HeaderComponent } from '../header/header';
 
 @Component({
   selector: 'app-eggs',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslatePipe],
+  imports: [CommonModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './eggs.html',
   styleUrl: './eggs.css'
 })
