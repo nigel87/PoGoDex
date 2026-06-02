@@ -15,6 +15,7 @@
           <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
           <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
           <a [routerLink]="['/eggs']" class="nav-link active">{{ 'nav.eggs' | translate }}</a>
+          <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
         </nav>
 
         <!-- Player Switcher Dropdown -->
@@ -68,14 +69,18 @@
       <span>Caricamento uova...</span>
     </div>
 
-    <!-- No active user warning -->
-    <div class="warning-card glass-card" *ngIf="!isLoading() && !activeUser()">
-      <p>{{ 'quest.no_active_user' | translate }}</p>
-      <a routerLink="/" class="action-btn">Scegli Profilo</a>
+    <!-- Guest mode banner -->
+    <div class="guest-banner-card glass-card" *ngIf="!isLoading() && !activeUser()">
+      <div class="guest-banner-icon">👤</div>
+      <div class="guest-banner-content">
+        <h3>{{ 'quest.guest_banner_title' | translate }}</h3>
+        <p>{{ 'quest.guest_banner' | translate }}</p>
+      </div>
+      <a routerLink="/" class="action-btn">{{ 'quest.guest_banner_btn' | translate }}</a>
     </div>
 
     <!-- List of Eggs -->
-    <div class="eggs-lists-wrapper" *ngIf="!isLoading() && activeUser()">
+    <div class="eggs-lists-wrapper" *ngIf="!isLoading()">
       
       <!-- Loop through each egg type -->
       <section class="egg-section" *ngFor="let egg of enrichedEggs()">
@@ -97,8 +102,8 @@
           <div 
             class="hatch-card glass-card" 
             *ngFor="let p of egg.contents"
-            [class.completed]="getRewardPriority(p.pokemonId) === 'low'"
-            [class.priority-high]="getRewardPriority(p.pokemonId) === 'high'">
+            [class.completed]="activeUser() && getRewardPriority(p.pokemonId) === 'low'"
+            [class.priority-high]="activeUser() && getRewardPriority(p.pokemonId) === 'high'">
             
             <div class="hatch-pokemon">
               <img [src]="p.spriteUrl" [alt]="p.name" class="pokemon-sprite">
@@ -108,7 +113,7 @@
               </div>
             </div>
 
-            <div class="hatch-status">
+            <div class="hatch-status" *ngIf="activeUser()">
               <div class="missing-badges">
                 <span class="badge badge-shiny" *ngIf="userNeedsPokemon(p.pokemonId) && !pokemonEntries().get(p.pokemonId)?.shiny && !isShinyUnavailable(p.name)">
                   ✨ Shiny

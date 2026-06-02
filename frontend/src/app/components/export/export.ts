@@ -9,6 +9,7 @@ import { SettingsService } from '../../services/settings.service';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MYTHICAL_POKEMON, LEGENDARY_POKEMON, ULTRA_BEASTS, EVOLVES_FROM } from '../../services/pokemon-config';
+import { APP_VERSION } from '../../version';
 
 const MYTHICAL_POKEMON_SET = new Set(MYTHICAL_POKEMON);
 const LEGENDARY_POKEMON_SET = new Set(LEGENDARY_POKEMON);
@@ -23,6 +24,7 @@ const ULTRA_BEASTS_SET = new Set(ULTRA_BEASTS);
   styleUrl: './export.css'
 })
 export class ExportComponent implements OnInit, OnDestroy {
+  version = APP_VERSION;
   // Categorie del Dex
   categories = [
     { value: 'regular' },
@@ -45,6 +47,9 @@ export class ExportComponent implements OnInit, OnDestroy {
   searchString = signal<string>('');
   includeLegendaries = signal<boolean>(false);
   activeUser = signal<User | null>(null);
+  profileUser = signal<User | null>(null);
+  isReadOnly = signal<boolean>(false);
+  isPrivateError = signal<boolean>(false);
   isLoading = signal<boolean>(true);
   showCopyToast = signal<boolean>(false);
 
@@ -87,13 +92,45 @@ export class ExportComponent implements OnInit, OnDestroy {
       this.route.params.subscribe(params => {
         const routeUser = params['username'];
         if (routeUser) {
+          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs', 'raid', 'raids'];
+          if (reserved.includes(routeUser.toLowerCase())) {
+            return;
+          }
           this.username = routeUser;
+          this.isPrivateError.set(false);
+
           // Esegue la find-or-create automatica sul backend
           this.userService.createUser(routeUser).subscribe({
             next: (user) => {
-              this.userService.setActiveUser(user);
+              this.profileUser.set(user);
+              
+              const currentUser = this.userService.getCurrentUser();
+              const isOwner = currentUser && currentUser.name.toLowerCase() === routeUser.toLowerCase();
+              
+              if (user.isProtected) {
+                if (isOwner) {
+                  this.activeUser.set(currentUser);
+                  this.isReadOnly.set(false);
+                } else {
+                  this.activeUser.set(null);
+                  this.isReadOnly.set(true);
+                }
+              } else {
+                // Non protetto
+                this.userService.setActiveUser(user);
+                this.activeUser.set(user);
+                this.isReadOnly.set(false);
+              }
+              
+              this.loadPokedexData(user.id);
             },
-            error: (err) => console.error('Errore nella registrazione/ricerca dell\'allenatore:', err)
+            error: (err) => {
+              console.error('Errore nella registrazione/ricerca dell\'allenatore:', err);
+              if (err.status === 403) {
+                this.isPrivateError.set(true);
+              }
+              this.isLoading.set(false);
+            }
           });
         }
       })
@@ -102,9 +139,28 @@ export class ExportComponent implements OnInit, OnDestroy {
     // Si iscrive all'utente attivo. Quando cambia, carica la lista dei pokemon dal backend
     this.sub.add(
       this.userService.activeUser$.subscribe(user => {
-        if (user && user.name.toLowerCase() === this.username.toLowerCase()) {
-          this.activeUser.set(user);
-          this.loadPokedexData(user.id);
+        const routeUser = this.username;
+        if (!routeUser) return;
+        
+        const isOwner = user && user.name.toLowerCase() === routeUser.toLowerCase();
+        const profile = this.profileUser();
+        
+        if (profile) {
+          if (profile.isProtected) {
+            if (isOwner) {
+              this.activeUser.set(user);
+              this.isReadOnly.set(false);
+              this.loadPokedexData(user!.id);
+            } else {
+              this.activeUser.set(null);
+              this.isReadOnly.set(true);
+              this.loadPokedexData(profile.id);
+            }
+          } else {
+            this.activeUser.set(user);
+            this.isReadOnly.set(false);
+            if (profile.id) this.loadPokedexData(profile.id);
+          }
         }
       })
     );
@@ -131,6 +187,7 @@ export class ExportComponent implements OnInit, OnDestroy {
 
   // Cambia sotto-tab
   onTabChange(tab: string) {
+    if (tab === 'import' && this.isReadOnly()) return;
     this.activeTab.set(tab);
     this.importSuccessMessage.set('');
     this.importErrorMessage.set('');
@@ -223,6 +280,7 @@ export class ExportComponent implements OnInit, OnDestroy {
 
   // Esegue l'importazione massiva richiamando l'API bulk backend
   onImport(value: boolean) {
+    if (this.isReadOnly()) return;
     const user = this.activeUser();
     if (!user) return;
 

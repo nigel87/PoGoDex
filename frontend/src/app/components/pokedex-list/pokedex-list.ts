@@ -114,6 +114,9 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   pokemonList = signal<PokedexDTO[]>([]);
   usersList = signal<User[]>([]);
   activeUser = signal<User | null>(null);
+  isReadOnly = signal<boolean>(false);
+  isPrivateError = signal<boolean>(false);
+  profileUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
   activeModalPokemon = signal<PokedexDTO | null>(null);
   version = APP_VERSION;
@@ -436,6 +439,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   }
 
   toggleMegaToValue(pokemon: PokedexDTO, val: number) {
+    if (this.isReadOnly()) return;
     const user = this.activeUser();
     if (!user) return;
 
@@ -466,6 +470,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   }
 
   toggleMega(pokemon: PokedexDTO, formType: 'x' | 'y' | 'standard') {
+    if (this.isReadOnly()) return;
     const user = this.activeUser();
     if (!user) return;
 
@@ -999,17 +1004,44 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       this.route.params.subscribe(params => {
         const routeUser = params['username'];
         if (routeUser) {
-          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs'];
+          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs', 'raid', 'raids'];
           if (reserved.includes(routeUser.toLowerCase())) {
             return;
           }
           this.username = routeUser;
+          this.isPrivateError.set(false);
+
           // Esegue la find-or-create automatica sul backend
           this.userService.createUser(routeUser).subscribe({
             next: (user) => {
-              this.userService.setActiveUser(user);
+              this.profileUser.set(user);
+              
+              const currentUser = this.userService.getCurrentUser();
+              const isOwner = currentUser && currentUser.name.toLowerCase() === routeUser.toLowerCase();
+              
+              if (user.isProtected) {
+                if (isOwner) {
+                  this.activeUser.set(currentUser);
+                  this.isReadOnly.set(false);
+                } else {
+                  this.activeUser.set(null);
+                  this.isReadOnly.set(true);
+                }
+              } else {
+                // Non protetto
+                this.userService.setActiveUser(user);
+                this.activeUser.set(user);
+                this.isReadOnly.set(false);
+              }
+              
+              this.loadPokedex(user.id);
             },
-            error: (err) => console.error('Errore nella registrazione/ricerca dell\'allenatore:', err)
+            error: (err) => {
+              console.error('Errore nella registrazione/ricerca dell\'allenatore:', err);
+              if (err.status === 403) {
+                this.isPrivateError.set(true);
+              }
+            }
           });
         }
       })
@@ -1018,9 +1050,28 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     // Si iscrive reattivamente all'utente attivo. Quando cambia, ricarica il Pokedex!
     this.sub.add(
       this.userService.activeUser$.subscribe(user => {
-        if (user && user.name.toLowerCase() === this.username.toLowerCase()) {
-          this.activeUser.set(user);
-          this.loadPokedex(user.id);
+        const routeUser = this.username;
+        if (!routeUser) return;
+        
+        const isOwner = user && user.name.toLowerCase() === routeUser.toLowerCase();
+        const profile = this.profileUser();
+        
+        if (profile) {
+          if (profile.isProtected) {
+            if (isOwner) {
+              this.activeUser.set(user);
+              this.isReadOnly.set(false);
+              this.loadPokedex(user!.id);
+            } else {
+              this.activeUser.set(null);
+              this.isReadOnly.set(true);
+              this.loadPokedex(profile.id);
+            }
+          } else {
+            this.activeUser.set(user);
+            this.isReadOnly.set(false);
+            if (profile.id) this.loadPokedex(profile.id);
+          }
         }
       })
     );
@@ -1067,10 +1118,13 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       next: (users) => {
         this.usersList.set(users);
 
-        // Se non c'è ancora un utente attivo nel localStorage, seleziona il primo caricato (es: default seed)
+        // Se non c'è ancora un utente attivo nel localStorage, seleziona il primo caricato NON protetto (es: default seed)
         const currentUser = this.userService.getCurrentUser();
         if (!currentUser && users.length > 0) {
-          this.userService.setActiveUser(users[0]);
+          const firstUnprotected = users.find(u => u.isProtected !== 1);
+          if (firstUnprotected) {
+            this.userService.setActiveUser(firstUnprotected);
+          }
         }
       },
       error: (err) => console.error('Errore nel recupero degli utenti:', err)
@@ -1088,6 +1142,9 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       error: (err) => {
         console.error('Errore nel recupero del Pokedex dell\'utente:', err);
         this.isLoading.set(false);
+        if (err.status === 403) {
+          this.isPrivateError.set(true);
+        }
       }
     });
   }
@@ -1174,6 +1231,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
   // Aggiorna lo stato di cattura di un Pokémon per il giocatore attivo
   toggleForm(pokemon: PokedexDTO, formType: 'regular' | 'shadow' | 'purified' | 'perfect' | 'lucky' | 'xxl' | 'xxs' | 'shiny' | 'gigamax') {
+    if (this.isReadOnly()) return;
     const user = this.activeUser();
     if (!user) return;
 

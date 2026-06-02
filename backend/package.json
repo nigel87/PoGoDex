@@ -1,6 +1,6 @@
 {
   "name": "pogodex-backend",
-  "version": "3.0.0",
+  "version": "0.5.1",
   "description": "Lightweight Node.js + TypeScript + SQLite backend for PoGODex",
   "main": "dist/index.js",
   "scripts": {

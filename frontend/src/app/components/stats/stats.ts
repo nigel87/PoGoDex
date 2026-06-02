@@ -8,6 +8,7 @@ import { SettingsService } from '../../services/settings.service';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
 import { I18nService } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
+import { APP_VERSION } from '../../version';
 
 @Component({
   selector: 'app-stats',
@@ -17,6 +18,7 @@ import { TranslatePipe } from '../../services/translate.pipe';
   styleUrl: './stats.css'
 })
 export class StatsComponent implements OnInit, OnDestroy {
+  version = APP_VERSION;
   pokemonList = signal<PokedexDTO[]>([]);
 
   canMega(name: string): boolean {
@@ -39,6 +41,9 @@ export class StatsComponent implements OnInit, OnDestroy {
   }
 
   activeUser = signal<User | null>(null);
+  profileUser = signal<User | null>(null);
+  isReadOnly = signal<boolean>(false);
+  isPrivateError = signal<boolean>(false);
   isLoading = signal<boolean>(true);
   selectedRegion = signal<string>('all');
 
@@ -198,13 +203,45 @@ export class StatsComponent implements OnInit, OnDestroy {
       this.route.params.subscribe(params => {
         const routeUser = params['username'];
         if (routeUser) {
+          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs', 'raid', 'raids'];
+          if (reserved.includes(routeUser.toLowerCase())) {
+            return;
+          }
           this.username = routeUser;
+          this.isPrivateError.set(false);
+
           // Esegue la find-or-create automatica sul backend
           this.userService.createUser(routeUser).subscribe({
             next: (user) => {
-              this.userService.setActiveUser(user);
+              this.profileUser.set(user);
+              
+              const currentUser = this.userService.getCurrentUser();
+              const isOwner = currentUser && currentUser.name.toLowerCase() === routeUser.toLowerCase();
+              
+              if (user.isProtected) {
+                if (isOwner) {
+                  this.activeUser.set(currentUser);
+                  this.isReadOnly.set(false);
+                } else {
+                  this.activeUser.set(null);
+                  this.isReadOnly.set(true);
+                }
+              } else {
+                // Non protetto
+                this.userService.setActiveUser(user);
+                this.activeUser.set(user);
+                this.isReadOnly.set(false);
+              }
+              
+              this.fetchStats(user.id);
             },
-            error: (err) => console.error('Errore nella registrazione/ricerca dell\'allenatore:', err)
+            error: (err) => {
+              console.error('Errore nel recupero del profilo per le statistiche:', err);
+              if (err.status === 403) {
+                this.isPrivateError.set(true);
+              }
+              this.isLoading.set(false);
+            }
           });
         }
       })
@@ -213,9 +250,28 @@ export class StatsComponent implements OnInit, OnDestroy {
     // Si iscrive reattivamente all'utente attivo. Quando cambia, ricarica le statistiche!
     this.sub.add(
       this.userService.activeUser$.subscribe(user => {
-        if (user && user.name.toLowerCase() === this.username.toLowerCase()) {
-          this.activeUser.set(user);
-          this.fetchStats(user.id);
+        const routeUser = this.username;
+        if (!routeUser) return;
+        
+        const isOwner = user && user.name.toLowerCase() === routeUser.toLowerCase();
+        const profile = this.profileUser();
+        
+        if (profile) {
+          if (profile.isProtected) {
+            if (isOwner) {
+              this.activeUser.set(user);
+              this.isReadOnly.set(false);
+              this.fetchStats(user!.id);
+            } else {
+              this.activeUser.set(null);
+              this.isReadOnly.set(true);
+              this.fetchStats(profile.id);
+            }
+          } else {
+            this.activeUser.set(user);
+            this.isReadOnly.set(false);
+            if (profile.id) this.fetchStats(profile.id);
+          }
         }
       })
     );

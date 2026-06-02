@@ -1,0 +1,269 @@
+<div class="raids-container">
+  <!-- Header -->
+  <header class="pogo-header">
+    <div class="header-content">
+      <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
+        <h1 class="logo">PoGO<span>Dex</span></h1>
+        <span class="app-version">v{{ version }}</span>
+      </div>
+      
+      <div class="header-right-group">
+        <nav class="navigation-tabs">
+          <a [routerLink]="['/' + (activeUser()?.name || 'default')]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/stats']" class="nav-link">{{ 'nav.stats' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/export']" class="nav-link">{{ 'nav.export' | translate }}</a>
+          <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
+          <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
+          <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
+          <a [routerLink]="['/raids']" class="nav-link active">{{ 'nav.raids' | translate }}</a>
+        </nav>
+
+        <!-- Player Switcher Dropdown -->
+        <div class="player-profile-dropdown" *ngIf="activeUser()">
+          <div class="active-player-trigger">
+            <img [src]="activeUser()?.avatarUrl" [alt]="activeUser()?.name" class="player-avatar">
+            <span class="player-name">{{ activeUser()?.name }}</span>
+            <svg class="dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          
+          <div class="profile-dropdown-menu glass-card">
+            <div class="dropdown-header">{{ 'pokedex.select_player' | translate }}</div>
+            <div class="users-list-scroll">
+              <div 
+                *ngFor="let u of usersList()" 
+                class="dropdown-user-item" 
+                [class.selected]="u.id === activeUser()?.id">
+                <button class="dropdown-user-btn" (click)="switchUser(u)">
+                  <img [src]="u.avatarUrl" [alt]="u.name" class="dropdown-avatar">
+                  <span class="dropdown-user-name">{{ u.name }}</span>
+                  <span class="active-check" *ngIf="u.id === activeUser()?.id">✓</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="raids-main">
+    <!-- Header Title Section -->
+    <div class="raids-header-section">
+      <h2 class="section-title">{{ 'raids.title' | translate }}</h2>
+      <p class="section-subtitle">{{ 'raids.subtitle' | translate }}</p>
+    </div>
+
+    <!-- Active User Bar -->
+    <div class="raids-controls glass-card" *ngIf="activeUser()">
+      <div class="control-left">
+        <span class="active-profile-info">
+          Allenatore: <strong class="highlight-text">{{ activeUser()?.name }}</strong>
+        </span>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader-container" *ngIf="isLoading()">
+      <div class="spinner"></div>
+      <span>Caricamento raid...</span>
+    </div>
+
+    <!-- Guest mode banner -->
+    <div class="guest-banner-card glass-card" *ngIf="!isLoading() && !activeUser()">
+      <div class="guest-banner-icon">👤</div>
+      <div class="guest-banner-content">
+        <h3>{{ 'quest.guest_banner_title' | translate }}</h3>
+        <p>{{ 'quest.guest_banner' | translate }}</p>
+      </div>
+      <a routerLink="/" class="action-btn">{{ 'quest.guest_banner_btn' | translate }}</a>
+    </div>
+
+    <!-- Lists of Raids -->
+    <div class="raids-lists-wrapper" *ngIf="!isLoading()">
+      
+      <!-- 1. RAID LEGENDARY & ULTRA BEASTS -->
+      <section class="raid-section" *ngIf="legendaryRaids().length > 0">
+        <div class="raid-section-header legendary-border">
+          <div class="raid-egg-container legendary-egg">
+            <div class="raid-egg-visual">
+              <div class="egg-spots legendary-spots"></div>
+            </div>
+          </div>
+          <h3 class="raid-section-title">
+            {{ 'raids.tier.legendary' | translate }}
+            <span class="raid-count">{{ legendaryRaids().length }} Boss</span>
+          </h3>
+        </div>
+
+        <div class="raids-grid">
+          <div 
+            class="raid-boss-card glass-card" 
+            *ngFor="let r of legendaryRaids()"
+            [class.completed]="activeUser() && getRewardPriority(r) === 'low'"
+            [class.priority-high]="activeUser() && getRewardPriority(r) === 'high'"
+            [class.is-shadow]="r.isShadow">
+            
+            <div class="boss-main-info">
+              <div class="sprite-wrapper" [class.shadow-aura]="r.isShadow">
+                <img [src]="r.spriteUrl" [alt]="r.name" class="boss-sprite">
+                <div class="shadow-flames" *ngIf="r.isShadow"></div>
+              </div>
+              <div class="boss-meta">
+                <div class="boss-name-row">
+                  <span class="shadow-tag" *ngIf="r.isShadow">OMBRA</span>
+                  <span class="boss-name">{{ r.name }}</span>
+                </div>
+                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+              </div>
+            </div>
+
+            <div class="boss-status" *ngIf="activeUser()">
+              <div class="missing-badges">
+                <span class="badge badge-shiny" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.shiny && !isShinyUnavailable(r.name)">
+                  ✨ Shiny
+                </span>
+                <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.perfect">
+                  💯 100%
+                </span>
+                <span class="badge badge-shadow" *ngIf="r.isShadow && !pokemonEntries().get(r.pokemonId)?.shadow">
+                  💀 Ombra
+                </span>
+                <span class="badge badge-purified" *ngIf="r.isShadow && !pokemonEntries().get(r.pokemonId)?.purified">
+                  🧬 Purif
+                </span>
+                <span class="badge badge-evolve" *ngIf="!userNeedsPokemon(r) && getRewardPriority(r) === 'high'">
+                  🧬 Evolve
+                </span>
+                <span class="badge badge-completed" *ngIf="getRewardPriority(r) === 'low'">
+                  ✅ Completato
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. MEGA RAIDS -->
+      <section class="raid-section" *ngIf="megaRaids().length > 0">
+        <div class="raid-section-header mega-border">
+          <div class="mega-symbol-container">
+            <span class="mega-symbol">🧬</span>
+          </div>
+          <h3 class="raid-section-title">
+            {{ 'raids.tier.mega' | translate }}
+            <span class="raid-count">{{ megaRaids().length }} Boss</span>
+          </h3>
+        </div>
+
+        <div class="raids-grid">
+          <div 
+            class="raid-boss-card glass-card mega-glow" 
+            *ngFor="let r of megaRaids()"
+            [class.completed]="activeUser() && getRewardPriority(r) === 'low'"
+            [class.priority-high]="activeUser() && getRewardPriority(r) === 'high'">
+            
+            <div class="boss-main-info">
+              <div class="sprite-wrapper mega-sprite-glow">
+                <img [src]="r.spriteUrl" [alt]="r.name" class="boss-sprite">
+              </div>
+              <div class="boss-meta">
+                <div class="boss-name-row">
+                  <span class="mega-tag">MEGA</span>
+                  <span class="boss-name">Mega {{ r.name }}</span>
+                </div>
+                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+              </div>
+            </div>
+
+            <div class="boss-status" *ngIf="activeUser()">
+              <div class="missing-badges">
+                <span class="badge badge-shiny" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.shiny && !isShinyUnavailable(r.name)">
+                  ✨ Shiny
+                </span>
+                <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.perfect">
+                  💯 100%
+                </span>
+                <span class="badge badge-mega" *ngIf="!pokemonEntries().get(r.pokemonId)?.mega">
+                  🧬 Mega
+                </span>
+                <span class="badge badge-evolve" *ngIf="!userNeedsPokemon(r) && getRewardPriority(r) === 'high'">
+                  🧬 Evolve
+                </span>
+                <span class="badge badge-completed" *ngIf="getRewardPriority(r) === 'low'">
+                  ✅ Completato
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. STANDARD RAIDS -->
+      <section class="raid-section" *ngIf="standardRaids().length > 0">
+        <div class="raid-section-header standard-border">
+          <div class="raid-egg-container standard-egg">
+            <div class="raid-egg-visual">
+              <div class="egg-spots standard-spots"></div>
+            </div>
+          </div>
+          <h3 class="raid-section-title">
+            {{ 'raids.tier.standard' | translate }}
+            <span class="raid-count">{{ standardRaids().length }} Boss</span>
+          </h3>
+        </div>
+
+        <div class="raids-grid">
+          <div 
+            class="raid-boss-card glass-card" 
+            *ngFor="let r of standardRaids()"
+            [class.completed]="activeUser() && getRewardPriority(r) === 'low'"
+            [class.priority-high]="activeUser() && getRewardPriority(r) === 'high'"
+            [class.is-shadow]="r.isShadow">
+            
+            <div class="boss-main-info">
+              <div class="sprite-wrapper" [class.shadow-aura]="r.isShadow">
+                <img [src]="r.spriteUrl" [alt]="r.name" class="boss-sprite">
+                <div class="shadow-flames" *ngIf="r.isShadow"></div>
+              </div>
+              <div class="boss-meta">
+                <div class="boss-name-row">
+                  <span class="shadow-tag" *ngIf="r.isShadow">OMBRA</span>
+                  <span class="boss-name">{{ r.name }}</span>
+                </div>
+                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+              </div>
+            </div>
+
+            <div class="boss-status" *ngIf="activeUser()">
+              <div class="missing-badges">
+                <span class="badge badge-shiny" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.shiny && !isShinyUnavailable(r.name)">
+                  ✨ Shiny
+                </span>
+                <span class="badge badge-perfect" *ngIf="userNeedsPokemon(r) && !pokemonEntries().get(r.pokemonId)?.perfect">
+                  💯 100%
+                </span>
+                <span class="badge badge-shadow" *ngIf="r.isShadow && !pokemonEntries().get(r.pokemonId)?.shadow">
+                  💀 Ombra
+                </span>
+                <span class="badge badge-purified" *ngIf="r.isShadow && !pokemonEntries().get(r.pokemonId)?.purified">
+                  🧬 Purif
+                </span>
+                <span class="badge badge-evolve" *ngIf="!userNeedsPokemon(r) && getRewardPriority(r) === 'high'">
+                  🧬 Evolve
+                </span>
+                <span class="badge badge-completed" *ngIf="getRewardPriority(r) === 'low'">
+                  ✅ Completato
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>

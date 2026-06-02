@@ -4,7 +4,7 @@
     <div class="header-content">
       <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
         <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v1.4.1</span>
+        <span class="app-version">v{{ version }}</span>
       </div>
       <nav class="navigation-tabs">
         <a [routerLink]="['/' + username]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
@@ -13,200 +13,217 @@
         <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
         <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
         <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
+        <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
       </nav>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="stats-main">
-    <div class="loader-container" *ngIf="isLoading()">
-      <div class="spinner"></div>
-      <span>{{ i18n.currentLang() === 'it' ? 'Analisi Pokedex in corso...' : 'Analyzing Pokédex...' }}</span>
+  <!-- Private Error Block -->
+  <div class="private-error-card glass-card" *ngIf="isPrivateError()">
+    <div class="error-icon">🔒</div>
+    <h2>Questo Pokédex è privato</h2>
+    <p>L'allenatore ha scelto di nascondere il proprio Pokédex. Se sei il proprietario di questo profilo, effettua l'accesso con Google nelle Impostazioni per visualizzarlo.</p>
+    <a routerLink="/" class="action-btn">Torna alla Home</a>
+  </div>
+
+  <ng-container *ngIf="!isPrivateError()">
+    <!-- Read-only Banner -->
+    <div class="readonly-banner glass-card" *ngIf="isReadOnly()">
+      <span class="lock-icon">🔒</span>
+      <span class="banner-text">Sei in modalità <strong>Sola Lettura</strong> per le statistiche di <strong>{{ username }}</strong>.</span>
     </div>
 
-    <div *ngIf="!isLoading() && stats()" class="stats-dashboard">
-      <!-- Filtro Regioni per Statistiche -->
-      <div class="stats-region-selector glass-card">
-        <span class="selector-label">{{ 'stats.select_region' | translate }}:</span>
-        <div class="stats-region-pills">
-          <button 
-            *ngFor="let reg of pokemonRegions" 
-            class="stats-region-pill"
-            [class.active]="selectedRegion() === reg.value"
-            (click)="selectRegion(reg.value)">
-            {{ 'region.' + reg.value | translate }}
-          </button>
-        </div>
+    <!-- Main Content -->
+    <main class="stats-main">
+      <div class="loader-container" *ngIf="isLoading()">
+        <div class="spinner"></div>
+        <span>{{ i18n.currentLang() === 'it' ? 'Analisi Pokedex in corso...' : 'Analyzing Pokédex...' }}</span>
       </div>
 
-      <!-- Welcome panel -->
-      <div class="glass-card welcome-panel">
-        <h2>{{ 'stats.title' | translate }} - {{ getActiveRegionLabel() }}</h2>
-        <p class="subtitle">{{ 'stats.subtitle' | translate }} ({{ stats().total }} {{ 'pokedex.pokemon' | translate }})</p>
+      <div *ngIf="!isLoading() && stats()" class="stats-dashboard">
+        <!-- Filtro Regioni per Statistiche -->
+        <div class="stats-region-selector glass-card">
+          <span class="selector-label">{{ 'stats.select_region' | translate }}:</span>
+          <div class="stats-region-pills">
+            <button 
+              *ngFor="let reg of pokemonRegions" 
+              class="stats-region-pill"
+              [class.active]="selectedRegion() === reg.value"
+              (click)="selectRegion(reg.value)">
+              {{ 'region.' + reg.value | translate }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Welcome panel -->
+        <div class="glass-card welcome-panel">
+          <h2>{{ 'stats.title' | translate }} - {{ getActiveRegionLabel() }}</h2>
+          <p class="subtitle">{{ 'stats.subtitle' | translate }} ({{ stats().total }} {{ 'pokedex.pokemon' | translate }})</p>
+        </div>
+
+        <!-- Grid Gauges -->
+        <div class="gauges-grid">
+          <!-- Regular Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.overall' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart pogo-theme" [style.--pct]="regularPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ regularPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().regularCaught }} / {{ stats().total }}</p>
+              <p class="label">{{ 'stats.caught' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Shadow Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.shadow' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart shadow-theme" [style.--pct]="shadowPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ shadowPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().shadowCaught }} / {{ shadowCapableTotal() }}</p>
+              <p class="label">{{ 'stats.shadow' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Purified Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.purified' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart purified-theme" [style.--pct]="purifiedPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ purifiedPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().purifiedCaught }} / {{ shadowCapableTotal() }}</p>
+              <p class="label">{{ 'stats.purified' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Perfect (100%) Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.perfect' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart perfect-theme" [style.--pct]="perfectPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ perfectPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().perfectCaught }} / {{ stats().total }}</p>
+              <p class="label">{{ 'stats.perfect' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Lucky Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.lucky' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart lucky-theme" [style.--pct]="luckyPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ luckyPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().luckyCaught }} / {{ luckyCapableTotal() }}</p>
+              <p class="label">{{ 'stats.lucky' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- XXL Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.xxl' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart xxl-theme" [style.--pct]="xxlPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ xxlPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().xxlCaught }} / {{ xxlCapableTotal() }}</p>
+              <p class="label">{{ 'stats.xxl' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- XXS Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.xxs' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart xxs-theme" [style.--pct]="xxsPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ xxsPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().xxsCaught }} / {{ xxsCapableTotal() }}</p>
+              <p class="label">{{ 'stats.xxs' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Shiny Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.shiny' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart shiny-theme" [style.--pct]="shinyPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ shinyPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().shinyCaught }} / {{ stats().total }}</p>
+              <p class="label">{{ 'stats.shiny' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Mega Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.mega' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart mega-theme" [style.--pct]="megaPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ megaPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().megaCaught }} / {{ megaCapableTotal() }}</p>
+              <p class="label">{{ 'stats.mega' | translate }}</p>
+            </div>
+          </div>
+
+          <!-- Gigamax Dex -->
+          <div class="glass-card gauge-card">
+            <h3>{{ 'stats.gigamax' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart gigamax-theme" [style.--pct]="gigamaxPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ gigamaxPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ stats().gigamaxCaught }} / {{ gigamaxCapableTotal() }}</p>
+              <p class="label">{{ 'stats.gigamax' | translate }}</p>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <!-- Grid Gauges -->
-      <div class="gauges-grid">
-        <!-- Regular Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.overall' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart pogo-theme" [style.--pct]="regularPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ regularPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().regularCaught }} / {{ stats().total }}</p>
-            <p class="label">{{ 'stats.caught' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Shadow Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.shadow' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart shadow-theme" [style.--pct]="shadowPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ shadowPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().shadowCaught }} / {{ shadowCapableTotal() }}</p>
-            <p class="label">{{ 'stats.shadow' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Purified Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.purified' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart purified-theme" [style.--pct]="purifiedPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ purifiedPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().purifiedCaught }} / {{ shadowCapableTotal() }}</p>
-            <p class="label">{{ 'stats.purified' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Perfect (100%) Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.perfect' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart perfect-theme" [style.--pct]="perfectPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ perfectPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().perfectCaught }} / {{ stats().total }}</p>
-            <p class="label">{{ 'stats.perfect' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Lucky Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.lucky' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart lucky-theme" [style.--pct]="luckyPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ luckyPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().luckyCaught }} / {{ luckyCapableTotal() }}</p>
-            <p class="label">{{ 'stats.lucky' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- XXL Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.xxl' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart xxl-theme" [style.--pct]="xxlPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ xxlPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().xxlCaught }} / {{ xxlCapableTotal() }}</p>
-            <p class="label">{{ 'stats.xxl' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- XXS Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.xxs' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart xxs-theme" [style.--pct]="xxsPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ xxsPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().xxsCaught }} / {{ xxsCapableTotal() }}</p>
-            <p class="label">{{ 'stats.xxs' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Shiny Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.shiny' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart shiny-theme" [style.--pct]="shinyPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ shinyPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().shinyCaught }} / {{ stats().total }}</p>
-            <p class="label">{{ 'stats.shiny' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Mega Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.mega' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart mega-theme" [style.--pct]="megaPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ megaPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().megaCaught }} / {{ megaCapableTotal() }}</p>
-            <p class="label">{{ 'stats.mega' | translate }}</p>
-          </div>
-        </div>
-
-        <!-- Gigamax Dex -->
-        <div class="glass-card gauge-card">
-          <h3>{{ 'stats.gigamax' | translate }}</h3>
-          <div class="gauge-wrapper">
-            <div class="donut-chart gigamax-theme" [style.--pct]="gigamaxPct() + '%'">
-              <div class="donut-inner">
-                <span class="pct-val">{{ gigamaxPct() }}%</span>
-              </div>
-            </div>
-          </div>
-          <div class="gauge-details">
-            <p class="captured-count">{{ stats().gigamaxCaught }} / {{ gigamaxCapableTotal() }}</p>
-            <p class="label">{{ 'stats.gigamax' | translate }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+    </main>
+  </ng-container>
 </div>

@@ -46,14 +46,8 @@ export class QuestComponent implements OnInit, OnDestroy {
           this.activeUser.set(user);
           this.loadData(user.id);
         } else {
-          // Se non c'è nessun utente attivo (es: caricamento diretto di /quest), proviamo a impostare il primo
-          this.userService.getUsers().subscribe(users => {
-            if (users && users.length > 0) {
-              this.userService.setActiveUser(users[0]);
-            } else {
-              this.isLoading.set(false);
-            }
-          });
+          this.activeUser.set(null);
+          this.loadData();
         }
       })
     );
@@ -74,27 +68,32 @@ export class QuestComponent implements OnInit, OnDestroy {
     this.userService.setActiveUser(user);
   }
 
-  loadData(userId: number) {
+  loadData(userId?: number) {
     this.isLoading.set(true);
     // Carica contemporaneamente le quest e le entries dell'utente
     this.pokedexService.getQuests().subscribe({
       next: (quests) => {
         this.questsList.set(quests);
         
-        this.pokedexService.getAllEntries(userId).subscribe({
-          next: (entries) => {
-            const map = new Map<number, PokedexDTO>();
-            for (const e of entries) {
-              map.set(e.id, e);
+        if (userId) {
+          this.pokedexService.getAllEntries(userId).subscribe({
+            next: (entries) => {
+              const map = new Map<number, PokedexDTO>();
+              for (const e of entries) {
+                map.set(e.id, e);
+              }
+              this.pokemonEntries.set(map);
+              this.isLoading.set(false);
+            },
+            error: (err) => {
+              console.error('Errore nel caricamento del Pokédex per l\'allenatore:', err);
+              this.isLoading.set(false);
             }
-            this.pokemonEntries.set(map);
-            this.isLoading.set(false);
-          },
-          error: (err) => {
-            console.error('Errore nel caricamento del Pokédex per l\'allenatore:', err);
-            this.isLoading.set(false);
-          }
-        });
+          });
+        } else {
+          this.pokemonEntries.set(new Map());
+          this.isLoading.set(false);
+        }
       },
       error: (err) => {
         console.error('Errore nel caricamento delle quest:', err);

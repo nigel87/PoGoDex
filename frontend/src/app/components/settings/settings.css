@@ -403,3 +403,187 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Google Auth & Privacy Styles */
+.auth-card {
+  border: 1px solid rgba(234, 67, 53, 0.2);
+}
+
+.auth-card:hover {
+  box-shadow: 0 10px 30px rgba(234, 67, 53, 0.06);
+}
+
+.auth-message {
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  animation: fadeInSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--glass-shadow);
+}
+
+.auth-message.success {
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  color: #2ecc71;
+}
+
+.auth-message.error {
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+
+.auth-message .msg-icon {
+  font-size: 1.1rem;
+}
+
+.status-badge-wrapper {
+  width: 100%;
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.status-badge {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: var(--glass-shadow);
+}
+
+.status-badge.protected {
+  background: rgba(46, 204, 113, 0.12);
+  border: 1px solid rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+}
+
+.status-badge.unprotected {
+  background: rgba(241, 196, 15, 0.12);
+  border: 1px solid rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+}
+
+.auth-flow-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  border-top: 1px dashed var(--border-color);
+  animation: fadeInSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flow-info {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.google-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+#google-btn-container {
+  min-height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Privacy setting selection */
+.privacy-setting-item {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.privacy-select-wrapper {
+  position: relative;
+  min-width: 250px;
+}
+
+.premium-select {
+  width: 100%;
+  padding: 0.75rem 1.2rem;
+  border-radius: 12px;
+  background: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.25s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.premium-select:hover {
+  background-color: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  border-color: var(--text-secondary);
+}
+
+.premium-select:focus {
+  border-color: var(--pogo-blue);
+  box-shadow: 0 0 12px rgba(27, 124, 252, 0.15);
+}
+
+/* Logout styling */
+.logout-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.logout-btn {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--glass-shadow);
+}
+
+.logout-btn:hover {
+  background: rgba(231, 76, 60, 0.18);
+  border-color: #e74c3c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.15);
+}
+
+.logout-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.logout-btn:hover svg {
+  transform: translateX(2px);
+}

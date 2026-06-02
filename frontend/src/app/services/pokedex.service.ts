@@ -77,6 +77,19 @@ export interface Egg {
   contents: EggContent[];
 }
 
+export interface Raid {
+  id: number;
+  pokemonId: number;
+  name: string;
+  spriteUrl: string;
+  generation: number;
+  minCp: number;
+  maxCp: number;
+  tier: string; // 'legendary', 'mega', 'standard'
+  isShadow: boolean;
+  isMega: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -265,5 +278,15 @@ export class PokedexService {
       ? `http://${window.location.hostname}:8085/api/eggs`
       : '/api/eggs';
     return this.http.get<Egg[]>(url);
+  }
+
+  /**
+   * Recupera la lista dei raid attivi.
+   */
+  getRaids(): Observable<Raid[]> {
+    const url = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/raids`
+      : '/api/raids';
+    return this.http.get<Raid[]>(url);
   }
 }

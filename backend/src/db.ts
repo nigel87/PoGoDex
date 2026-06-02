@@ -52,7 +52,10 @@ async function initializeTables(database: Database) {
       email TEXT,
       googleId TEXT,
       avatarUrl TEXT,
-      lastUpdated INTEGER DEFAULT 0
+      lastUpdated INTEGER DEFAULT 0,
+      googleSubId TEXT UNIQUE,
+      isProtected INTEGER DEFAULT 0,
+      privacyMode TEXT DEFAULT 'public_edit'
     );
   `);
 
@@ -75,6 +78,27 @@ async function initializeTables(database: Database) {
   // Esegue migrazioni safe per database preesistenti
   try {
     await database.exec('ALTER TABLE users ADD COLUMN lastUpdated INTEGER DEFAULT 0;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN googleSubId TEXT DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_googleSubId ON users(googleSubId);');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN isProtected INTEGER DEFAULT 0;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN privacyMode TEXT DEFAULT "public_edit";');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN email TEXT DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN avatarUrl TEXT DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN googleId TEXT DEFAULT NULL;');
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId INTEGER DEFAULT NULL;');
@@ -395,6 +419,66 @@ async function initializeTables(database: Database) {
       
       await database.exec('COMMIT;');
       console.log(`[Database Migration] Migrazione ${migrationNameEggs} completata con successo!`);
+    }
+
+    // Nuova migrazione per creare e popolare la tabella dei raid
+    const migrationNameRaids = 'create_raids_table_v1';
+    const rowRaids = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+      migrationNameRaids
+    );
+    
+    if (rowRaids && rowRaids.count === 0) {
+      console.log(`[Database Migration] Esecuzione migrazione tabella raid e seed iniziale: ${migrationNameRaids}...`);
+      
+      await database.exec('BEGIN TRANSACTION;');
+      
+      // Creazione tabella
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS raids (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pokemonId INTEGER NOT NULL,
+          minCp INTEGER NOT NULL,
+          maxCp INTEGER NOT NULL,
+          tier TEXT NOT NULL,
+          isShadow INTEGER DEFAULT 0,
+          isMega INTEGER DEFAULT 0
+        );
+      `);
+
+      // Default Raids
+      const defaultRaids = [
+        // Leggendari/Ultracreature
+        { pokemonId: 150, minCp: 2294, maxCp: 2387, tier: 'legendary', isShadow: 1, isMega: 0 }, // Shadow Mewtwo
+        { pokemonId: 384, minCp: 2102, maxCp: 2191, tier: 'legendary', isShadow: 0, isMega: 0 }, // Rayquaza
+        { pokemonId: 382, minCp: 2260, maxCp: 2351, tier: 'legendary', isShadow: 0, isMega: 0 }, // Kyogre
+        { pokemonId: 383, minCp: 2260, maxCp: 2351, tier: 'legendary', isShadow: 0, isMega: 0 }, // Groudon
+        // Mega Raid
+        { pokemonId: 448, minCp: 1971, maxCp: 2186, tier: 'mega', isShadow: 0, isMega: 1 }, // Lucario
+        { pokemonId: 6, minCp: 1538, maxCp: 1651, tier: 'mega', isShadow: 0, isMega: 1 },  // Charizard
+        { pokemonId: 94, minCp: 1496, maxCp: 1644, tier: 'mega', isShadow: 0, isMega: 1 },  // Gengar
+        // Raid Standard
+        { pokemonId: 621, minCp: 1487, maxCp: 1561, tier: 'standard', isShadow: 0, isMega: 0 }, // Druddigon
+        { pokemonId: 215, minCp: 1107, maxCp: 1172, tier: 'standard', isShadow: 1, isMega: 0 }, // Shadow Sneasel
+        { pokemonId: 403, minCp: 458, maxCp: 500, tier: 'standard', isShadow: 1, isMega: 0 },  // Shadow Shinx
+        { pokemonId: 66, minCp: 678, maxCp: 730, tier: 'standard', isShadow: 0, isMega: 0 }    // Machop
+      ];
+
+      const stmt = await database.prepare('INSERT INTO raids (pokemonId, minCp, maxCp, tier, isShadow, isMega) VALUES (?, ?, ?, ?, ?, ?)');
+      for (const r of defaultRaids) {
+        await stmt.run(r.pokemonId, r.minCp, r.maxCp, r.tier, r.isShadow, r.isMega);
+      }
+      await stmt.finalize();
+
+      // Registriamo l'esecuzione della migrazione
+      await database.run(
+        'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+        migrationNameRaids,
+        Date.now()
+      );
+      
+      await database.exec('COMMIT;');
+      console.log(`[Database Migration] Migrazione ${migrationNameRaids} completata con successo!`);
     }
   } catch (err) {
     try { await database.exec('ROLLBACK;'); } catch (_) {}

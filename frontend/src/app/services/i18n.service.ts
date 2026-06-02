@@ -17,6 +17,8 @@ export class I18nService {
       'nav.export': 'Esporta',
       'nav.quests': 'Ricerche',
       'nav.eggs': 'Uova',
+      'nav.raids': 'Raid',
+      'nav.settings': 'Impostazioni',
 
       // Sezione Uova
       'eggs.title': 'Schiuse Uova',
@@ -27,6 +29,16 @@ export class I18nService {
       'eggs.type.10km': 'Uovo da 10 km',
       'eggs.type.12km': 'Uovo da 12 km',
       'eggs.hatch_pool': 'Pool Schiuse',
+
+      // Sezione Raid
+      'raids.title': 'Boss dei Raid',
+      'raids.subtitle': 'Scopri i Pokémon attualmente nei Raid e traccia quelli che ti mancano (I dati CP fanno riferimento al Livello 20).',
+      'raids.tier.legendary': 'Raid Leggendari & Ultracreature',
+      'raids.tier.mega': 'Mega Raid',
+      'raids.tier.standard': 'Raid Standard',
+      'raids.missing_mega': 'Mega mancante',
+      'raids.missing_shadow': 'Ombra mancante',
+      'raids.missing_purified': 'Purificato mancante',
 
       // Sezione Quest
       'quest.title': 'Ricerche sul Campo',
@@ -40,6 +52,9 @@ export class I18nService {
       'quest.missing_shiny': 'Shiny mancante',
       'quest.missing_perfect': '100% mancante',
       'quest.no_active_user': 'Nessun allenatore attivo. Seleziona un profilo.',
+      'quest.guest_banner': 'Sei in modalità Ospite. Accedi o seleziona un profilo allenatore per tracciare le tue catture e ordinare le ricerche per priorità.',
+      'quest.guest_banner_btn': 'Accedi / Scegli Profilo',
+      'quest.guest_banner_title': 'Modalità Ospite',
       'quest.reorder_tooltip': 'Usa le frecce per ordinare manualmente',
 
       // Landing Page
@@ -205,6 +220,22 @@ export class I18nService {
       'settings.language.title': 'Lingua / Language',
       'settings.language.desc': 'Seleziona la lingua dell\'interfaccia utente di PoGODex (Italiano o Inglese).',
 
+      // Google Auth & Privacy Card
+      'settings.auth.title': 'Google Autenticazione & Privacy',
+      'settings.auth.desc': 'Gestisci il collegamento con Google per proteggere il tuo nickname e decidi chi può vedere o modificare il tuo Pokédex.',
+      'settings.auth.status.protected': 'Profilo Protetto 🔒',
+      'settings.auth.status.unprotected': 'Profilo NON Protetto (A rischio sovrascrittura) ⚠️',
+      'settings.auth.linked_with': 'Collegato all\'account Google:',
+      'settings.auth.link_btn': 'Collega Account Google',
+      'settings.auth.logout_btn': 'Disconnetti (Logout)',
+      'settings.auth.privacy_mode.title': 'Modalità di Condivisione Pokédex:',
+      'settings.auth.privacy_mode.desc': 'Imposta la visibilità del tuo Pokédex.',
+      'settings.auth.privacy_mode.public_edit': 'Modificabile Pubblicamente (Chiunque può modificare)',
+      'settings.auth.privacy_mode.public_readonly': 'Sola Lettura Pubblica (Chiunque può vedere, solo tu modifichi)',
+      'settings.auth.privacy_mode.private': 'Privato (Solo tu puoi vedere e modificare)',
+      'settings.auth.privacy_info_unprotected': 'Per cambiare la modalità di condivisione o impedire ad altri di modificare il tuo Pokédex, devi prima collegare un account Google.',
+      'settings.auth.non_owner_warning': 'Stai visualizzando le impostazioni di un altro allenatore. Non puoi modificare le sue impostazioni di sicurezza o autenticazione.',
+
       // Developer Admin Console
       'admin.title': 'PoGO dex Dev Console',
       'admin.subtitle': 'Configurazione grafica delle forme speciali (Shadow, Mega, Gigamax) e stato di rilascio.',
@@ -238,6 +269,8 @@ export class I18nService {
       'nav.export': 'Export',
       'nav.quests': 'Quests',
       'nav.eggs': 'Eggs',
+      'nav.raids': 'Raids',
+      'nav.settings': 'Settings',
 
       // Eggs Page
       'eggs.title': 'Egg Hatches',
@@ -248,6 +281,16 @@ export class I18nService {
       'eggs.type.10km': '10 km Egg',
       'eggs.type.12km': '12 km Egg',
       'eggs.hatch_pool': 'Hatch Pool',
+
+      // Raid Page
+      'raids.title': 'Raid Bosses',
+      'raids.subtitle': 'Discover Pokémon currently in Raids and track the ones you still need (CP values are for Level 20).',
+      'raids.tier.legendary': 'Legendary & Ultra Beast Raids',
+      'raids.tier.mega': 'Mega Raids',
+      'raids.tier.standard': 'Standard Raids',
+      'raids.missing_mega': 'Mega missing',
+      'raids.missing_shadow': 'Shadow missing',
+      'raids.missing_purified': 'Purified missing',
 
       // Quest Page
       'quest.title': 'Field Research Quests',
@@ -261,6 +304,9 @@ export class I18nService {
       'quest.missing_shiny': 'Shiny missing',
       'quest.missing_perfect': '100% missing',
       'quest.no_active_user': 'No active trainer. Please select a profile.',
+      'quest.guest_banner': 'You are in Guest Mode. Sign in or select a trainer profile to track your catches and sort quests by priority.',
+      'quest.guest_banner_btn': 'Sign in / Select Profile',
+      'quest.guest_banner_title': 'Guest Mode',
       'quest.reorder_tooltip': 'Use arrows to reorder manually',
 
       // Landing Page
@@ -425,6 +471,22 @@ export class I18nService {
       'settings.coming_soon': 'Coming Soon',
       'settings.language.title': 'Language / Lingua',
       'settings.language.desc': 'Select the interface language for PoGODex (Italian or English).',
+
+      // Google Auth & Privacy Card
+      'settings.auth.title': 'Google Authentication & Privacy',
+      'settings.auth.desc': 'Manage your Google account link to protect your trainer profile and configure who can see or edit your Pokédex.',
+      'settings.auth.status.protected': 'Protected Profile 🔒',
+      'settings.auth.status.unprotected': 'UNPROTECTED Profile (Risk of overwrite) ⚠️',
+      'settings.auth.linked_with': 'Linked with Google account:',
+      'settings.auth.link_btn': 'Link Google Account',
+      'settings.auth.logout_btn': 'Sign Out (Logout)',
+      'settings.auth.privacy_mode.title': 'Pokédex Sharing Mode:',
+      'settings.auth.privacy_mode.desc': 'Set the visibility of your Pokédex.',
+      'settings.auth.privacy_mode.public_edit': 'Publicly Editable (Anyone can edit)',
+      'settings.auth.privacy_mode.public_readonly': 'Public Read-only (Anyone can view, only you can edit)',
+      'settings.auth.privacy_mode.private': 'Private (Only you can view and edit)',
+      'settings.auth.privacy_info_unprotected': 'To change the sharing mode or prevent others from modifying your Pokédex, you must link a Google account first.',
+      'settings.auth.non_owner_warning': 'You are viewing another trainer\'s settings. You cannot change their security or authentication settings.',
 
       // Developer Admin Console
       'admin.title': 'PoGO dex Dev Console',

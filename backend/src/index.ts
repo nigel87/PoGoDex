@@ -5,6 +5,34 @@ import fs from 'fs';
 import { getDb } from './db';
 import { runSeeder } from './seed';
 import { PokedexDTO, User } from './types';
+import { signJwt, verifyJwt, verifyGoogleToken } from './auth';
+
+// Carica variabili d'ambiente da .env
+function loadEnv() {
+  const possiblePaths = [
+    path.join(__dirname, '../.env'),
+    path.join(__dirname, '../../.env'),
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), 'backend/.env')
+  ];
+  for (const envPath of possiblePaths) {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+          const firstEqual = trimmed.indexOf('=');
+          const key = trimmed.slice(0, firstEqual).trim();
+          const val = trimmed.slice(firstEqual + 1).trim();
+          const cleanVal = val.replace(/^["']|["']$/g, '');
+          process.env[key] = cleanVal;
+        }
+      }
+      break;
+    }
+  }
+}
+loadEnv();
 
 // =================================================================
 // Logger strutturato — scrive su console e su file logs/YYYY-MM-DD.log
@@ -65,9 +93,47 @@ async function startServer() {
       }
     }
 
+    // Verifica i permessi di lettura di un Pokédex
+    async function checkReadPermission(req: express.Request, userId: number): Promise<boolean> {
+      try {
+        const user = await db.get<User>('SELECT * FROM users WHERE id = ?', userId);
+        if (!user) return false;
+        
+        if (user.privacyMode === 'private') {
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+          const token = authHeader.substring(7);
+          const decoded = verifyJwt(token);
+          if (!decoded || decoded.id !== userId) return false;
+        }
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    // Verifica i permessi di modifica di un Pokédex
+    async function checkWritePermission(req: express.Request, userId: number): Promise<boolean> {
+      try {
+        const user = await db.get<User>('SELECT * FROM users WHERE id = ?', userId);
+        if (!user) return false;
+        
+        if (user.isProtected === 1 || user.privacyMode === 'public_readonly' || user.privacyMode === 'private') {
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+          const token = authHeader.substring(7);
+          const decoded = verifyJwt(token);
+          if (!decoded || decoded.id !== userId) return false;
+        }
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
     // Auto-cleanup di profili fantasma generati da navigazioni crawler su rotte riservate
     try {
-      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs'];
+      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs', 'raid', 'raids'];
       const placeholders = reserved.map(() => '?').join(',');
       const result = await db.run(
         `DELETE FROM users WHERE LOWER(name) IN (${placeholders})`,
@@ -99,11 +165,203 @@ async function startServer() {
     app.delete('/api/users/:id', async (req, res) => {
       const id = parseInt(req.params.id, 10);
       try {
+        const user = await db.get<User>('SELECT * FROM users WHERE id = ?', id);
+        if (!user) {
+          return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        if (user.isProtected === 1) {
+          const authHeader = req.headers.authorization;
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Autenticazione richiesta per eliminare questo profilo protetto' });
+          }
+          const token = authHeader.substring(7);
+          const decoded = verifyJwt(token);
+          if (!decoded || decoded.id !== id) {
+            return res.status(403).json({ error: 'Non autorizzato a eliminare questo profilo' });
+          }
+        }
+
         const result = await db.run('DELETE FROM users WHERE id = ?', id);
         log('INFO', `Profilo allenatore eliminato con successo`, { id, changes: result.changes });
         res.json({ success: true });
       } catch (err) {
         log('ERROR', 'Errore nella cancellazione del profilo allenatore', { err: String(err), id });
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/auth/google - Login o Registrazione con Account Google
+    // =================================================================
+    app.post('/api/auth/google', async (req, res) => {
+      const { idToken, requestedUsername } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ error: 'idToken è richiesto' });
+      }
+
+      try {
+        const payload = await verifyGoogleToken(idToken);
+        if (!payload) {
+          return res.status(401).json({ error: 'Token Google non valido o scaduto' });
+        }
+
+        const sub = payload.sub;
+        const email = payload.email || null;
+        const googleName = payload.name || '';
+        const picture = payload.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${sub}`;
+
+        // Controlla se esiste già un utente con questo googleSubId
+        let user = await db.get<User>('SELECT * FROM users WHERE googleSubId = ?', sub);
+
+        if (user) {
+          // Utente già registrato, effettua il login
+          const token = signJwt({ id: user.id, name: user.name, googleSubId: user.googleSubId });
+          return res.json({ token, user });
+        }
+
+        // Se l'utente non è ancora associato a nessun profilo
+        if (!requestedUsername || requestedUsername.trim() === '') {
+          // Restituisce le info per richiedere l'inserimento del nickname nel frontend
+          return res.json({
+            status: 'username_required',
+            googlePayload: { sub, email, name: googleName, picture }
+          });
+        }
+
+        const trimmedName = requestedUsername.trim();
+
+        // Verifica se il nickname scelto esiste già nel database
+        const existingUser = await db.get<User>('SELECT * FROM users WHERE name = ?', trimmedName);
+        if (existingUser) {
+          if (existingUser.isProtected === 1 || existingUser.googleSubId) {
+            return res.status(400).json({ error: 'Questo nickname è già registrato da un altro utente' });
+          }
+
+          // Associa l'account Google al profilo esistente non protetto (claiming)
+          await db.run(
+            'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = ? WHERE id = ?',
+            sub, 1, email, picture, existingUser.id
+          );
+          await touchUserLastUpdated(existingUser.id as number);
+          
+          const updatedUser = await db.get<User>('SELECT * FROM users WHERE id = ?', existingUser.id);
+          const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId });
+          log('INFO', `Profilo esistente collegato con Google`, { id: updatedUser?.id, name: updatedUser?.name });
+          return res.json({ token, user: updatedUser });
+        } else {
+          // Crea un nuovo profilo protetto
+          const result = await db.run(
+            'INSERT INTO users (name, email, googleSubId, isProtected, avatarUrl, privacyMode) VALUES (?, ?, ?, ?, ?, ?)',
+            trimmedName, email, sub, 1, picture, 'public_edit'
+          );
+          const newUserId = result.lastID;
+          await touchUserLastUpdated(newUserId as number);
+
+          const newUser = await db.get<User>('SELECT * FROM users WHERE id = ?', newUserId);
+          const token = signJwt({ id: newUser?.id, name: newUser?.name, googleSubId: newUser?.googleSubId });
+          log('INFO', `Nuovo profilo creato con Google`, { id: newUserId, name: trimmedName });
+          return res.json({ token, user: newUser });
+        }
+      } catch (err) {
+        log('ERROR', 'Errore durante l\'autenticazione Google', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/users/:id/link-google - Collega Google Account a profilo esistente in settings
+    // =================================================================
+    app.post('/api/users/:id/link-google', async (req, res) => {
+      const id = parseInt(req.params.id, 10);
+      const { idToken } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ error: 'idToken è richiesto' });
+      }
+
+      try {
+        const payload = await verifyGoogleToken(idToken);
+        if (!payload) {
+          return res.status(401).json({ error: 'Token Google non valido o scaduto' });
+        }
+
+        const sub = payload.sub;
+        const email = payload.email || null;
+        const picture = payload.picture || null;
+
+        // Controlla se questo account Google è già associato a qualcun altro
+        const existingLinked = await db.get<User>('SELECT * FROM users WHERE googleSubId = ?', sub);
+        if (existingLinked && existingLinked.id !== id) {
+          return res.status(400).json({ error: 'Questo account Google è già collegato ad un altro allenatore' });
+        }
+
+        // Recupera l'utente corrente
+        const currentUser = await db.get<User>('SELECT * FROM users WHERE id = ?', id);
+        if (!currentUser) {
+          return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        if (currentUser.isProtected === 1 || currentUser.googleSubId) {
+          return res.status(400).json({ error: 'Questo profilo è già protetto' });
+        }
+
+        // Eseguiamo il collegamento
+        await db.run(
+          'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = COALESCE(?, avatarUrl) WHERE id = ?',
+          sub, 1, email, picture, id
+        );
+        await touchUserLastUpdated(id);
+
+        const updatedUser = await db.get<User>('SELECT * FROM users WHERE id = ?', id);
+        const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId });
+        log('INFO', `Collegato Google account a profilo esistente via settings`, { id });
+        res.json({ success: true, token, user: updatedUser });
+      } catch (err) {
+        log('ERROR', 'Errore durante il collegamento Google', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // PUT /api/users/:id/privacy - Cambia privacy del Pokedex
+    // =================================================================
+    app.put('/api/users/:id/privacy', async (req, res) => {
+      const id = parseInt(req.params.id, 10);
+      const { privacyMode } = req.body;
+      const validModes = ['public_edit', 'public_readonly', 'private'];
+      if (!validModes.includes(privacyMode)) {
+        return res.status(400).json({ error: 'privacyMode non valido' });
+      }
+
+      // Richiede autenticazione
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Autenticazione richiesta' });
+      }
+      const token = authHeader.substring(7);
+      const decoded = verifyJwt(token);
+      if (!decoded || decoded.id !== id) {
+        return res.status(403).json({ error: 'Non autorizzato a modificare la privacy di questo profilo' });
+      }
+
+      try {
+        const user = await db.get<User>('SELECT * FROM users WHERE id = ?', id);
+        if (!user) {
+          return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        // Se si vuole impostare una privacy restrittiva, l'utente deve essere protetto!
+        if (privacyMode !== 'public_edit' && user.isProtected !== 1) {
+          return res.status(400).json({ error: 'Collega prima un account Google per proteggere il tuo Pokédex e cambiarne la privacy' });
+        }
+
+        await db.run('UPDATE users SET privacyMode = ? WHERE id = ?', privacyMode, id);
+        await touchUserLastUpdated(id);
+
+        log('INFO', `Privacy modificata per utente`, { id, privacyMode });
+        res.json({ success: true, privacyMode });
+      } catch (err) {
+        log('ERROR', 'Errore nella modifica della privacy', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
@@ -307,6 +565,38 @@ async function startServer() {
     });
 
     // =================================================================
+    // 2.8. GET /api/raids - Elenco dei raid arricchiti
+    // =================================================================
+    app.get('/api/raids', async (req, res) => {
+      try {
+        const raids = await db.all(`
+          SELECT r.*, p.name, p.spriteUrl, p.generation 
+          FROM raids r 
+          LEFT JOIN pokemons p ON r.pokemonId = p.id 
+          ORDER BY r.id ASC
+        `);
+        
+        const enrichedRaids = raids.map(r => ({
+          id: r.id,
+          pokemonId: r.pokemonId,
+          name: r.name || 'Unknown',
+          spriteUrl: r.spriteUrl || '',
+          generation: r.generation || 0,
+          minCp: r.minCp,
+          maxCp: r.maxCp,
+          tier: r.tier,
+          isShadow: !!r.isShadow,
+          isMega: !!r.isMega
+        }));
+
+        res.json(enrichedRaids);
+      } catch (err) {
+        console.error('Errore nel recupero dei raid:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
     // 3. GET /api/pokedex - Catalogo completo con stato spunte allenatore
     // =================================================================
     app.get('/api/pokedex', async (req, res) => {
@@ -318,6 +608,9 @@ async function startServer() {
       const parsedUserId = parseInt(userId as string, 10);
 
       try {
+        if (!(await checkReadPermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Questo Pokédex è privato. Accedi con il profilo proprietario per visualizzarlo.' });
+        }
         // Query preventiva del timestamp lastUpdated dell'utente
         const userRow = await db.get<{ lastUpdated: number }>('SELECT lastUpdated FROM users WHERE id = ?', parsedUserId);
         const lastUpdated = userRow?.lastUpdated || 0;
@@ -389,6 +682,10 @@ async function startServer() {
       }
 
       try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkWritePermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo Pokédex' });
+        }
         const pokemon = await db.get('SELECT * FROM pokemons WHERE id = ?', pokemonId);
         if (!pokemon) {
           return res.status(404).json({ error: 'Pokémon non trovato' });
@@ -457,6 +754,10 @@ async function startServer() {
       }
 
       try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkReadPermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Questo Pokédex è privato. Accedi con il profilo proprietario per visualizzarlo.' });
+        }
         const totalRow = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM pokemons');
         const statsRow = await db.get<any>(`
           SELECT 
@@ -503,6 +804,10 @@ async function startServer() {
       }
 
       try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkReadPermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Questo Pokédex è privato. Accedi con il profilo proprietario per visualizzarlo.' });
+        }
         const pokemons = await db.all('SELECT id FROM pokemons ORDER BY id ASC');
         const entries = await db.all('SELECT * FROM pokedex_entries WHERE userId = ?', userId);
         
@@ -562,6 +867,10 @@ async function startServer() {
       }
 
       try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkWritePermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo Pokédex' });
+        }
         const inputIds: number[] = (pokemonIds as number[]).map(Number);
 
         // Filtra solo i pokemonId che esistono nella tabella pokemons
@@ -638,8 +947,13 @@ async function startServer() {
         return res.json({ success: true, count: 0 });
       }
 
-      const tStart = Date.now();
       try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkWritePermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo Pokédex' });
+        }
+
+        const tStart = Date.now();
         await db.run('BEGIN TRANSACTION');
 
         for (const dto of updates) {
@@ -666,7 +980,7 @@ async function startServer() {
         await db.run('COMMIT');
         
         // Aggiorna il timestamp lastUpdated per questo utente
-        await touchUserLastUpdated(parseInt(userId as string, 10));
+        await touchUserLastUpdated(parsedUserId);
 
         const elapsed = Date.now() - tStart;
         log('INFO', `Transazione batch completata con successo in ${elapsed}ms`, { userId, count: updates.length });
@@ -676,6 +990,15 @@ async function startServer() {
         log('ERROR', 'Errore durante la transazione batch', { err: String(err), userId });
         res.status(500).json({ error: 'Errore interno del server' });
       }
+    });
+
+    // =================================================================
+    // GET /api/auth/config - Recupera configurazione OAuth
+    // =================================================================
+    app.get('/api/auth/config', (req, res) => {
+      res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || null
+      });
     });
 
     const configPath = path.join(__dirname, '../../frontend/src/app/services/pokemon-config.ts');

@@ -18,6 +18,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/eggs/eggs').then(m => m.EggsComponent)
   },
   {
+    path: 'raids',
+    loadComponent: () => import('./components/raid/raid').then(m => m.RaidComponent)
+  },
+  {
     path: ':username',
     loadComponent: () => import('./components/pokedex-list/pokedex-list').then(m => m.PokedexList)
   },

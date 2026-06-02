@@ -15,6 +15,7 @@
           <a [routerLink]="['/' + (activeUser()?.name || 'default') + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
           <a [routerLink]="['/quest']" class="nav-link active">{{ 'nav.quests' | translate }}</a>
           <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
+          <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
         </nav>
 
         <!-- Player Switcher Dropdown (Netflix-style) -->
@@ -74,17 +75,45 @@
       <span>Caricamento ricerche...</span>
     </div>
 
-    <!-- No active user warning -->
-    <div class="warning-card glass-card" *ngIf="!isLoading() && !activeUser()">
-      <p>{{ 'quest.no_active_user' | translate }}</p>
-      <a routerLink="/" class="action-btn">Scegli Profilo</a>
+    <!-- Guest mode banner -->
+    <div class="guest-banner-card glass-card" *ngIf="!isLoading() && !activeUser()">
+      <div class="guest-banner-icon">👤</div>
+      <div class="guest-banner-content">
+        <h3>{{ 'quest.guest_banner_title' | translate }}</h3>
+        <p>{{ 'quest.guest_banner' | translate }}</p>
+      </div>
+      <a routerLink="/" class="action-btn">{{ 'quest.guest_banner_btn' | translate }}</a>
     </div>
 
     <!-- Lists of Quests -->
-    <div class="quests-lists-wrapper" *ngIf="!isLoading() && activeUser()">
+    <div class="quests-lists-wrapper" *ngIf="!isLoading()">
+      
+      <!-- GUEST MODE QUESTS LIST -->
+      <section class="quest-section" *ngIf="!activeUser() && questsList().length > 0">
+        <div class="quests-grid">
+          <div class="quest-card glass-card" *ngFor="let q of questsList()">
+            <div class="quest-content">
+              <h4 class="quest-name">{{ q.name }}</h4>
+              
+              <!-- Rewards List -->
+              <div class="rewards-container">
+                <div class="reward-item glass-card" *ngFor="let r of q.rewards">
+                  <div class="reward-pokemon">
+                    <img [src]="r.spriteUrl" [alt]="r.name" class="pokemon-sprite">
+                    <span class="pokemon-name">{{ r.name }}</span>
+                  </div>
+                  <div class="reward-details">
+                    <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       
       <!-- 1. HIGH PRIORITY QUESTS -->
-      <section class="quest-section" *ngIf="highPriorityQuests().length > 0">
+      <section class="quest-section" *ngIf="activeUser() && highPriorityQuests().length > 0">
         <h3 class="priority-title high">
           <span class="priority-indicator red"></span>
           {{ 'quest.priority.high' | translate }}

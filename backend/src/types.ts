@@ -4,6 +4,10 @@ export interface User {
   email?: string | null;
   googleId?: string | null;
   avatarUrl?: string | null;
+  lastUpdated?: number;
+  googleSubId?: string | null;
+  isProtected?: number;
+  privacyMode?: 'public_edit' | 'public_readonly' | 'private';
 }
 
 export interface Pokemon {

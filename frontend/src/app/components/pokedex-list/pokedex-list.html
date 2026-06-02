@@ -1,4 +1,4 @@
-<div class="pokedex-container">
+<div class="pokedex-container" [class.is-readonly]="isReadOnly()">
   <!-- Header -->
   <header class="pogo-header">
     <div class="header-content">
@@ -15,6 +15,7 @@
           <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
           <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
           <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
+          <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
         </nav>
 
         <!-- Player Profile Switcher Dropdown (Netflix-style premium look) -->
@@ -58,8 +59,23 @@
     </div>
   </header>
 
-  <!-- Filter Bar Panel -->
-  <section class="filters-section">
+  <!-- Private Error Block -->
+  <div class="private-error-card glass-card" *ngIf="isPrivateError()">
+    <div class="error-icon">🔒</div>
+    <h2>Questo Pokédex è privato</h2>
+    <p>L'allenatore ha scelto di nascondere il proprio Pokédex. Se sei il proprietario di questo profilo, effettua l'accesso con Google nelle Impostazioni per visualizzarlo.</p>
+    <a routerLink="/" class="action-btn">Torna alla Home</a>
+  </div>
+
+  <ng-container *ngIf="!isPrivateError()">
+    <!-- Read-only Banner -->
+    <div class="readonly-banner glass-card" *ngIf="isReadOnly()">
+      <span class="lock-icon">🔒</span>
+      <span class="banner-text">Sei in modalità <strong>Sola Lettura</strong> per il Pokédex di <strong>{{ username }}</strong>. Non puoi modificare le sue spunte.</span>
+    </div>
+
+    <!-- Filter Bar Panel -->
+    <section class="filters-section">
     <div class="glass-card filters-card">
       <div class="search-and-status-row">
         <!-- Input Cerca e Toggle Famiglia -->
@@ -709,7 +725,7 @@
       </ng-container></ng-container>
     </div>
   </div>
-</div>
+
 
 <!-- Glassmorphic Grid Modal per Pokémon con molteplici forme (Unown, Vivillon, Spinda, Furfrou) -->
 <div class="glass-modal-backdrop" *ngIf="activeModalPokemon() as bp" (click)="activeModalPokemon.set(null)">
@@ -802,4 +818,6 @@
       </div>
     </div>
   </div>
+</div>
+  </ng-container>
 </div>

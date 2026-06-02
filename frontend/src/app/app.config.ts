@@ -1,7 +1,8 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection, APP_INITIALIZER } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { PokedexService } from './services/pokedex.service';
+import { authInterceptor } from './services/auth.interceptor';
 
 import { routes } from './app.routes';
 
@@ -14,7 +15,7 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authInterceptor])),
     {
       provide: APP_INITIALIZER,
       useFactory: initializeApp,

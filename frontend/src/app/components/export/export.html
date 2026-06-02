@@ -4,7 +4,7 @@
     <div class="header-content">
       <div class="logo-wrapper" [routerLink]="['/']" style="cursor: pointer;">
         <h1 class="logo">PoGO<span>Dex</span></h1>
-        <span class="app-version">v1.4.1</span>
+        <span class="app-version">v{{ version }}</span>
       </div>
       <nav class="navigation-tabs">
         <a [routerLink]="['/' + username]" class="nav-link">{{ 'nav.pokedex' | translate }}</a>
@@ -13,363 +13,374 @@
         <a [routerLink]="['/' + username + '/settings']" class="nav-link">{{ 'nav.settings' | translate }}</a>
         <a [routerLink]="['/quest']" class="nav-link">{{ 'nav.quests' | translate }}</a>
         <a [routerLink]="['/eggs']" class="nav-link">{{ 'nav.eggs' | translate }}</a>
+        <a [routerLink]="['/raids']" class="nav-link">{{ 'nav.raids' | translate }}</a>
       </nav>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="export-main">
-    <!-- Sub-navigation Tabs -->
-    <div class="export-sub-tabs">
-      <button 
-        type="button" 
-        class="sub-tab-btn" 
-        [class.active]="activeTab() === 'export'"
-        (click)="onTabChange('export')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
-        {{ 'export.tab.export' | translate }}
-      </button>
-      <button 
-        type="button" 
-        class="sub-tab-btn" 
-        [class.active]="activeTab() === 'import'"
-        (click)="onTabChange('import')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 14 12 18 8 14"></polyline><line x1="12" y1="18" x2="12" y2="6"></line></svg>
-        {{ 'export.tab.import' | translate }}
-      </button>
-      <!--
-      <button 
-        type="button" 
-        class="sub-tab-btn" 
-        [class.active]="activeTab() === 'flyer'"
-        (click)="onTabChange('flyer')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        {{ i18n.currentLang() === 'it' ? 'Volantino Rilasciati' : 'Released List' }}
-      </button>
-      -->
-    </div>
-
-    <!-- TAB 1: EXPORT -->
-    <div class="glass-card config-panel" *ngIf="activeTab() === 'export'">
-      <h2>{{ 'export.title' | translate }}</h2>
-      <p class="subtitle">{{ 'export.subtitle' | translate }}</p>
-
-      <div class="control-grid">
-        <!-- Categoria Dex -->
-        <div class="control-group">
-          <label for="category">{{ i18n.currentLang() === 'it' ? 'Seleziona Categoria Dex' : 'Select Dex Category' }}</label>
-          <div class="select-wrapper">
-            <select id="category" [ngModel]="selectedCategory()" (ngModelChange)="onCategoryChange($event)">
-              <option *ngFor="let cat of categories" [value]="cat.value">
-                {{ (cat.value === 'regular' ? 'export.category.missing_reg' : 'export.category.missing_' + cat.value) | translate }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Formato di Ricerca (List vs Negation) -->
-        <div class="control-group">
-          <label>{{ i18n.currentLang() === 'it' ? 'Tipo di Filtro' : 'Filter Mode' }}</label>
-          <div class="toggle-group">
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="selectedMode() === 'list'"
-              (click)="onModeChange('list')">
-              {{ i18n.currentLang() === 'it' ? 'Lista (1,2)' : 'List (1,2)' }}
-            </button>
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="selectedMode() === 'negation'"
-              (click)="onModeChange('negation')">
-              {{ i18n.currentLang() === 'it' ? 'Esclusione (!1)' : 'Exclusion (!1)' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Formato Elementi (Number vs Name) -->
-        <div class="control-group">
-          <label>{{ 'export.format.label' | translate }}</label>
-          <div class="toggle-group">
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="selectedFormat() === 'number'"
-              (click)="onFormatChange('number')">
-              {{ 'export.format.number' | translate }}
-            </button>
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="selectedFormat() === 'name'"
-              (click)="onFormatChange('name')">
-              {{ 'export.format.name' | translate }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Leggendari & Ultracreature -->
-        <div class="control-group">
-          <label>{{ i18n.currentLang() === 'it' ? 'Leggendari & Ultracreature' : 'Legendaries & Ultra Beasts' }}</label>
-          <div class="toggle-group">
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="!includeLegendaries()"
-              (click)="includeLegendaries.set(false)">
-              {{ i18n.currentLang() === 'it' ? 'Escludi' : 'Exclude' }}
-            </button>
-            <button 
-              type="button" 
-              class="toggle-btn" 
-              [class.active]="includeLegendaries()"
-              (click)="includeLegendaries.set(true)">
-              {{ i18n.currentLang() === 'it' ? 'Includi' : 'Include' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Result String Display -->
-      <div class="result-box-wrapper">
-        <div class="result-header">
-          <span>{{ i18n.currentLang() === 'it' ? 'Stringa di Ricerca Generata' : 'Generated Search Query' }}</span>
-          <span class="status-badge" *ngIf="searchString()">
-            {{ searchString().split(selectedMode() === 'list' ? ',' : '&').length }} {{ i18n.currentLang() === 'it' ? 'Pokémon Mancanti' : 'Missing Pokémon' }}
-          </span>
-        </div>
-        
-        <div class="result-content">
-          <div *ngIf="isLoading()" class="loader-spinner">
-            <div class="spinner"></div>
-            <span>{{ i18n.currentLang() === 'it' ? 'Generazione in corso...' : 'Generating...' }}</span>
-          </div>
-
-          <div *ngIf="!isLoading() && !searchString()" class="no-missing-alert">
-            {{ 'export.no_missing' | translate }}
-          </div>
-
-          <textarea 
-            *ngIf="!isLoading() && searchString()" 
-            readonly 
-            [value]="searchString()"
-            class="search-string-textarea"
-            rows="4">
-          </textarea>
-        </div>
-
-        <button 
-          *ngIf="searchString() && !isLoading()"
-          (click)="copyToClipboard()"
-          class="copy-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          {{ 'export.copy' | translate }}
-        </button>
-      </div>
-    </div>
-
-    <!-- TAB 2: IMPORT -->
-    <div class="glass-card config-panel" *ngIf="activeTab() === 'import'">
-      <h2>{{ 'import.title' | translate }}</h2>
-      <p class="subtitle">{{ 'import.subtitle' | translate }}</p>
-
-      <div class="control-grid" style="grid-template-columns: 1fr;">
-        <!-- Categoria Dex -->
-        <div class="control-group">
-          <label for="importCategory">{{ 'import.label.category' | translate }}</label>
-          <div class="select-wrapper">
-            <select id="importCategory" [ngModel]="importCategory()" (ngModelChange)="importCategory.set($event)">
-              <option *ngFor="let cat of categories" [value]="cat.value">
-                {{ (cat.value === 'regular' ? 'export.category.missing_reg' : 'export.category.missing_' + cat.value) | translate }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Input Box -->
-        <div class="control-group">
-          <label for="importInput">{{ 'import.label.input' | translate }}</label>
-          <textarea 
-            id="importInput" 
-            [ngModel]="importInput()" 
-            (ngModelChange)="importInput.set($event)"
-            [placeholder]="'import.placeholder' | translate"
-            class="search-string-textarea"
-            rows="3">
-          </textarea>
-        </div>
-      </div>
-
-      <!-- Error / Success Banners -->
-      <div *ngIf="importSuccessMessage()" class="import-alert success-alert">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-        <span>{{ importSuccessMessage() }}</span>
-      </div>
-
-      <div *ngIf="importErrorMessage()" class="import-alert error-alert">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <span>{{ importErrorMessage() }}</span>
-      </div>
-
-      <!-- Loading spinner per importazione in corso -->
-      <div *ngIf="isLoading()" class="loader-spinner" style="margin: 1.5rem 0;">
-        <div class="spinner"></div>
-        <span>{{ i18n.currentLang() === 'it' ? 'Elaborazione dei dati...' : 'Processing data...' }}</span>
-      </div>
-
-      <!-- Import Actions Row -->
-      <div class="import-actions-row" *ngIf="!isLoading()">
-        <button type="button" class="import-action-btn register-btn" (click)="onImport(true)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          {{ 'import.btn.register' | translate }}
-        </button>
-        <button type="button" class="import-action-btn remove-btn" (click)="onImport(false)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-          {{ 'import.btn.remove' | translate }}
-        </button>
-      </div>
-    </div>
-
-    <!-- GUIDE 1: EXPORT (Italian) -->
-    <div class="glass-card guide-panel" *ngIf="activeTab() === 'export' && i18n.currentLang() === 'it'">
-      <h3>📘 Come utilizzare la stringa in Pokémon GO?</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h4>Seleziona e Copia</h4>
-            <p>Scegli la categoria desiderata (es. Pokémon Fortunati o Regolari) e premi il pulsante **"Copia"** qui sopra per salvare la stringa generata negli appunti del telefono.</p>
-          </div>
-        </div>
-        <div class="step" *ngIf="selectedMode() === 'list'">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>Cosa fa l'Elenco Numeri? (1,4,7)</h4>
-            <p>Se incolli questa stringa nel motore di ricerca di Pokémon GO, il gioco ti mostrerà **esclusivamente** i Pokémon presenti nella lista che possiedi già nella tua borsa. È eccezionale per verificare rapidamente se hai doppioni da scambiare o evolvere per conto di un amico!</p>
-          </div>
-        </div>
-        <div class="step" *ngIf="selectedMode() === 'negation'">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>Cosa fa il Filtro Esclusione? (!1&!4&!7)</h4>
-            <p>Questa query nasconde tutti i Pokémon che ti mancano. Incollandola nel gioco, vedrai nel tuo box **solo i Pokémon che hai già registrato come catturati**, permettendoti di filtrare e ordinare facilmente la tua collezione esistente.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h4>Filtri Avanzati in Gioco</h4>
-            <p>Puoi combinare la stringa copiata con i filtri nativi del gioco! Ad esempio, incollala e aggiungi `& shiny` per cercare i cromatici delle specie che ti mancano, o `& 4*` per vedere i tuoi 100%.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GUIDE 1: EXPORT (English) -->
-    <div class="glass-card guide-panel" *ngIf="activeTab() === 'export' && i18n.currentLang() === 'en'">
-      <h3>📘 How to use the search string in Pokémon GO?</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h4>Select and Copy</h4>
-            <p>Choose the desired category (e.g., Lucky or Regular Pokémon) and press the **"Copy String"** button above to save the generated search string to your phone's clipboard.</p>
-          </div>
-        </div>
-        <div class="step" *ngIf="selectedMode() === 'list'">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>What does the Number List do? (1,4,7)</h4>
-            <p>If you paste this string into the Pokémon GO search bar, the game will show **only** the Pokémon from the list that you already own in your storage. This is perfect to quickly check if you have spares to trade or evolve for a friend!</p>
-          </div>
-        </div>
-        <div class="step" *ngIf="selectedMode() === 'negation'">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>What does the Exclusion Filter do? (!1&!4&!7)</h4>
-            <p>This query hides all the Pokémon that you are missing. By pasting it in-game, you will see in your box **only the Pokémon you have already registered as caught**, allowing you to easily filter and sort your existing collection.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h4>Advanced In-Game Filters</h4>
-            <p>You can combine the copied string with native game filters! For example, paste it and add `& shiny` to search for shinies of the species you are missing, or `& 4*` to see your 100% IVs.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GUIDE 2: IMPORT (Italian) -->
-    <div class="glass-card guide-panel" *ngIf="activeTab() === 'import' && i18n.currentLang() === 'it'">
-      <h3>📘 Guida all'Importazione Rapida</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h4>Formato Valido</h4>
-            <p>Puoi inserire numeri di Pokédex individuali separati da virgola (es. `1, 4, 7`) oppure intervalli numerici con trattino (es. `1-6, 25-30`). I due metodi possono essere combinati liberamente.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>Seleziona la Qualità</h4>
-            <p>Assicurati di impostare la categoria corretta dal menu (es. Cromatici, Fortunati, Regolari, ecc.) prima di avviare l'importazione.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h4>Azione Massiva</h4>
-            <p>Premi **"Registra Come Catturati"** per aggiungere in blocco la spunta di cattura ai Pokémon selezionati. Premi **"Rimuovi Catture"** per resettarli e segnarli come mancanti in un colpo solo.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GUIDE 2: IMPORT (English) -->
-    <div class="glass-card guide-panel" *ngIf="activeTab() === 'import' && i18n.currentLang() === 'en'">
-      <h3>📘 Quick Import Guide</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h4>Valid Formats</h4>
-            <p>You can enter individual Pokédex numbers separated by commas (e.g. `1, 4, 7`) or ranges separated by hyphens (e.g. `1-6, 25-30`). You can freely combine both formats in the input box.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h4>Select the Quality</h4>
-            <p>Make sure to select the correct category from the dropdown (e.g., Shiny, Lucky, Regular, etc.) before running the import.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h4>Bulk Action</h4>
-            <p>Press **"Register As Caught"** to bulk add the catch checkmark to all specified species. Press **"Remove Catches"** to reset them and mark them all as missing instantly.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- TAB 3: VOLANTINO RILASCIATI -->
-  <!--
-  <main class="export-main" *ngIf="activeTab() === 'flyer'">
-    ... (Volantino Pokémon Rilasciati Content) ...
-  </main>
-  -->
-
-  <!-- Copy Toast Notification -->
-  <div class="toast-container" [class.show]="showCopyToast()">
-    <div class="toast-notification">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-      {{ i18n.currentLang() === 'it' ? 'Stringa copiata con successo negli appunti!' : 'Search string copied successfully to clipboard!' }}
-    </div>
+  <!-- Private Error Block -->
+  <div class="private-error-card glass-card" *ngIf="isPrivateError()">
+    <div class="error-icon">🔒</div>
+    <h2>Questo Pokédex è privato</h2>
+    <p>L'allenatore ha scelto di nascondere il proprio Pokédex. Se sei il proprietario di questo profilo, effettua l'accesso con Google nelle Impostazioni per visualizzarlo.</p>
+    <a routerLink="/" class="action-btn">Torna alla Home</a>
   </div>
+
+  <ng-container *ngIf="!isPrivateError()">
+    <!-- Read-only Banner -->
+    <div class="readonly-banner glass-card" *ngIf="isReadOnly()">
+      <span class="lock-icon">🔒</span>
+      <span class="banner-text">Sei in modalità <strong>Sola Lettura</strong> per l'esportazione di <strong>{{ username }}</strong>. Non puoi importare dati.</span>
+    </div>
+
+    <!-- Main Content -->
+    <main class="export-main">
+      <!-- Sub-navigation Tabs -->
+      <div class="export-sub-tabs">
+        <button 
+          type="button" 
+          class="sub-tab-btn" 
+          [class.active]="activeTab() === 'export'"
+          (click)="onTabChange('export')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          {{ 'export.tab.export' | translate }}
+        </button>
+        <button 
+          *ngIf="!isReadOnly()"
+          type="button" 
+          class="sub-tab-btn" 
+          [class.active]="activeTab() === 'import'"
+          (click)="onTabChange('import')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 14 12 18 8 14"></polyline><line x1="12" y1="18" x2="12" y2="6"></line></svg>
+          {{ 'export.tab.import' | translate }}
+        </button>
+        <!--
+        <button 
+          type="button" 
+          class="sub-tab-btn" 
+          [class.active]="activeTab() === 'flyer'"
+          (click)="onTabChange('flyer')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          {{ i18n.currentLang() === 'it' ? 'Volantino Rilasciati' : 'Released List' }}
+        </button>
+        -->
+      </div>
+
+      <!-- TAB 1: EXPORT -->
+      <div class="glass-card config-panel" *ngIf="activeTab() === 'export'">
+        <h2>{{ 'export.title' | translate }}</h2>
+        <p class="subtitle">{{ 'export.subtitle' | translate }}</p>
+
+        <div class="control-grid">
+          <!-- Categoria Dex -->
+          <div class="control-group">
+            <label for="category">{{ i18n.currentLang() === 'it' ? 'Seleziona Categoria Dex' : 'Select Dex Category' }}</label>
+            <div class="select-wrapper">
+              <select id="category" [ngModel]="selectedCategory()" (ngModelChange)="onCategoryChange($event)">
+                <option *ngFor="let cat of categories" [value]="cat.value">
+                  {{ (cat.value === 'regular' ? 'export.category.missing_reg' : 'export.category.missing_' + cat.value) | translate }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Formato di Ricerca (List vs Negation) -->
+          <div class="control-group">
+            <label>{{ i18n.currentLang() === 'it' ? 'Tipo di Filtro' : 'Filter Mode' }}</label>
+            <div class="toggle-group">
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="selectedMode() === 'list'"
+                (click)="onModeChange('list')">
+                {{ i18n.currentLang() === 'it' ? 'Lista (1,2)' : 'List (1,2)' }}
+              </button>
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="selectedMode() === 'negation'"
+                (click)="onModeChange('negation')">
+                {{ i18n.currentLang() === 'it' ? 'Esclusione (!1)' : 'Exclusion (!1)' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Formato Elementi (Number vs Name) -->
+          <div class="control-group">
+            <label>{{ 'export.format.label' | translate }}</label>
+            <div class="toggle-group">
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="selectedFormat() === 'number'"
+                (click)="onFormatChange('number')">
+                {{ 'export.format.number' | translate }}
+              </button>
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="selectedFormat() === 'name'"
+                (click)="onFormatChange('name')">
+                {{ 'export.format.name' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Leggendari & Ultracreature -->
+          <div class="control-group">
+            <label>{{ i18n.currentLang() === 'it' ? 'Leggendari & Ultracreature' : 'Legendaries & Ultra Beasts' }}</label>
+            <div class="toggle-group">
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="!includeLegendaries()"
+                (click)="includeLegendaries.set(false)">
+                {{ i18n.currentLang() === 'it' ? 'Escludi' : 'Exclude' }}
+              </button>
+              <button 
+                type="button" 
+                class="toggle-btn" 
+                [class.active]="includeLegendaries()"
+                (click)="includeLegendaries.set(true)">
+                {{ i18n.currentLang() === 'it' ? 'Includi' : 'Include' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result String Display -->
+        <div class="result-box-wrapper">
+          <div class="result-header">
+            <span>{{ i18n.currentLang() === 'it' ? 'Stringa di Ricerca Generata' : 'Generated Search Query' }}</span>
+            <span class="status-badge" *ngIf="searchString()">
+              {{ searchString().split(selectedMode() === 'list' ? ',' : '&').length }} {{ i18n.currentLang() === 'it' ? 'Pokémon Mancanti' : 'Missing Pokémon' }}
+            </span>
+          </div>
+          
+          <div class="result-content">
+            <div *ngIf="isLoading()" class="loader-spinner">
+              <div class="spinner"></div>
+              <span>{{ i18n.currentLang() === 'it' ? 'Generazione in corso...' : 'Generating...' }}</span>
+            </div>
+
+            <div *ngIf="!isLoading() && !searchString()" class="no-missing-alert">
+              {{ 'export.no_missing' | translate }}
+            </div>
+
+            <textarea 
+              *ngIf="!isLoading() && searchString()" 
+              readonly 
+              [value]="searchString()"
+              class="search-string-textarea"
+              rows="4">
+            </textarea>
+          </div>
+
+          <button 
+            *ngIf="searchString() && !isLoading()"
+            (click)="copyToClipboard()"
+            class="copy-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            {{ 'export.copy' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 2: IMPORT -->
+      <div class="glass-card config-panel" *ngIf="activeTab() === 'import'">
+        <h2>{{ 'import.title' | translate }}</h2>
+        <p class="subtitle">{{ 'import.subtitle' | translate }}</p>
+
+        <div class="control-grid" style="grid-template-columns: 1fr;">
+          <!-- Categoria Dex -->
+          <div class="control-group">
+            <label for="importCategory">{{ 'import.label.category' | translate }}</label>
+            <div class="select-wrapper">
+              <select id="importCategory" [ngModel]="importCategory()" (ngModelChange)="importCategory.set($event)">
+                <option *ngFor="let cat of categories" [value]="cat.value">
+                  {{ (cat.value === 'regular' ? 'export.category.missing_reg' : 'export.category.missing_' + cat.value) | translate }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Input Box -->
+          <div class="control-group">
+            <label for="importInput">{{ 'import.label.input' | translate }}</label>
+            <textarea 
+              id="importInput" 
+              [ngModel]="importInput()" 
+              (ngModelChange)="importInput.set($event)"
+              [placeholder]="'import.placeholder' | translate"
+              class="search-string-textarea"
+              rows="3">
+            </textarea>
+          </div>
+        </div>
+
+        <!-- Error / Success Banners -->
+        <div *ngIf="importSuccessMessage()" class="import-alert success-alert">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <span>{{ importSuccessMessage() }}</span>
+        </div>
+
+        <div *ngIf="importErrorMessage()" class="import-alert error-alert">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>{{ importErrorMessage() }}</span>
+        </div>
+
+        <!-- Loading spinner per importazione in corso -->
+        <div *ngIf="isLoading()" class="loader-spinner" style="margin: 1.5rem 0;">
+          <div class="spinner"></div>
+          <span>{{ i18n.currentLang() === 'it' ? 'Elaborazione dei dati...' : 'Processing data...' }}</span>
+        </div>
+
+        <!-- Import Actions Row -->
+        <div class="import-actions-row" *ngIf="!isLoading()">
+          <button type="button" class="import-action-btn register-btn" (click)="onImport(true)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            {{ 'import.btn.register' | translate }}
+          </button>
+          <button type="button" class="import-action-btn remove-btn" (click)="onImport(false)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+            {{ 'import.btn.remove' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <!-- GUIDE 1: EXPORT (Italian) -->
+      <div class="glass-card guide-panel" *ngIf="activeTab() === 'export' && i18n.currentLang() === 'it'">
+        <h3>📘 Come utilizzare la stringa in Pokémon GO?</h3>
+        <div class="guide-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Seleziona e Copia</h4>
+              <p>Scegli la categoria desiderata (es. Pokémon Fortunati o Regolari) e premi il pulsante **"Copia"** qui sopra per salvare la stringa generata negli appunti del telefono.</p>
+            </div>
+          </div>
+          <div class="step" *ngIf="selectedMode() === 'list'">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Cosa fa l'Elenco Numeri? (1,4,7)</h4>
+              <p>Se incolli questa stringa nel motore di ricerca di Pokémon GO, il gioco ti mostrerà **esclusivamente** i Pokémon presenti nella lista che possiedi già nella tua borsa. È eccezionale per verificare rapidamente se hai doppioni da scambiare o evolvere per conto di un amico!</p>
+            </div>
+          </div>
+          <div class="step" *ngIf="selectedMode() === 'negation'">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Cosa fa il Filtro Esclusione? (!1&!4&!7)</h4>
+              <p>Questa query nasconde tutti i Pokémon che ti mancano. Incollandola nel gioco, vedrai nel tuo box **solo i Pokémon che hai già registrato come catturati**, permettendoti di filtrare e ordinare facilmente la tua collezione esistente.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Filtri Avanzati in Gioco</h4>
+              <p>Puoi combinare la stringa copiata con i filtri nativi del gioco! Ad esempio, incollala e aggiungi `& shiny` per cercare i cromatici delle specie che ti mancano, o `& 4*` per vedere i tuoi 100%.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GUIDE 1: EXPORT (English) -->
+      <div class="glass-card guide-panel" *ngIf="activeTab() === 'export' && i18n.currentLang() === 'en'">
+        <h3>📘 How to use the search string in Pokémon GO?</h3>
+        <div class="guide-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Select and Copy</h4>
+              <p>Choose the desired category (e.g., Lucky or Regular Pokémon) and press the **"Copy String"** button above to save the generated search string to your phone's clipboard.</p>
+            </div>
+          </div>
+          <div class="step" *ngIf="selectedMode() === 'list'">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>What does the Number List do? (1,4,7)</h4>
+              <p>If you paste this string into the Pokémon GO search bar, the game will show **only** the Pokémon from the list that you already own in your storage. This is perfect to quickly check if you have spares to trade or evolve for a friend!</p>
+            </div>
+          </div>
+          <div class="step" *ngIf="selectedMode() === 'negation'">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>What does the Exclusion Filter do? (!1&!4&!7)</h4>
+              <p>This query hides all the Pokémon that you are missing. By pasting it in-game, you will see in your box **only the Pokémon you have already registered as caught**, allowing you to easily filter and sort your existing collection.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Advanced In-Game Filters</h4>
+              <p>You can combine the copied string with native game filters! For example, paste it and add `& shiny` to search for shinies of the species you are missing, or `& 4*` to see your 100% IVs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GUIDE 2: IMPORT (Italian) -->
+      <div class="glass-card guide-panel" *ngIf="activeTab() === 'import' && i18n.currentLang() === 'it'">
+        <h3>📘 Guida all'Importazione Rapida</h3>
+        <div class="guide-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Formato Valido</h4>
+              <p>Puoi inserire numeri di Pokédex individuali separati da virgola (es. `1, 4, 7`) oppure intervalli numerici con trattino (es. `1-6, 25-30`). I due metodi possono essere combinati liberamente.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Seleziona la Qualità</h4>
+              <p>Assicurati di impostare la categoria corretta dal menu (es. Cromatici, Fortunati, Regolari, ecc.) prima di avviare l'importazione.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Azione Massiva</h4>
+              <p>Premi **"Registra Come Catturati"** per aggiungere in blocco la spunta di cattura ai Pokémon selezionati. Premi **"Rimuovi Catture"** per resettarli e segnarli come mancanti in un colpo solo.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GUIDE 2: IMPORT (English) -->
+      <div class="glass-card guide-panel" *ngIf="activeTab() === 'import' && i18n.currentLang() === 'en'">
+        <h3>📘 Quick Import Guide</h3>
+        <div class="guide-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Valid Formats</h4>
+              <p>You can enter individual Pokédex numbers separated by commas (e.g. `1, 4, 7`) or ranges separated by hyphens (e.g. `1-6, 25-30`). You can freely combine both formats in the input box.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Select the Quality</h4>
+              <p>Make sure to select the correct category from the dropdown (e.g., Shiny, Lucky, Regular, etc.) before running the import.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Bulk Action</h4>
+              <p>Press **"Register As Caught"** to bulk add the catch checkmark to all specified species. Press **"Remove Catches"** to reset them and mark them all as missing instantly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Copy Toast Notification -->
+    <div class="toast-container" [class.show]="showCopyToast()">
+      <div class="toast-notification">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        {{ i18n.currentLang() === 'it' ? 'Stringa copiata con successo negli appunti!' : 'Search string copied successfully to clipboard!' }}
+      </div>
+    </div>
+  </ng-container>
 </div>

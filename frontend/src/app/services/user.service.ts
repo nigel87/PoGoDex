@@ -1,4 +1,4 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -6,17 +6,22 @@ import { tap } from 'rxjs/operators';
 export interface User {
   id: number;
   name: string;
-  email?: string;
-  avatarUrl?: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+  googleSubId?: string | null;
+  isProtected?: number;
+  privacyMode?: 'public_edit' | 'public_readonly' | 'private';
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class UserService {
-  private apiUrl = window.location.port === '4205' || window.location.port === '4200'
-    ? `http://${window.location.hostname}:8085/api/users`
-    : '/api/users';
+  private apiBaseUrl = window.location.port === '4205' || window.location.port === '4200'
+    ? `http://${window.location.hostname}:8085/api`
+    : '/api';
+    
+  private apiUrl = `${this.apiBaseUrl}/users`;
   
   // Gestione dello stato del giocatore attivo tramite BehaviorSubject reattivo
   private activeUserSubject = new BehaviorSubject<User | null>(null);
@@ -53,8 +58,8 @@ export class UserService {
   createUser(name: string): Observable<User> {
     return this.http.post<User>(this.apiUrl, { name }).pipe(
       tap(newUser => {
-        // Se non c'è ancora nessun utente attivo, imposta il nuovo utente come attivo
-        if (!this.activeUserSubject.value) {
+        // Se non c'è ancora nessun utente attivo ed il profilo non è protetto, imposta come attivo
+        if (!this.activeUserSubject.value && newUser.isProtected !== 1) {
           this.setActiveUser(newUser);
         }
       })
@@ -81,5 +86,64 @@ export class UserService {
    */
   deleteUser(id: number): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Esegue l'autenticazione tramite Google Token.
+   */
+  loginWithGoogle(idToken: string, requestedUsername?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/auth/google`, { idToken, requestedUsername }).pipe(
+      tap(res => {
+        if (res.token && res.user) {
+          localStorage.setItem('pogodex_jwt_token', res.token);
+          this.setActiveUser(res.user);
+        }
+      })
+    );
+  }
+
+  /**
+   * Collega un Google Account ad un profilo locale esistente.
+   */
+  linkGoogle(userId: number, idToken: string): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/users/${userId}/link-google`, { idToken }).pipe(
+      tap(res => {
+        if (res.token && res.user) {
+          localStorage.setItem('pogodex_jwt_token', res.token);
+          this.setActiveUser(res.user);
+        }
+      })
+    );
+  }
+
+  /**
+   * Aggiorna le impostazioni di privacy di un utente.
+   */
+  updatePrivacy(userId: number, privacyMode: string): Observable<any> {
+    return this.http.put<any>(`${this.apiBaseUrl}/users/${userId}/privacy`, { privacyMode }).pipe(
+      tap(res => {
+        const current = this.getCurrentUser();
+        if (current && current.id === userId) {
+          current.privacyMode = res.privacyMode;
+          this.setActiveUser(current);
+        }
+      })
+    );
+  }
+
+  /**
+   * Disconnette l'utente cancellando la sessione e il token.
+   */
+  logout() {
+    localStorage.removeItem('pogodex_jwt_token');
+    localStorage.removeItem('active_pogo_user');
+    this.activeUserSubject.next(null);
+  }
+
+  /**
+   * Recupera il Google Client ID dal server
+   */
+  getGoogleClientId(): Observable<{ googleClientId: string | null }> {
+    return this.http.get<{ googleClientId: string | null }>(`${this.apiBaseUrl}/auth/config`);
   }
 }
