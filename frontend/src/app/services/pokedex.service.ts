@@ -61,6 +61,22 @@ export interface Quest {
   displayOrder: number;
 }
 
+export interface EggContent {
+  pokemonId: number;
+  minCp: number;
+  maxCp: number;
+  name?: string;
+  spriteUrl?: string;
+  generation?: number;
+}
+
+export interface Egg {
+  id: number;
+  name: string;
+  type: string; // '2km', '5km', '7km', '10km', '12km'
+  contents: EggContent[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -239,5 +255,15 @@ export class PokedexService {
       ? `http://${window.location.hostname}:8085/api/quests/reorder`
       : '/api/quests/reorder';
     return this.http.put<any>(url, { orderedIds });
+  }
+
+  /**
+   * Recupera la lista di tutte le uova e il loro contenuto.
+   */
+  getEggs(): Observable<Egg[]> {
+    const url = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/eggs`
+      : '/api/eggs';
+    return this.http.get<Egg[]>(url);
   }
 }

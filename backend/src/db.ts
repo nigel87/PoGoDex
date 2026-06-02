@@ -297,6 +297,105 @@ async function initializeTables(database: Database) {
       await database.exec('COMMIT;');
       console.log(`[Database Migration] Migrazione ${migrationNameQuests} completata con successo!`);
     }
+
+    // Nuova migrazione per creare e popolare la tabella delle uova
+    const migrationNameEggs = 'create_eggs_table_v1';
+    const rowEggs = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+      migrationNameEggs
+    );
+    
+    if (rowEggs && rowEggs.count === 0) {
+      console.log(`[Database Migration] Esecuzione migrazione tabella uova e seed iniziale: ${migrationNameEggs}...`);
+      
+      await database.exec('BEGIN TRANSACTION;');
+      
+      // Creazione tabella
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS eggs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          contents TEXT NOT NULL
+        );
+      `);
+
+      // Default Eggs
+      const defaultEggs = [
+        {
+          name: "Uovo da 2 km",
+          type: "2km",
+          contents: JSON.stringify([
+            { pokemonId: 172, minCp: 240, maxCp: 270 }, // Pichu
+            { pokemonId: 175, minCp: 339, maxCp: 375 }, // Togepi
+            { pokemonId: 173, minCp: 346, maxCp: 383 }, // Cleffa
+            { pokemonId: 174, minCp: 260, maxCp: 291 }, // Igglybuff
+            { pokemonId: 636, minCp: 800, maxCp: 855 }  // Larvesta
+          ])
+        },
+        {
+          name: "Uovo da 5 km",
+          type: "5km",
+          contents: JSON.stringify([
+            { pokemonId: 66, minCp: 678, maxCp: 730 },  // Machop
+            { pokemonId: 108, minCp: 752, maxCp: 806 }, // Lickitung
+            { pokemonId: 207, minCp: 1000, maxCp: 1061 }, // Gligar
+            { pokemonId: 747, minCp: 512, maxCp: 553 }  // Mareanie
+          ])
+        },
+        {
+          name: "Uovo da 7 km",
+          type: "7km",
+          contents: JSON.stringify([
+            { pokemonId: 10103, minCp: 385, maxCp: 504 },  // Vulpix (Alolan)
+            { pokemonId: 10162, minCp: 800, maxCp: 969 },  // Ponyta (Galarian)
+            { pokemonId: 10229, minCp: 703, maxCp: 755 },  // Growlithe (Hisuian)
+            { pokemonId: 10253, minCp: 339, maxCp: 375 },  // Wooper (Paldean)
+            { pokemonId: 10107, minCp: 402, maxCp: 456 },  // Meowth (Alolan)
+            { pokemonId: 10161, minCp: 521, maxCp: 571 }   // Meowth (Galarian)
+          ])
+        },
+        {
+          name: "Uovo da 10 km",
+          type: "10km",
+          contents: JSON.stringify([
+            { pokemonId: 246, minCp: 548, maxCp: 594 },  // Larvitar
+            { pokemonId: 374, minCp: 519, maxCp: 558 },  // Beldum
+            { pokemonId: 371, minCp: 521, maxCp: 660 },  // Bagon
+            { pokemonId: 443, minCp: 498, maxCp: 635 },  // Gible
+            { pokemonId: 633, minCp: 560, maxCp: 606 },  // Deino
+            { pokemonId: 996, minCp: 662, maxCp: 712 }   // Frigibax
+          ])
+        },
+        {
+          name: "Uovo da 12 km",
+          type: "12km",
+          contents: JSON.stringify([
+            { pokemonId: 551, minCp: 458, maxCp: 592 },  // Sandile
+            { pokemonId: 624, minCp: 765, maxCp: 819 },  // Pawniard
+            { pokemonId: 629, minCp: 579, maxCp: 726 },  // Vullaby
+            { pokemonId: 674, minCp: 796, maxCp: 850 },  // Pancham
+            { pokemonId: 757, minCp: 593, maxCp: 641 }   // Salandit
+          ])
+        }
+      ];
+
+      const stmt = await database.prepare('INSERT INTO eggs (name, type, contents) VALUES (?, ?, ?)');
+      for (const e of defaultEggs) {
+        await stmt.run(e.name, e.type, e.contents);
+      }
+      await stmt.finalize();
+
+      // Registriamo l'esecuzione della migrazione
+      await database.run(
+        'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+        migrationNameEggs,
+        Date.now()
+      );
+      
+      await database.exec('COMMIT;');
+      console.log(`[Database Migration] Migrazione ${migrationNameEggs} completata con successo!`);
+    }
   } catch (err) {
     try { await database.exec('ROLLBACK;'); } catch (_) {}
     console.error('[Database Migration] Errore critico durante la migrazione:', err);

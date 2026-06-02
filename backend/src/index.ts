@@ -67,7 +67,7 @@ async function startServer() {
 
     // Auto-cleanup di profili fantasma generati da navigazioni crawler su rotte riservate
     try {
-      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests'];
+      const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs'];
       const placeholders = reserved.map(() => '?').join(',');
       const result = await db.run(
         `DELETE FROM users WHERE LOWER(name) IN (${placeholders})`,
@@ -236,6 +236,72 @@ async function startServer() {
       } catch (err) {
         try { await db.run('ROLLBACK;'); } catch (_) {}
         console.error('Errore durante il riordino delle quest:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 2.7. GET /api/eggs - Elenco delle uova arricchite
+    // =================================================================
+    app.get('/api/eggs', async (req, res) => {
+      try {
+        const eggs = await db.all('SELECT * FROM eggs ORDER BY id ASC');
+        
+        // Estraiamo tutti gli ID dei pokemon coinvolti per caricarne i dettagli (nome, spriteUrl, generation)
+        const pokemonIds = new Set<number>();
+        for (const egg of eggs) {
+          try {
+            const contents = JSON.parse(egg.contents);
+            if (Array.isArray(contents)) {
+              for (const c of contents) {
+                if (c.pokemonId) pokemonIds.add(c.pokemonId);
+              }
+            }
+          } catch (e) {
+            console.error('Errore nel parse del contenuto dell uovo:', egg.id, e);
+          }
+        }
+
+        let pokemonDetailsMap = new Map<number, { name: string, spriteUrl: string, generation: number }>();
+        if (pokemonIds.size > 0) {
+          const placeholders = Array.from(pokemonIds).map(() => '?').join(',');
+          const pokemons = await db.all(
+            `SELECT id, name, spriteUrl, generation FROM pokemons WHERE id IN (${placeholders})`,
+            ...Array.from(pokemonIds)
+          );
+          for (const p of pokemons) {
+            pokemonDetailsMap.set(p.id, { name: p.name, spriteUrl: p.spriteUrl, generation: p.generation });
+          }
+        }
+
+        // Arricchiamo le uova con i dettagli caricati
+        const enrichedEggs = eggs.map(egg => {
+          let contents = [];
+          try {
+            contents = JSON.parse(egg.contents);
+          } catch (e) {}
+
+          const enrichedContents = contents.map((c: any) => {
+            const details = pokemonDetailsMap.get(c.pokemonId);
+            return {
+              ...c,
+              name: details ? details.name : 'Unknown',
+              spriteUrl: details ? details.spriteUrl : '',
+              generation: details ? details.generation : 0
+            };
+          });
+
+          return {
+            id: egg.id,
+            name: egg.name,
+            type: egg.type,
+            contents: enrichedContents
+          };
+        });
+
+        res.json(enrichedEggs);
+      } catch (err) {
+        console.error('Errore nel recupero delle uova:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });

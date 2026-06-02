@@ -14,6 +14,10 @@ export const routes: Routes = [
     loadComponent: () => import('./components/quest/quest').then(m => m.QuestComponent)
   },
   {
+    path: 'eggs',
+    loadComponent: () => import('./components/eggs/eggs').then(m => m.EggsComponent)
+  },
+  {
     path: ':username',
     loadComponent: () => import('./components/pokedex-list/pokedex-list').then(m => m.PokedexList)
   },

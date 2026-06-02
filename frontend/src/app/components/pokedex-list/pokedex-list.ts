@@ -999,7 +999,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       this.route.params.subscribe(params => {
         const routeUser = params['username'];
         if (routeUser) {
-          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests'];
+          const reserved = ['about', 'admin', 'settings', 'stats', 'export', 'assets', 'favicon.ico', 'landing', 'api', 'quest', 'quests', 'egg', 'eggs'];
           if (reserved.includes(routeUser.toLowerCase())) {
             return;
           }

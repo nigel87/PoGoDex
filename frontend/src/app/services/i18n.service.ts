@@ -15,8 +15,18 @@ export class I18nService {
       'nav.pokedex': 'Pokédex',
       'nav.stats': 'Statistiche',
       'nav.export': 'Esporta',
-      'nav.settings': 'Impostazioni',
       'nav.quests': 'Ricerche',
+      'nav.eggs': 'Uova',
+
+      // Sezione Uova
+      'eggs.title': 'Schiuse Uova',
+      'eggs.subtitle': 'Scopri quali Pokémon si schiudono da ciascun uovo e quali ti mancano (I dati CP fanno riferimento al Livello 20).',
+      'eggs.type.2km': 'Uovo da 2 km',
+      'eggs.type.5km': 'Uovo da 5 km',
+      'eggs.type.7km': 'Uovo da 7 km',
+      'eggs.type.10km': 'Uovo da 10 km',
+      'eggs.type.12km': 'Uovo da 12 km',
+      'eggs.hatch_pool': 'Pool Schiuse',
 
       // Sezione Quest
       'quest.title': 'Ricerche sul Campo',
@@ -226,8 +236,18 @@ export class I18nService {
       'nav.pokedex': 'Pokédex',
       'nav.stats': 'Stats',
       'nav.export': 'Export',
-      'nav.settings': 'Settings',
       'nav.quests': 'Quests',
+      'nav.eggs': 'Eggs',
+
+      // Eggs Page
+      'eggs.title': 'Egg Hatches',
+      'eggs.subtitle': 'Discover which Pokémon hatch from each egg and which ones you still need (CP ranges are for Level 20).',
+      'eggs.type.2km': '2 km Egg',
+      'eggs.type.5km': '5 km Egg',
+      'eggs.type.7km': '7 km Egg',
+      'eggs.type.10km': '10 km Egg',
+      'eggs.type.12km': '12 km Egg',
+      'eggs.hatch_pool': 'Hatch Pool',
 
       // Quest Page
       'quest.title': 'Field Research Quests',
