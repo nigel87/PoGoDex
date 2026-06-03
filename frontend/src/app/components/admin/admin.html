@@ -20,33 +20,20 @@
       </div>
       <div class="header-actions">
         <button [routerLink]="['/']" class="admin-btn cancel-btn">{{ 'admin.btn.exit' | translate }}</button>
-        <button (click)="syncShinies()" class="admin-btn sync-btn" [disabled]="isLoading() || isSaving() || isSyncing()">
-          <span *ngIf="!isSyncing()">🔄 {{ 'admin.btn.sync' | translate }}</span>
-          <span *ngIf="isSyncing()" class="btn-spinner"></span>
+        <button (click)="runSyncShiniesWithConsole()" class="admin-btn sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>🔄 Shiny</span>
         </button>
-        <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || isSyncing()">
+        <button (click)="runSyncRaidsWithConsole()" class="admin-btn raid-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>⚔️ Raid</span>
+        </button>
+        <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span *ngIf="!isSaving()">{{ 'admin.btn.save' | translate }}</span>
           <span *ngIf="isSaving()" class="btn-spinner"></span>
         </button>
       </div>
     </header>
 
-    <!-- Banner di feedback -->
-    <div class="feedback-banner success-banner glass-card" *ngIf="saveSuccess()">
-      <span class="icon">✓</span>
-      <div class="message">
-        <h4>{{ 'admin.banner.success.title' | translate }}</h4>
-        <p>{{ 'admin.banner.success.desc' | translate }}</p>
-      </div>
-    </div>
-
-    <div class="feedback-banner error-banner glass-card" *ngIf="saveError()">
-      <span class="icon">✗</span>
-      <div class="message">
-        <h4>{{ 'admin.banner.error.title' | translate }}</h4>
-        <p>{{ saveError() }}</p>
-      </div>
-    </div>
+    <!-- I banner statici sono stati sostituiti con le notifiche Toast in tempo reale -->
 
     <!-- Barra di caricamento -->
     <div *ngIf="isLoading()" class="loader-container glass-card">
@@ -79,6 +66,7 @@
           <div class="search-input-wrapper">
             <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input 
+              #searchInput
               type="text" 
               [placeholder]="'admin.search' | translate" 
               [ngModel]="searchQuery()" 
@@ -88,6 +76,28 @@
           <div class="results-badge">
             {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
           </div>
+        </div>
+
+        <!-- Filtri Rapidi -->
+        <div class="quick-filters-row">
+          <button (click)="activeFilter.set('all')" [class.active]="activeFilter() === 'all'" class="filter-chip">
+            📁 {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
+          </button>
+          <button (click)="activeFilter.set('unreleased')" [class.active]="activeFilter() === 'unreleased'" class="filter-chip">
+            🔒 {{ i18n.currentLang() === 'it' ? 'Non Rilasciati' : 'Unreleased' }}
+          </button>
+          <button (click)="activeFilter.set('shiny-unreleased')" [class.active]="activeFilter() === 'shiny-unreleased'" class="filter-chip">
+            ✨ {{ i18n.currentLang() === 'it' ? 'Shiny Non Ril.' : 'Shiny Unreleased' }}
+          </button>
+          <button (click)="activeFilter.set('shadow')" [class.active]="activeFilter() === 'shadow'" class="filter-chip shadow-chip-btn">
+            😈 {{ i18n.currentLang() === 'it' ? 'Ombra' : 'Shadow' }}
+          </button>
+          <button (click)="activeFilter.set('mega')" [class.active]="activeFilter() === 'mega'" class="filter-chip mega-chip-btn">
+            💗 {{ i18n.currentLang() === 'it' ? 'Mega' : 'Mega' }}
+          </button>
+          <button (click)="activeFilter.set('gigamax')" [class.active]="activeFilter() === 'gigamax'" class="filter-chip gigamax-chip-btn">
+            🛑 {{ i18n.currentLang() === 'it' ? 'Gigamax' : 'Gigamax' }}
+          </button>
         </div>
 
         <!-- Tabella delle configurazioni -->
@@ -239,4 +249,50 @@
       </ng-container>
     </main>
   </ng-container>
+
+  <!-- Toast Container per notifiche animate -->
+  <div class="toast-container">
+    <div *ngFor="let t of toasts()" class="toast-card" [class]="t.type">
+      <span class="toast-icon">
+        <span *ngIf="t.type === 'success'">✓</span>
+        <span *ngIf="t.type === 'error'">✗</span>
+        <span *ngIf="t.type === 'info'">ℹ️</span>
+      </span>
+      <span class="toast-message">{{ t.message }}</span>
+      <button class="toast-close" (click)="removeToast(t.id)">×</button>
+    </div>
+  </div>
+
+  <!-- Live Terminal Sync Console Overlay -->
+  <div class="terminal-overlay" *ngIf="showSyncConsole()">
+    <div class="terminal-modal glass-card">
+      <div class="terminal-header">
+        <div class="terminal-title">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <h3>{{ syncConsoleTitle() }}</h3>
+        </div>
+        <button class="terminal-close" (click)="showSyncConsole.set(false)" [disabled]="syncConsoleStatus() === 'running'">×</button>
+      </div>
+      <div class="terminal-body">
+        <div *ngFor="let log of syncConsoleLogs()" class="terminal-line" [class.error]="log.startsWith('[ERROR]')" [class.success]="log.startsWith('[SUCCESS]')">
+          <span class="prompt">></span> {{ log }}
+        </div>
+        <div class="terminal-spinner" *ngIf="syncConsoleStatus() === 'running'">
+          <span class="spinner-dot"></span>
+          <span class="spinner-dot"></span>
+          <span class="spinner-dot"></span>
+        </div>
+      </div>
+      <div class="terminal-footer">
+        <button 
+          class="admin-btn confirm-btn" 
+          (click)="showSyncConsole.set(false)" 
+          [disabled]="syncConsoleStatus() === 'running'">
+          {{ syncConsoleStatus() === 'running' ? (i18n.currentLang() === 'it' ? 'Esecuzione...' : 'Running...') : (i18n.currentLang() === 'it' ? 'Chiudi Console' : 'Close Console') }}
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

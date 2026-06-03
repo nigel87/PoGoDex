@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, effect, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -20,8 +20,19 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
   isLocal = signal<boolean>(false);
   isLoading = signal<boolean>(true);
   isSaving = signal<boolean>(false);
-  saveSuccess = signal<boolean>(false);
-  saveError = signal<string>('');
+
+  // Sistema di notifiche Toast
+  toasts = signal<{ id: number; message: string; type: 'success' | 'error' | 'info' }[]>([]);
+  private toastIdCounter = 0;
+
+  // Stato Console di Sincronizzazione Live
+  showSyncConsole = signal<boolean>(false);
+  syncConsoleTitle = signal<string>('');
+  syncConsoleLogs = signal<string[]>([]);
+  syncConsoleStatus = signal<'running' | 'success' | 'error'>('running');
+
+  // Filtro Rapido
+  activeFilter = signal<'all' | 'unreleased' | 'shiny-unreleased' | 'shadow' | 'mega' | 'gigamax'>('all');
 
   // Gestione dei Tab e della lista utenti
   activeTab = signal<'pokemon' | 'users'>('pokemon');
@@ -29,12 +40,25 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
   isLoadingUsers = signal<boolean>(false);
 
   @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
+  @ViewChild('searchInput') searchInput!: ElementRef;
   limit = signal<number>(50);
   private observer: IntersectionObserver | null = null;
 
   visibleList = computed(() => {
     return this.filteredList().slice(0, this.limit());
   });
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    if (event.key === '/') {
+      event.preventDefault();
+      this.searchInput?.nativeElement?.focus();
+    }
+  }
 
   // Autorizzazione: locale oppure admin loggato
   isAuthorized = computed(() => {
@@ -68,10 +92,11 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     const hostname = window.location.hostname.toLowerCase();
     this.isLocal.set(hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]');
 
-    // Resetta automaticamente il limite a 50 quando cambia la ricerca o il tab
+    // Resetta automaticamente il limite a 50 quando cambia la ricerca, il tab o il filtro rapido
     effect(() => {
       this.searchQuery();
       this.activeTab();
+      this.activeFilter();
       setTimeout(() => {
         this.limit.set(50);
       });
@@ -91,8 +116,6 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
   loadCatalogAndConfig() {
     console.log('[Admin Debug] loadCatalogAndConfig avviato');
     this.isLoading.set(true);
-    this.saveSuccess.set(false);
-    this.saveError.set('');
 
     const activeUserId = this.userService.getCurrentUser()?.id || 1;
     console.log('[Admin Debug] Rilevato userId attivo:', activeUserId);
@@ -119,7 +142,7 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('[Admin Debug] forkJoin ERROR rilevato:', err);
-        this.saveError.set('Impossibile caricare il catalogo dei Pokémon o le configurazioni. Assicurati che il backend Node (porta 8085) sia avviato e in esecuzione.');
+        this.showToast('Impossibile caricare il catalogo dei Pokémon o le configurazioni. Assicurati che il backend Node sia in esecuzione.', 'error');
         this.isLoading.set(false);
       }
     });
@@ -127,7 +150,23 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Lista filtrata in tempo reale in base alla ricerca
   filteredList = computed(() => {
-    const list = this.pokemonList();
+    let list = this.pokemonList();
+    
+    // Filtro rapido per tipo abilità/stato
+    const filter = this.activeFilter();
+    if (filter === 'unreleased') {
+      list = list.filter(p => !this.isReleased(p.name));
+    } else if (filter === 'shiny-unreleased') {
+      list = list.filter(p => !this.isShinyReleased(p.name));
+    } else if (filter === 'shadow') {
+      list = list.filter(p => this.isShadow(p.name));
+    } else if (filter === 'mega') {
+      list = list.filter(p => this.isMega(p.name));
+    } else if (filter === 'gigamax') {
+      list = list.filter(p => this.isGigamax(p.name));
+    }
+
+    // Ricerca testuale
     const query = this.searchQuery().toLowerCase().trim();
     if (!query) return list;
     return list.filter(p => p.name.toLowerCase().includes(query) || p.id.toString() === query);
@@ -193,13 +232,24 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Salva le configurazioni riscrvendo il file locale sul Mac
+  // Toast notifications helpers
+  showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
+    const id = ++this.toastIdCounter;
+    this.toasts.update(list => [...list, { id, message, type }]);
+    setTimeout(() => {
+      this.removeToast(id);
+    }, 3500);
+  }
+
+  removeToast(id: number) {
+    this.toasts.update(list => list.filter(t => t.id !== id));
+  }
+
+  // Salva le configurazioni riscrivendo la tabella nel database SQLite
   saveConfig() {
     if (this.isSaving()) return;
 
     this.isSaving.set(true);
-    this.saveSuccess.set(false);
-    this.saveError.set('');
 
     const payload = {
       shadowCapable: Array.from(this.shadowSet).sort(),
@@ -212,15 +262,12 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     this.http.post<any>(this.adminApiUrl, payload).subscribe({
       next: (res) => {
         this.isSaving.set(false);
-        this.saveSuccess.set(true);
-        // Scrolla in alto per mostrare il banner di successo
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        this.showToast(this.i18n.currentLang() === 'it' ? 'Configurazione salvata con successo!' : 'Configuration saved successfully!');
       },
       error: (err) => {
         console.error('Errore nel salvataggio della configurazione:', err);
-        this.saveError.set(err.error?.error || 'Errore di connessione o permessi insufficienti sul server locale.');
+        this.showToast(err.error?.error || (this.i18n.currentLang() === 'it' ? 'Errore di connessione o permessi.' : 'Connection error or permissions.'), 'error');
         this.isSaving.set(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     });
   }
@@ -277,31 +324,105 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     return displayName;
   }
 
-  syncShinies() {
-    if (this.isSyncing()) return;
+  runSyncShiniesWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon Shiny' : 'Shiny Pokémon Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
 
-    this.isSyncing.set(true);
-    this.saveSuccess.set(false);
-    this.saveError.set('');
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
 
-    const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
-      ? `http://${window.location.hostname}:8085/api/admin/sync-shinies`
-      : '/api/admin/sync-shinies';
+    (async () => {
+      await addLog('[INFO] Avvio worker di sincronizzazione...', 100);
+      await addLog('[INFO] Connessione a pogoapi.net in corso...', 400);
+      await addLog('[INFO] Download del database shiny_pokemon.json...', 600);
 
-    this.http.post<any>(syncApiUrl, {}).subscribe({
-      next: (res) => {
-        this.isSyncing.set(false);
-        this.saveSuccess.set(true);
-        this.loadCatalogAndConfig();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      },
-      error: (err) => {
-        console.error('Errore nella sincronizzazione degli shiny:', err);
-        this.saveError.set(err.error?.error || 'Errore durante la sincronizzazione automatica degli shiny.');
-        this.isSyncing.set(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    });
+      const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-shinies`
+        : '/api/admin/sync-shinies';
+
+      this.http.post<any>(syncApiUrl, {}).subscribe({
+        next: async (res) => {
+          const count = res.shinyUnreleasedCapable?.length || 0;
+          await addLog(`[SUCCESS] Dati shiny scaricati correttamente!`, 200);
+          await addLog(`[INFO] Analisi del Pokédex e confronto delle specie...`, 400);
+          await addLog(`[INFO] Trovate ${count} specie con shiny non ancora rilasciato.`, 400);
+          await addLog(`[INFO] Scrittura delle chiavi di configurazione nel database...`, 500);
+          await addLog(`[SUCCESS] Database aggiornato ed allineato con successo!`, 500);
+          
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Sincronizzazione shiny completata!' : 'Shiny sync completed!');
+          this.loadCatalogAndConfig();
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Connessione a pogoapi.net fallita o errore del server.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 400);
+          
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante la sincronizzazione shiny.' : 'Error during shiny sync.', 'error');
+        }
+      });
+    })();
+  }
+
+  runSyncRaidsWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Raid Boss' : 'Raid Bosses Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Inizializzazione sincronizzazione dei Raid...', 100);
+      await addLog('[INFO] Contatto pokemon-go-api.github.io/pokemon-go-api...', 400);
+      await addLog('[INFO] Download del file raidboss.json in corso...', 500);
+
+      const syncRaidsUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-raids`
+        : '/api/admin/sync-raids';
+
+      this.http.post<any>(syncRaidsUrl, {}).subscribe({
+        next: async (res) => {
+          await addLog(`[SUCCESS] File raidboss.json scaricato ed elaborato con successo.`, 300);
+          await addLog(`[INFO] Svuotamento e aggiornamento della tabella dei raid in corso...`, 500);
+          await addLog(`[INFO] Calcolo dei punti lotta (normali e potenziati dal meteo) per ciascun boss...`, 500);
+          await addLog(`[SUCCESS] Database SQLite aggiornato ed allineato con successo!`, 500);
+          
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Raid Boss aggiornati con successo!' : 'Raid Bosses updated successfully!');
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Connessione all'API dei raid fallita.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 400);
+          
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento dei Raid.' : 'Error during raid sync.', 'error');
+        }
+      });
+    })();
   }
 
   loadUsersList() {
@@ -331,6 +452,7 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     this.http.put<any>(roleUrl, { isAdmin: newIsAdmin }).subscribe({
       next: (res) => {
         this.usersList.update(list => list.map(u => u.id === user.id ? { ...u, isAdmin: newIsAdmin } : u));
+        this.showToast(this.i18n.currentLang() === 'it' ? 'Ruolo amministratore aggiornato con successo!' : 'Administrator role updated successfully!');
         
         // Se stiamo modificando noi stessi, aggiorna l'utente attivo nel servizio
         const current = this.userService.getCurrentUser();
@@ -341,8 +463,7 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('[Admin] Errore aggiornamento ruolo admin:', err);
-        this.saveError.set(err.error?.error || 'Impossibile aggiornare il ruolo dell\'utente.');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        this.showToast(err.error?.error || 'Impossibile aggiornare il ruolo dell\'utente.', 'error');
       }
     });
   }

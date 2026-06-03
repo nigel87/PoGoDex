@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
@@ -145,6 +145,19 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   });
 
   @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
+  @ViewChild('searchInput') searchInput!: ElementRef;
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    if (event.key === '/') {
+      event.preventDefault();
+      this.searchInput?.nativeElement?.focus();
+    }
+  }
   limit = signal<number>(50);
   visibleList = computed(() => {
     return this.filteredList().slice(0, this.limit());
