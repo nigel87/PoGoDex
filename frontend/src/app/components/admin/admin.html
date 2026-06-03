@@ -1,6 +1,6 @@
 <div class="admin-container">
   <!-- Schermata di Accesso Negato (Sicurezza Remota attiva) -->
-  <div *ngIf="!isLocal()" class="security-barrier glass-card">
+  <div *ngIf="!isAuthorized()" class="security-barrier glass-card">
     <div class="security-icon">🛡️</div>
     <h2>{{ 'admin.barrier.title' | translate }}</h2>
     <p>{{ 'admin.barrier.desc' | translate }}</p>
@@ -8,12 +8,14 @@
     <button [routerLink]="['/']" class="admin-btn back-btn">{{ 'admin.barrier.btn' | translate }}</button>
   </div>
 
-  <!-- Contenuto della console locale -->
-  <ng-container *ngIf="isLocal()">
+  <!-- Contenuto della console locale o autorizzata -->
+  <ng-container *ngIf="isAuthorized()">
     <!-- Header fisso -->
     <header class="admin-header glass-card">
       <div class="header-left">
-        <h1 class="logo">PoGO<span>Dex</span> <span class="badge">{{ i18n.currentLang() === 'it' ? 'Console Sviluppatore' : 'Dev Console' }}</span></h1>
+        <h1 class="logo">PoGO<span>Dex</span> 
+          <span class="badge">{{ isLocal() ? (i18n.currentLang() === 'it' ? 'Console Sviluppatore' : 'Dev Console') : (i18n.currentLang() === 'it' ? 'Console Amministratore' : 'Admin Console') }}</span>
+        </h1>
         <p class="subtitle">{{ 'admin.subtitle' | translate }}</p>
       </div>
       <div class="header-actions">
@@ -54,107 +56,186 @@
 
     <!-- Pannello principale dei controlli -->
     <main *ngIf="!isLoading()" class="admin-main glass-card">
-      <!-- Filtro di ricerca -->
-      <div class="search-row">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input 
-            type="text" 
-            [placeholder]="'admin.search' | translate" 
-            [ngModel]="searchQuery()" 
-            (ngModelChange)="searchQuery.set($event)"
-            class="search-bar-input">
-        </div>
-        <div class="results-badge">
-          {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
-        </div>
+      <!-- Navigation Tabs -->
+      <div class="admin-tabs">
+        <button 
+          (click)="activeTab.set('pokemon')" 
+          [class.active]="activeTab() === 'pokemon'" 
+          class="tab-btn">
+          ✨ {{ i18n.currentLang() === 'it' ? 'Abilità Pokémon' : 'Pokémon Capabilities' }}
+        </button>
+        <button 
+          (click)="activeTab.set('users')" 
+          [class.active]="activeTab() === 'users'" 
+          class="tab-btn">
+          👥 {{ i18n.currentLang() === 'it' ? 'Gestione Utenti' : 'User Management' }}
+        </button>
       </div>
 
-      <!-- Tabella delle configurazioni -->
-      <div class="table-scroll-wrapper">
-        <table class="config-table">
-          <thead>
-            <tr>
-              <th class="col-id">{{ 'admin.col.id' | translate }}</th>
-              <th class="col-sprite">{{ 'admin.col.sprite' | translate }}</th>
-              <th class="col-name">{{ 'admin.col.name' | translate }}</th>
-              <th class="col-types">{{ 'admin.col.types' | translate }}</th>
-              <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
-              <th class="col-check text-center shiny-header">{{ 'admin.col.shiny' | translate }}</th>
-              <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
-              <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
-              <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of filteredList()" class="config-row" 
-                [class.has-shadow]="isShadow(p.name)"
-                [class.has-mega]="isMega(p.name)"
-                [class.has-gigamax]="isGigamax(p.name)"
-                [class.is-unreleased]="!isReleased(p.name)">
-              <td class="col-id font-mono">{{ formatId(p) }}</td>
-              <td class="col-sprite">
-                <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
-              </td>
-              <td class="col-name font-bold">{{ getPokemonAdminName(p) }}</td>
-              <td class="col-types">
-                <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
-                <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
-              </td>
-              <!-- Release check -->
-              <td class="col-check text-center">
-                <label class="custom-checkbox release-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [checked]="isReleased(p.name)" 
-                    (change)="toggleCapability(p.name, 'release')">
-                  <span class="checkmark"></span>
-                </label>
-              </td>
-              <!-- Shiny check -->
-              <td class="col-check text-center">
-                <label class="custom-checkbox shiny-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [checked]="isShinyReleased(p.name)" 
-                    (change)="toggleCapability(p.name, 'shiny')">
-                  <span class="checkmark"></span>
-                </label>
-              </td>
-              <!-- Shadow check -->
-              <td class="col-check text-center">
-                <label class="custom-checkbox shadow-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [checked]="isShadow(p.name)" 
-                    (change)="toggleCapability(p.name, 'shadow')">
-                  <span class="checkmark"></span>
-                </label>
-              </td>
-              <!-- Mega check -->
-              <td class="col-check text-center">
-                <label class="custom-checkbox mega-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [checked]="isMega(p.name)" 
-                    (change)="toggleCapability(p.name, 'mega')">
-                  <span class="checkmark"></span>
-                </label>
-              </td>
-              <!-- Gigamax check -->
-              <td class="col-check text-center">
-                <label class="custom-checkbox gigamax-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [checked]="isGigamax(p.name)" 
-                    (change)="toggleCapability(p.name, 'gigamax')">
-                  <span class="checkmark"></span>
-                </label>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Tabella delle configurazioni (Pokémon) -->
+      <ng-container *ngIf="activeTab() === 'pokemon'">
+        <!-- Filtro di ricerca -->
+        <div class="search-row">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input 
+              type="text" 
+              [placeholder]="'admin.search' | translate" 
+              [ngModel]="searchQuery()" 
+              (ngModelChange)="searchQuery.set($event)"
+              class="search-bar-input">
+          </div>
+          <div class="results-badge">
+            {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
+          </div>
+        </div>
+
+        <!-- Tabella delle configurazioni -->
+        <div class="table-scroll-wrapper">
+          <table class="config-table">
+            <thead>
+              <tr>
+                <th class="col-id">{{ 'admin.col.id' | translate }}</th>
+                <th class="col-sprite">{{ 'admin.col.sprite' | translate }}</th>
+                <th class="col-name">{{ 'admin.col.name' | translate }}</th>
+                <th class="col-types">{{ 'admin.col.types' | translate }}</th>
+                <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
+                <th class="col-check text-center shiny-header">{{ 'admin.col.shiny' | translate }}</th>
+                <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
+                <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
+                <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of filteredList()" class="config-row" 
+                  [class.has-shadow]="isShadow(p.name)"
+                  [class.has-mega]="isMega(p.name)"
+                  [class.has-gigamax]="isGigamax(p.name)"
+                  [class.is-unreleased]="!isReleased(p.name)">
+                <td class="col-id font-mono">{{ formatId(p) }}</td>
+                <td class="col-sprite">
+                  <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
+                </td>
+                <td class="col-name font-bold">{{ getPokemonAdminName(p) }}</td>
+                <td class="col-types">
+                  <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
+                  <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
+                </td>
+                <!-- Release check -->
+                <td class="col-check text-center">
+                  <label class="custom-checkbox release-checkbox">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isReleased(p.name)" 
+                      (change)="toggleCapability(p.name, 'release')">
+                    <span class="checkmark"></span>
+                  </label>
+                </td>
+                <!-- Shiny check -->
+                <td class="col-check text-center">
+                  <label class="custom-checkbox shiny-checkbox">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isShinyReleased(p.name)" 
+                      (change)="toggleCapability(p.name, 'shiny')">
+                    <span class="checkmark"></span>
+                  </label>
+                </td>
+                <!-- Shadow check -->
+                <td class="col-check text-center">
+                  <label class="custom-checkbox shadow-checkbox">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isShadow(p.name)" 
+                      (change)="toggleCapability(p.name, 'shadow')">
+                    <span class="checkmark"></span>
+                  </label>
+                </td>
+                <!-- Mega check -->
+                <td class="col-check text-center">
+                  <label class="custom-checkbox mega-checkbox">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isMega(p.name)" 
+                      (change)="toggleCapability(p.name, 'mega')">
+                    <span class="checkmark"></span>
+                  </label>
+                </td>
+                <!-- Gigamax check -->
+                <td class="col-check text-center">
+                  <label class="custom-checkbox gigamax-checkbox">
+                    <input 
+                      type="checkbox" 
+                      [checked]="isGigamax(p.name)" 
+                      (change)="toggleCapability(p.name, 'gigamax')">
+                    <span class="checkmark"></span>
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+      <!-- Dashboard Gestione Utenti -->
+      <ng-container *ngIf="activeTab() === 'users'">
+        <div *ngIf="isLoadingUsers()" class="users-loader">
+          <div class="spinner"></div>
+          <span>{{ i18n.currentLang() === 'it' ? 'Caricamento elenco utenti...' : 'Loading users list...' }}</span>
+        </div>
+
+        <div *ngIf="!isLoadingUsers()" class="users-content">
+          <div class="users-summary-bar">
+            <span>👥 {{ i18n.currentLang() === 'it' ? 'Utenti totali nel database:' : 'Total users in database:' }} <strong>{{ usersList().length }}</strong></span>
+          </div>
+
+          <div class="users-grid">
+            <div *ngFor="let u of usersList()" class="user-card glass-card" [class.is-admin]="u.isAdmin === 1">
+              <div class="user-card-header">
+                <div class="avatar-wrapper">
+                  <img [src]="u.avatarUrl || ''" alt="Avatar" class="user-avatar" (error)="setDefaultAvatar($event)">
+                  <span class="admin-badge" *ngIf="u.isAdmin === 1">ADMIN</span>
+                </div>
+                <div class="user-info">
+                  <h3 class="user-name">{{ u.name }}</h3>
+                  <p class="user-email">{{ u.email || (i18n.currentLang() === 'it' ? 'Nessun indirizzo email' : 'No email address') }}</p>
+                </div>
+              </div>
+
+              <div class="user-details">
+                <div class="detail-item">
+                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Tipo Accesso:' : 'Auth Type:' }}</span>
+                  <span class="detail-value text-glow" [class.google-glow]="u.googleSubId">
+                    {{ u.googleSubId ? 'Google OAuth' : (i18n.currentLang() === 'it' ? 'Account Locale' : 'Local Account') }}
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Stato Profilo:' : 'Profile Status:' }}</span>
+                  <span class="detail-value status-glow" [class.protected-glow]="u.isProtected === 1">
+                    {{ u.isProtected === 1 ? (i18n.currentLang() === 'it' ? 'Protetto (Password)' : 'Protected (Password)') : (i18n.currentLang() === 'it' ? 'Pubblico' : 'Public') }}
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Visibilità:' : 'Visibility:' }}</span>
+                  <span class="detail-value mode-glow">{{ u.privacyMode }}</span>
+                </div>
+              </div>
+
+              <div class="user-actions">
+                <button 
+                  (click)="toggleAdminRole(u)" 
+                  class="admin-btn role-toggle-btn"
+                  [class.demote-btn]="u.isAdmin === 1"
+                  [class.promote-btn]="u.isAdmin !== 1"
+                  [disabled]="isOwnUser(u)">
+                  <span *ngIf="u.isAdmin === 1">🛡️ {{ i18n.currentLang() === 'it' ? 'Revoca Admin' : 'Revoke Admin' }}</span>
+                  <span *ngIf="u.isAdmin !== 1">👑 {{ i18n.currentLang() === 'it' ? 'Promuovi Admin' : 'Promote Admin' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
     </main>
   </ng-container>
 </div>

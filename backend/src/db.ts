@@ -55,7 +55,8 @@ async function initializeTables(database: Database) {
       lastUpdated INTEGER DEFAULT 0,
       googleSubId TEXT UNIQUE,
       isProtected INTEGER DEFAULT 0,
-      privacyMode TEXT DEFAULT 'public_edit'
+      privacyMode TEXT DEFAULT 'public_edit',
+      isAdmin INTEGER DEFAULT 0
     );
   `);
 
@@ -102,6 +103,9 @@ async function initializeTables(database: Database) {
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE users ADD COLUMN googleId TEXT DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0;');
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId INTEGER DEFAULT NULL;');
@@ -489,7 +493,6 @@ async function initializeTables(database: Database) {
         await stmt.run(r.pokemonId, r.minCp, r.maxCp, r.tier, r.isShadow, r.isMega);
       }
       await stmt.finalize();
-
       // Registriamo l'esecuzione della migrazione
       await database.run(
         'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
@@ -499,6 +502,75 @@ async function initializeTables(database: Database) {
       
       await database.exec('COMMIT;');
       console.log(`[Database Migration] Migrazione ${migrationNameRaids} completata con successo!`);
+    }
+
+    // Nuova migrazione per creare la tabella delle configurazioni app_config
+    const migrationNameConfig = 'create_app_config_table_v2';
+    const rowConfig = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+      migrationNameConfig
+    );
+    
+    if (rowConfig && rowConfig.count === 0) {
+      console.log(`[Database Migration] Esecuzione migrazione tabella app_config e seed iniziale: ${migrationNameConfig}...`);
+      
+      await database.exec('BEGIN TRANSACTION;');
+      
+      await database.exec(`
+        CREATE TABLE IF NOT EXISTS app_config (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `);
+      
+      // Seed iniziale per le 5 configurazioni dinamiche leggendole dal file pokemon-config.ts
+      const configPath = path.join(__dirname, '../../frontend/src/app/services/pokemon-config.ts');
+      let shadowCapable: string[] = [];
+      let megaCapable: string[] = [];
+      let gigamaxCapable: string[] = [];
+      let unreleasedCapable: string[] = [];
+      let shinyUnreleasedCapable: string[] = [];
+      
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf-8');
+        
+        const extractArray = (fileContent: string, arrayName: string): string[] => {
+          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+          const match = fileContent.match(regex);
+          if (!match) return [];
+          const arrayBody = match[1];
+          const nameRegex = /['"](.*?)['"]/g;
+          const names: string[] = [];
+          let nameMatch;
+          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
+            names.push(nameMatch[1].replace(/\\'/g, "'"));
+          }
+          return names;
+        };
+        
+        shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
+        megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
+        gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
+        unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
+        shinyUnreleasedCapable = extractArray(content, 'SHINY_UNRELEASED_SPECIES');
+      }
+      
+      const stmt = await database.prepare('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)');
+      await stmt.run('SHADOW_CAPABLE_SPECIES', JSON.stringify(shadowCapable));
+      await stmt.run('MEGA_CAPABLE_SPECIES', JSON.stringify(megaCapable));
+      await stmt.run('GIGAMAX_CAPABLE_SPECIES', JSON.stringify(gigamaxCapable));
+      await database.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'UNRELEASED_SPECIES', JSON.stringify(unreleasedCapable));
+      await database.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'SHINY_UNRELEASED_SPECIES', JSON.stringify(shinyUnreleasedCapable));
+      await stmt.finalize();
+      
+      await database.run(
+        'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+        migrationNameConfig,
+        Date.now()
+      );
+      
+      await database.exec('COMMIT;');
+      console.log(`[Database Migration] Migrazione ${migrationNameConfig} completata con successo!`);
     }
   } catch (err) {
     try { await database.exec('ROLLBACK;'); } catch (_) {}

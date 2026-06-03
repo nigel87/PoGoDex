@@ -23,6 +23,17 @@ export class AdminComponent implements OnInit {
   saveSuccess = signal<boolean>(false);
   saveError = signal<string>('');
 
+  // Gestione dei Tab e della lista utenti
+  activeTab = signal<'pokemon' | 'users'>('pokemon');
+  usersList = signal<any[]>([]);
+  isLoadingUsers = signal<boolean>(false);
+
+  // Autorizzazione: locale oppure admin loggato
+  isAuthorized = computed(() => {
+    const user = this.userService.getCurrentUser();
+    return this.isLocal() || (user ? user.isAdmin === 1 : false);
+  });
+
   // Liste di capacità recuperate dal backend
   shadowSet = new Set<string>();
   megaSet = new Set<string>();
@@ -51,12 +62,13 @@ export class AdminComponent implements OnInit {
   }
 
   ngOnInit() {
-    if (!this.isLocal()) {
+    if (!this.isAuthorized()) {
       this.isLoading.set(false);
       return;
     }
 
     this.loadCatalogAndConfig();
+    this.loadUsersList();
   }
 
   loadCatalogAndConfig() {
@@ -273,5 +285,57 @@ export class AdminComponent implements OnInit {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     });
+  }
+
+  loadUsersList() {
+    this.isLoadingUsers.set(true);
+    const usersUrl = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/admin/users`
+      : '/api/admin/users';
+      
+    this.http.get<any[]>(usersUrl).subscribe({
+      next: (data) => {
+        this.usersList.set(data);
+        this.isLoadingUsers.set(false);
+      },
+      error: (err) => {
+        console.error('[Admin] Errore caricamento utenti:', err);
+        this.isLoadingUsers.set(false);
+      }
+    });
+  }
+
+  toggleAdminRole(user: any) {
+    const newIsAdmin = user.isAdmin === 1 ? 0 : 1;
+    const roleUrl = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/admin/users/${user.id}/admin-role`
+      : `/api/admin/users/${user.id}/admin-role`;
+      
+    this.http.put<any>(roleUrl, { isAdmin: newIsAdmin }).subscribe({
+      next: (res) => {
+        this.usersList.update(list => list.map(u => u.id === user.id ? { ...u, isAdmin: newIsAdmin } : u));
+        
+        // Se stiamo modificando noi stessi, aggiorna l'utente attivo nel servizio
+        const current = this.userService.getCurrentUser();
+        if (current && current.id === user.id) {
+          current.isAdmin = newIsAdmin;
+          this.userService.setActiveUser(current);
+        }
+      },
+      error: (err) => {
+        console.error('[Admin] Errore aggiornamento ruolo admin:', err);
+        this.saveError.set(err.error?.error || 'Impossibile aggiornare il ruolo dell\'utente.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  }
+
+  isOwnUser(user: any): boolean {
+    const current = this.userService.getCurrentUser();
+    return current ? current.id === user.id : false;
+  }
+
+  setDefaultAvatar(event: any) {
+    event.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2364748b"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
   }
 }

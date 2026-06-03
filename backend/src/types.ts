@@ -8,6 +8,7 @@ export interface User {
   googleSubId?: string | null;
   isProtected?: number;
   privacyMode?: 'public_edit' | 'public_readonly' | 'private';
+  isAdmin?: number;
 }
 
 export interface Pokemon {

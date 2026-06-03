@@ -5,7 +5,7 @@ import fs from 'fs';
 import { getDb } from './db';
 import { runSeeder } from './seed';
 import { PokedexDTO, User } from './types';
-import { signJwt, verifyJwt, verifyGoogleToken } from './auth';
+import { signJwt, verifyJwt, verifyGoogleToken, requireAdmin, isLocalRequest, AuthenticatedRequest } from './auth';
 
 // Carica variabili d'ambiente da .env
 function loadEnv() {
@@ -211,12 +211,23 @@ async function startServer() {
         const googleName = payload.name || '';
         const picture = payload.picture || `https://api.dicebear.com/7.x/bottts/svg?seed=${sub}`;
 
+        // Verifica se l'email fa parte della lista amministratori in .env
+        const adminEmailsStr = process.env.ADMIN_EMAILS || '';
+        const adminEmails = adminEmailsStr.split(',').map(e => e.trim().toLowerCase());
+        const shouldBeAdmin = email ? adminEmails.includes(email.toLowerCase()) : false;
+
         // Controlla se esiste già un utente con questo googleSubId
-        let user = await db.get<User>('SELECT * FROM users WHERE googleSubId = ?', sub);
+        let user = await db.get<any>('SELECT * FROM users WHERE googleSubId = ?', sub);
 
         if (user) {
+          // Se deve essere admin ma non lo è sul DB, aggiorna
+          if (shouldBeAdmin && user.isAdmin !== 1) {
+            await db.run('UPDATE users SET isAdmin = 1 WHERE id = ?', user.id);
+            user.isAdmin = 1;
+            await touchUserLastUpdated(user.id);
+          }
           // Utente già registrato, effettua il login
-          const token = signJwt({ id: user.id, name: user.name, googleSubId: user.googleSubId });
+          const token = signJwt({ id: user.id, name: user.name, googleSubId: user.googleSubId, isAdmin: user.isAdmin });
           return res.json({ token, user });
         }
 
@@ -232,35 +243,37 @@ async function startServer() {
         const trimmedName = requestedUsername.trim();
 
         // Verifica se il nickname scelto esiste già nel database
-        const existingUser = await db.get<User>('SELECT * FROM users WHERE name = ?', trimmedName);
+        const existingUser = await db.get<any>('SELECT * FROM users WHERE name = ?', trimmedName);
         if (existingUser) {
           if (existingUser.isProtected === 1 || existingUser.googleSubId) {
             return res.status(400).json({ error: 'Questo nickname è già registrato da un altro utente' });
           }
 
+          const isAdminVal = shouldBeAdmin ? 1 : 0;
           // Associa l'account Google al profilo esistente non protetto (claiming)
           await db.run(
-            'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = ? WHERE id = ?',
-            sub, 1, email, picture, existingUser.id
+            'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = ?, isAdmin = ? WHERE id = ?',
+            sub, 1, email, picture, isAdminVal, existingUser.id
           );
           await touchUserLastUpdated(existingUser.id as number);
           
           const updatedUser = await db.get<User>('SELECT * FROM users WHERE id = ?', existingUser.id);
-          const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId });
-          log('INFO', `Profilo esistente collegato con Google`, { id: updatedUser?.id, name: updatedUser?.name });
+          const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId, isAdmin: updatedUser?.isAdmin });
+          log('INFO', `Profilo esistente collegato con Google (Admin: ${isAdminVal})`, { id: updatedUser?.id, name: updatedUser?.name });
           return res.json({ token, user: updatedUser });
         } else {
+          const isAdminVal = shouldBeAdmin ? 1 : 0;
           // Crea un nuovo profilo protetto
           const result = await db.run(
-            'INSERT INTO users (name, email, googleSubId, isProtected, avatarUrl, privacyMode) VALUES (?, ?, ?, ?, ?, ?)',
-            trimmedName, email, sub, 1, picture, 'public_edit'
+            'INSERT INTO users (name, email, googleSubId, isProtected, avatarUrl, privacyMode, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            trimmedName, email, sub, 1, picture, 'public_edit', isAdminVal
           );
           const newUserId = result.lastID;
           await touchUserLastUpdated(newUserId as number);
 
           const newUser = await db.get<User>('SELECT * FROM users WHERE id = ?', newUserId);
-          const token = signJwt({ id: newUser?.id, name: newUser?.name, googleSubId: newUser?.googleSubId });
-          log('INFO', `Nuovo profilo creato con Google`, { id: newUserId, name: trimmedName });
+          const token = signJwt({ id: newUser?.id, name: newUser?.name, googleSubId: newUser?.googleSubId, isAdmin: newUser?.isAdmin });
+          log('INFO', `Nuovo profilo creato con Google (Admin: ${isAdminVal})`, { id: newUserId, name: trimmedName });
           return res.json({ token, user: newUser });
         }
       } catch (err) {
@@ -306,15 +319,20 @@ async function startServer() {
         }
 
         // Eseguiamo il collegamento
+        const adminEmailsStr = process.env.ADMIN_EMAILS || '';
+        const adminEmails = adminEmailsStr.split(',').map(e => e.trim().toLowerCase());
+        const shouldBeAdmin = email ? adminEmails.includes(email.toLowerCase()) : false;
+        const isAdminVal = shouldBeAdmin ? 1 : (currentUser.isAdmin || 0);
+
         await db.run(
-          'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = COALESCE(?, avatarUrl) WHERE id = ?',
-          sub, 1, email, picture, id
+          'UPDATE users SET googleSubId = ?, isProtected = ?, email = ?, avatarUrl = COALESCE(?, avatarUrl), isAdmin = ? WHERE id = ?',
+          sub, 1, email, picture, isAdminVal, id
         );
         await touchUserLastUpdated(id);
 
-        const updatedUser = await db.get<User>('SELECT * FROM users WHERE id = ?', id);
-        const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId });
-        log('INFO', `Collegato Google account a profilo esistente via settings`, { id });
+        const updatedUser = await db.get<any>('SELECT * FROM users WHERE id = ?', id);
+        const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId, isAdmin: updatedUser?.isAdmin });
+        log('INFO', `Collegato Google account a profilo esistente via settings (Admin: ${isAdminVal})`, { id });
         res.json({ success: true, token, user: updatedUser });
       } catch (err) {
         log('ERROR', 'Errore durante il collegamento Google', err);
@@ -1014,8 +1032,28 @@ async function startServer() {
     // =================================================================
     // 6.6. GET /api/pokemon-config - Carica le liste di configurazione (Pubblico)
     // =================================================================
-    app.get('/api/pokemon-config', (req, res) => {
+    app.get('/api/pokemon-config', async (req, res) => {
       try {
+        const db = await getDb();
+        const rows = (await db.all('SELECT * FROM app_config')) as { key: string, value: string }[];
+        
+        if (rows && rows.length > 0) {
+          const configMap = new Map<string, string[]>();
+          for (const row of rows) {
+            try {
+              configMap.set(row.key, JSON.parse(row.value));
+            } catch (_) {}
+          }
+          return res.json({
+            shadowCapable: configMap.get('SHADOW_CAPABLE_SPECIES') || [],
+            megaCapable: configMap.get('MEGA_CAPABLE_SPECIES') || [],
+            gigamaxCapable: configMap.get('GIGAMAX_CAPABLE_SPECIES') || [],
+            unreleasedCapable: configMap.get('UNRELEASED_SPECIES') || [],
+            shinyUnreleasedCapable: configMap.get('SHINY_UNRELEASED_SPECIES') || []
+          });
+        }
+
+        // Fallback su lettura file
         if (!fs.existsSync(configPath)) {
           return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [], shinyUnreleasedCapable: [] });
         }
@@ -1049,62 +1087,61 @@ async function startServer() {
       }
     });
 
-    // Helper per verificare se la richiesta proviene da localhost (loopback)
-    function isLocalRequest(req: express.Request): boolean {
-      const ip = req.ip || req.socket.remoteAddress || '';
-      return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
-    }
-
     // =================================================================
-    // 7. GET /api/admin/config - Carica le liste capaci (Solo Locale)
+    // 7. GET /api/admin/config - Carica le liste capaci (Protetto da requireAdmin)
     // =================================================================
-    app.get('/api/admin/config', (req, res) => {
-      if (!isLocalRequest(req)) {
-        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
-      }
-
+    app.get('/api/admin/config', requireAdmin, async (req, res) => {
       try {
-        if (!fs.existsSync(configPath)) {
-          return res.json({ shadowCapable: [], megaCapable: [], gigamaxCapable: [], unreleasedCapable: [], shinyUnreleasedCapable: [] });
-        }
-
-        const content = fs.readFileSync(configPath, 'utf-8');
-
-        function extractArray(fileContent: string, arrayName: string): string[] {
-          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
-          const match = fileContent.match(regex);
-          if (!match) return [];
-          const arrayBody = match[1];
-          const nameRegex = /['"](.*?)['"]/g;
-          const names: string[] = [];
-          let nameMatch;
-          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
-            names.push(nameMatch[1].replace(/\\'/g, "'"));
+        const db = await getDb();
+        const rows = (await db.all('SELECT * FROM app_config')) as { key: string, value: string }[];
+        
+        const configMap = new Map<string, string[]>();
+        if (rows && rows.length > 0) {
+          for (const row of rows) {
+            try {
+              configMap.set(row.key, JSON.parse(row.value));
+            } catch (_) {}
           }
-          return names;
+        } else if (fs.existsSync(configPath)) {
+          // Fallback statico
+          const content = fs.readFileSync(configPath, 'utf-8');
+          function extractArray(fileContent: string, arrayName: string): string[] {
+            const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
+            const match = fileContent.match(regex);
+            if (!match) return [];
+            const arrayBody = match[1];
+            const nameRegex = /['"](.*?)['"]/g;
+            const names: string[] = [];
+            let nameMatch;
+            while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
+              names.push(nameMatch[1].replace(/\\'/g, "'"));
+            }
+            return names;
+          }
+          configMap.set('SHADOW_CAPABLE_SPECIES', extractArray(content, 'SHADOW_CAPABLE_SPECIES'));
+          configMap.set('MEGA_CAPABLE_SPECIES', extractArray(content, 'MEGA_CAPABLE_SPECIES'));
+          configMap.set('GIGAMAX_CAPABLE_SPECIES', extractArray(content, 'GIGAMAX_CAPABLE_SPECIES'));
+          configMap.set('UNRELEASED_SPECIES', extractArray(content, 'UNRELEASED_SPECIES'));
+          configMap.set('SHINY_UNRELEASED_SPECIES', extractArray(content, 'SHINY_UNRELEASED_SPECIES'));
         }
 
-        const shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
-        const megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
-        const gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
-        const unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
-        const shinyUnreleasedCapable = extractArray(content, 'SHINY_UNRELEASED_SPECIES');
-
-        res.json({ shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable, shinyUnreleasedCapable });
+        res.json({
+          shadowCapable: configMap.get('SHADOW_CAPABLE_SPECIES') || [],
+          megaCapable: configMap.get('MEGA_CAPABLE_SPECIES') || [],
+          gigamaxCapable: configMap.get('GIGAMAX_CAPABLE_SPECIES') || [],
+          unreleasedCapable: configMap.get('UNRELEASED_SPECIES') || [],
+          shinyUnreleasedCapable: configMap.get('SHINY_UNRELEASED_SPECIES') || []
+        });
       } catch (err) {
-        console.error('Errore nel recupero della configurazione:', err);
+        console.error('Errore nel recupero della configurazione di amministrazione:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
 
     // =================================================================
-    // 8. POST /api/admin/config - Salva le liste su disco (Solo Locale)
+    // 8. POST /api/admin/config - Salva le liste su database (Protetto da requireAdmin)
     // =================================================================
-    app.post('/api/admin/config', (req, res) => {
-      if (!isLocalRequest(req)) {
-        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
-      }
-
+    app.post('/api/admin/config', requireAdmin, async (req, res) => {
       const { shadowCapable, megaCapable, gigamaxCapable, unreleasedCapable, shinyUnreleasedCapable } = req.body;
 
       if (!Array.isArray(shadowCapable) || !Array.isArray(megaCapable) || !Array.isArray(gigamaxCapable) || !Array.isArray(unreleasedCapable) || !Array.isArray(shinyUnreleasedCapable)) {
@@ -1112,565 +1149,77 @@ async function startServer() {
       }
 
       try {
-        const shadowLines = shadowCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-        const megaLines = megaCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-        const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-        const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-        const shinyUnreleasedLines = shinyUnreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
+        const db = await getDb();
+        await db.run('BEGIN TRANSACTION;');
+        await db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'SHADOW_CAPABLE_SPECIES', JSON.stringify(shadowCapable));
+        await db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'MEGA_CAPABLE_SPECIES', JSON.stringify(megaCapable));
+        await db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'GIGAMAX_CAPABLE_SPECIES', JSON.stringify(gigamaxCapable));
+        await db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'UNRELEASED_SPECIES', JSON.stringify(unreleasedCapable));
+        await db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', 'SHINY_UNRELEASED_SPECIES', JSON.stringify(shinyUnreleasedCapable));
+        await db.run('COMMIT;');
 
-        const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
-${shadowLines}
-];
-
-export const MEGA_CAPABLE_SPECIES = [
-${megaLines}
-];
-
-export const GIGAMAX_CAPABLE_SPECIES = [
-${gigaLines}
-];
-
-export const UNRELEASED_SPECIES = [
-${unreleasedLines}
-];
-
-export const SHINY_UNRELEASED_SPECIES = [
-${shinyUnreleasedLines}
-];
-`;
-
-        let extraContent = '';
-        if (fs.existsSync(configPath)) {
-          const oldContent = fs.readFileSync(configPath, 'utf-8');
-          const mythicalIndex = oldContent.indexOf('export const MYTHICAL_POKEMON');
-          if (mythicalIndex !== -1) {
-            extraContent = oldContent.substring(mythicalIndex);
-          }
-        }
-
-        if (!extraContent.includes('export const MYTHICAL_POKEMON') || !extraContent.includes('export const EVOLVES_FROM') || !extraContent.includes('export const MODAL_FORMS_SPECIES')) {
-          extraContent = `export const MYTHICAL_POKEMON = [
-  'Mew', 'Celebi', 'Jirachi', 'Deoxys', 'Phione', 'Manaphy', 'Darkrai', 'Shaymin', 'Arceus',
-  'Victini', 'Meloetta', 'Genesect', 'Keldeo', 'Diancie', 'Hoopa', 'Volcanion', 'Magearna',
-  'Marshadow', 'Zeraora', 'Meltan', 'Melmetal', 'Zarude', 'Pecharunt'
-];
-
-export const LEGENDARY_POKEMON = [
-  'Articuno', 'Zapdos', 'Moltres', 'Mewtwo', 'Raikou', 'Entei', 'Suicune', 'Lugia', 'Ho-Oh',
-  'Regirock', 'Regice', 'Registeel', 'Latias', 'Latios', 'Kyogre', 'Groudon', 'Rayquaza',
-  'Uxie', 'Mesprit', 'Azelf', 'Dialga', 'Palkia', 'Heatran', 'Regigigas', 'Giratina', 'Cresselia',
-  'Cobalion', 'Terrakion', 'Virizion', 'Tornadus', 'Thundurus', 'Reshiram', 'Zekrom', 'Landorus',
-  'Kyurem', 'Xerneas', 'Yveltal', 'Zygarde', 'Type: Null', 'Silvally', 'Tapu Koko', 'Tapu Lele',
-  'Tapu Bulu', 'Tapu Fini', 'Cosmog', 'Cosmoem', 'Solgaleo', 'Lunala', 'Necrozma', 'Zacian',
-  'Zamazenta', 'Eternatus', 'Kubfu', 'Urshifu', 'Regieleki', 'Regidrago', 'Glastrier', 'Spectrier',
-  'Calyrex', 'Enamorus', 'Wo-Chien', 'Chien-Pao', 'Ting-Lu', 'Chi-Yu', 'Koraidon', 'Miraidon',
-  'Okidogi', 'Munkidori', 'Fezandipiti', 'Ogerpon', 'Gouging Fire', 'Raging Bolt', 'Iron Boulder',
-  'Iron Crown', 'Terapagos'
-];
-
-export const ULTRA_BEASTS = [
-  'Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord',
-  'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon'
-];
-
-export const EVOLVES_FROM: Record<string, string> = {
-  // Gen 1
-  'Ivysaur': 'Bulbasaur',
-  'Venusaur': 'Ivysaur',
-  'Charmeleon': 'Charmander',
-  'Charizard': 'Charmeleon',
-  'Wartortle': 'Squirtle',
-  'Blastoise': 'Wartortle',
-  'Metapod': 'Caterpie',
-  'Butterfree': 'Metapod',
-  'Kakuna': 'Weedle',
-  'Beedrill': 'Kakuna',
-  'Pidgeotto': 'Pidgey',
-  'Pidgeot': 'Pidgeotto',
-  'Raticate': 'Rattata',
-  'Fearow': 'Spearow',
-  'Arbok': 'Ekans',
-  'Raichu': 'Pikachu',
-  'Pikachu': 'Pichu',
-  'Sandslash': 'Sandshrew',
-  'Nidorina': 'Nidoran♀',
-  'Nidoqueen': 'Nidorina',
-  'Nidorino': 'Nidoran♂',
-  'Nidoking': 'Nidorino',
-  'Clefairy': 'Cleffa',
-  'Clefable': 'Clefairy',
-  'Jigglypuff': 'Igglybuff',
-  'Wigglytuff': 'Jigglypuff',
-  'Golbat': 'Zubat',
-  'Crobat': 'Golbat',
-  'Gloom': 'Oddish',
-  'Vileplume': 'Gloom',
-  'Bellossom': 'Gloom',
-  'Parasect': 'Paras',
-  'Venomoth': 'Venonat',
-  'Dugtrio': 'Diglett',
-  'Persian': 'Meowth',
-  'Perrserker': 'Meowth',
-  'Golduck': 'Psyduck',
-  'Primeape': 'Mankey',
-  'Annihilape': 'Primeape',
-  'Arcanine': 'Growlithe',
-  'Poliwhirl': 'Poliwag',
-  'Poliwrath': 'Poliwhirl',
-  'Politoed': 'Poliwhirl',
-  'Kadabra': 'Abra',
-  'Alakazam': 'Kadabra',
-  'Machoke': 'Machop',
-  'Machamp': 'Machoke',
-  'Weepinbell': 'Bellsprout',
-  'Tentacruel': 'Tentacool',
-  'Graveler': 'Geodude',
-  'Golem': 'Graveler',
-  'Rapidash': 'Ponyta',
-  'Slowbro': 'Slowpoke',
-  'Slowking': 'Slowpoke',
-  'Magneton': 'Magnemite',
-  'Magnezone': 'Magneton',
-  'Sirfetch\\'d': 'Farfetch\\'d',
-  'Dodrio': 'Doduo',
-  'Dewgong': 'Seel',
-  'Muk': 'Grimer',
-  'Haunter': 'Gastly',
-  'Gengar': 'Haunter',
-  'Steelix': 'Onix',
-  'Hypno': 'Drowzee',
-  'Kingler': 'Krabby',
-  'Electrode': 'Voltorb',
-  'Exeggutor': 'Exeggcute',
-  'Marowak': 'Cubone',
-  'Hitmonlee': 'Tyrogue',
-  'Hitmonchan': 'Tyrogue',
-  'Hitmontop': 'Tyrogue',
-  'Lickilicky': 'Lickitung',
-  'Weezing': 'Koffing',
-  'Rhydon': 'Rhyhorn',
-  'Rhyperior': 'Rhydon',
-  'Chansey': 'Happiny',
-  'Blissey': 'Chansey',
-  'Tangrowth': 'Tangela',
-  'Seadra': 'Horsea',
-  'Kingdra': 'Seadra',
-  'Seaking': 'Goldeen',
-  'Starmie': 'Staryu',
-  'Mr. Mr. Mr. Mr. Mr. Mime': 'Mime Jr.',
-  'Mr. Rime': 'Mr. Mime',
-  'Scizor': 'Scyther',
-  'Kleavor': 'Scyther',
-  'Jynx': 'Smoochum',
-  'Electabuzz': 'Elekid',
-  'Electivire': 'Electabuzz',
-  'Magmar': 'Magby',
-  'Magmortar': 'Magmar',
-  'Gyarados': 'Magikarp',
-  'Vaporeon': 'Eevee',
-  'Jolteon': 'Eevee',
-  'Flareon': 'Eevee',
-  'Espeon': 'Eevee',
-  'Umbreon': 'Eevee',
-  'Leafeon': 'Eevee',
-  'Glaceon': 'Eevee',
-  'Sylveon': 'Eevee',
-  'Porygon2': 'Porygon',
-  'Porygon-Z': 'Porygon2',
-  'Omastar': 'Omanyte',
-  'Kabutops': 'Kabuto',
-  'Snorlax': 'Munchlax',
-  'Dragonair': 'Dratini',
-  'Dragonite': 'Dragonair',
-
-  // Gen 2
-  'Bayleef': 'Chikorita',
-  'Meganium': 'Bayleef',
-  'Quilava': 'Cyndaquil',
-  'Typhlosion': 'Quilava',
-  'Croconaw': 'Totodile',
-  'Feraligatr': 'Croconaw',
-  'Furret': 'Sentret',
-  'Noctowl': 'Hoothoot',
-  'Ledian': 'Ledyba',
-  'Ariados': 'Spinarak',
-  'Lanturn': 'Chinchou',
-  'Togetic': 'Togepi',
-  'Togekiss': 'Togetic',
-  'Xatu': 'Natu',
-  'Flaaffy': 'Mareep',
-  'Ampharos': 'Flaaffy',
-  'Azumarill': 'Marill',
-  'Marill': 'Azurill',
-  'Sudowoodo': 'Bonsly',
-  'Jumpluff': 'Skiploom',
-  'Skiploom': 'Hoppip',
-  'Sunflora': 'Sunkern',
-  'Quagsire': 'Wooper',
-  'Wobbuffet': 'Wynaut',
-  'Farigiraf': 'Girafarig',
-  'Forretress': 'Pineco',
-  'Dudunsparce': 'Dunsparce',
-  'Granbull': 'Snubbull',
-  'Ursaring': 'Teddiursa',
-  'Ursaluna': 'Ursaring',
-  'Magcargo': 'Slugma',
-  'Piloswine': 'Swinub',
-  'Mamoswine': 'Piloswine',
-  'Octillery': 'Remoraid',
-  'Mantine': 'Mantyke',
-  'Houndoom': 'Houndour',
-  'Donphan': 'Phanpy',
-  'Pupitar': 'Larvitar',
-  'Tyranitar': 'Pupitar',
-
-  // Gen 3
-  'Grovyle': 'Treecko',
-  'Sceptile': 'Grovyle',
-  'Combusken': 'Torchic',
-  'Blaziken': 'Combusken',
-  'Marshtomp': 'Mudkip',
-  'Swampert': 'Marshtomp',
-  'Mightyena': 'Poochyena',
-  'Linoone': 'Zigzagoon',
-  'Obstagoon': 'Linoone',
-  'Beautifly': 'Silcoon',
-  'Silcoon': 'Wurmple',
-  'Dustox': 'Cascoon',
-  'Cascoon': 'Wurmple',
-  'Lombre': 'Lotad',
-  'Ludicolo': 'Lombre',
-  'Nuzleaf': 'Seedot',
-  'Shiftry': 'Nuzleaf',
-  'Swellow': 'Taillow',
-  'Pelipper': 'Wingull',
-  'Kirlia': 'Ralts',
-  'Gardevoir': 'Kirlia',
-  'Gallade': 'Kirlia',
-  'Masquerain': 'Surskit',
-  'Breloom': 'Shroomish',
-  'Vigoroth': 'Slakoth',
-  'Slaking': 'Vigoroth',
-  'Ninjask': 'Nincada',
-  'Shedinja': 'Nincada',
-  'Loudred': 'Whismur',
-  'Exploud': 'Loudred',
-  'Hariyama': 'Makuhita',
-  'Delcatty': 'Skitty',
-  'Lairon': 'Aron',
-  'Aggron': 'Lairon',
-  'Medicham': 'Meditite',
-  'Manectric': 'Electrike',
-  'Roselia': 'Budew',
-  'Roserade': 'Roselia',
-  'Swalot': 'Gulpin',
-  'Sharpedo': 'Carvanha',
-  'Wailord': 'Wailmer',
-  'Camerupt': 'Numel',
-  'Grumpig': 'Spoink',
-  'Vibrava': 'Trapinch',
-  'Flygon': 'Vibrava',
-  'Cacturne': 'Cacnea',
-  'Altaria': 'Swablu',
-  'Crawdaunt': 'Corphish',
-  'Claydol': 'Baltoy',
-  'Cradily': 'Lileep',
-  'Armaldo': 'Anorith',
-  'Milotic': 'Feebas',
-  'Banette': 'Shuppet',
-  'Dusclops': 'Duskull',
-  'Dusknoir': 'Dusclops',
-  'Chimecho': 'Chingling',
-  'Glalie': 'Snorunt',
-  'Froslass': 'Snorunt',
-  'Sealeo': 'Spheal',
-  'Walrein': 'Sealeo',
-  'Huntail': 'Clamperl',
-  'Gorebyss': 'Clamperl',
-  'Shelgon': 'Bagon',
-  'Salamence': 'Shelgon',
-  'Metang': 'Beldum',
-  'Metagross': 'Metang',
-
-  // Gen 4
-  'Grotle': 'Turtwig',
-  'Torterra': 'Grotle',
-  'Monferno': 'Chimchar',
-  'Infernape': 'Monferno',
-  'Prinplup': 'Piplup',
-  'Empoleon': 'Prinplup',
-  'Staravia': 'Starly',
-  'Staraptor': 'Staravia',
-  'Bibarel': 'Bidoof',
-  'Kricketune': 'Kricketot',
-  'Luxio': 'Shinx',
-  'Luxray': 'Luxio',
-  'Rampardos': 'Cranidos',
-  'Bastiodon': 'Shieldon',
-  'Wormadam': 'Burmy',
-  'Mothim': 'Burmy',
-  'Vespiquen': 'Combee',
-  'Floatzel': 'Buizel',
-  'Cherrim': 'Cherubi',
-  'Gastrodon': 'Shellos',
-  'Ambipom': 'Aipom',
-  'Drifblim': 'Drifloon',
-  'Lopunny': 'Buneary',
-  'Mismagius': 'Misdreavus',
-  'Honchkrow': 'Murkrow',
-  'Purugly': 'Glameow',
-  'Skuntank': 'Stunky',
-  'Bronzong': 'Bronzor',
-  'Lucario': 'Riolu',
-  'Hippowdon': 'Hippopotas',
-  'Drapion': 'Skorupi',
-  'Toxicroak': 'Croagunk',
-  'Lumineon': 'Finneon',
-  'Abomasnow': 'Snover',
-  'Weavile': 'Sneasel',
-  'Sneasler': 'Sneasel',
-  'Yanmega': 'Yanma',
-  'Gliscor': 'Gligar',
-
-  // Gen 5
-  'Servine': 'Snivy',
-  'Serperior': 'Servine',
-  'Pignite': 'Tepig',
-  'Emboar': 'Pignite',
-  'Dewott': 'Oshawott',
-  'Samurott': 'Dewott',
-  'Watchog': 'Patrat',
-  'Herdier': 'Lillipup',
-  'Stoutland': 'Herdier',
-  'Liepard': 'Purrloin',
-  'Simisage': 'Pansage',
-  'Simisear': 'Pansear',
-  'Simipour': 'Panpour',
-  'Musharna': 'Munna',
-  'Tranquill': 'Pidove',
-  'Unfezant': 'Tranquill',
-  'Zebstrika': 'Blitzle',
-  'Boldore': 'Roggenrola',
-  'Gigalith': 'Boldore',
-  'Swoobat': 'Woobat',
-  'Excadrill': 'Drilbur',
-  'Gurdurr': 'Timburr',
-  'Conkeldurr': 'Gurdurr',
-  'Palpitoad': 'Tympole',
-  'Seismitoad': 'Palpitoad',
-  'Swadloon': 'Sewaddle',
-  'Leavanny': 'Swadloon',
-  'Whimsicott': 'Cottonee',
-  'Lilligant': 'Petilil',
-  'Krokorok': 'Sandile',
-  'Krookodile': 'Krokorok',
-  'Darmanitan': 'Darumaka',
-  'Crustle': 'Dwebble',
-  'Scrafty': 'Scraggy',
-  'Cofagrigus': 'Yamask',
-  'Carracosta': 'Tirtouga',
-  'Archeops': 'Archen',
-  'Garbodor': 'Trubbish',
-  'Zoroark': 'Zorua',
-  'Cinccino': 'Minccino',
-  'Gothorita': 'Gothita',
-  'Gothitelle': 'Gothorita',
-  'Duosion': 'Solosis',
-  'Reuniclus': 'Duosion',
-  'Swanna': 'Ducklett',
-  'Vanillish': 'Vanillite',
-  'Vanilluxe': 'Vanillish',
-  'Sawsbuck': 'Deerling',
-  'Escavalier': 'Karrablast',
-  'Amoonguss': 'Foongus',
-  'Jellicent': 'Frillish',
-  'Galvantula': 'Joltik',
-  'Ferrothorn': 'Ferroseed',
-  'Klang': 'Klink',
-  'Klinklang': 'Klang',
-  'Eelektrik': 'Tynamo',
-  'Eelektross': 'Eelektrik',
-  'Beheeyem': 'Elgyem',
-  'Lampent': 'Litwick',
-  'Chandelure': 'Lampent',
-  'Fraxure': 'Axew',
-  'Haxorus': 'Fraxure',
-  'Beartic': 'Cubchoo',
-  'Accelgor': 'Shelmet',
-  'Mienshao': 'Mienfoo',
-  'Golurk': 'Golett',
-  'Bisharp': 'Pawniard',
-  'Kingambit': 'Bisharp',
-  'Braviary': 'Rufflet',
-  'Mandibuzz': 'Vullaby',
-  'Zweilous': 'Deino',
-  'Hydreigon': 'Zweilous',
-  'Volcarona': 'Larvesta',
-
-  // Gen 6
-  'Quilladin': 'Chespin',
-  'Chesnaught': 'Quilladin',
-  'Braixen': 'Fennekin',
-  'Delphox': 'Braixen',
-  'Frogadier': 'Froakie',
-  'Greninja': 'Frogadier',
-  'Diggersby': 'Bunnelby',
-  'Fletchinder': 'Fletchling',
-  'Talonflame': 'Fletchinder',
-  'Spewpa': 'Scatterbug',
-  'Vivillon': 'Spewpa',
-  'Pyroar': 'Litleo',
-  'Floette': 'Flabebe',
-  'Florges': 'Floette',
-  'Gogoat': 'Skiddo',
-  'Pangoro': 'Pancham',
-  'Meowstic': 'Espurr',
-  'Doublade': 'Honedge',
-  'Aegislash': 'Doublade',
-  'Aromatisse': 'Spritzee',
-  'Slurpuff': 'Swirlix',
-  'Malamar': 'Inkay',
-  'Barbaracle': 'Binacle',
-  'Dragalge': 'Skrelp',
-  'Clawitzer': 'Clauncher',
-  'Heliolisk': 'Helioptile',
-  'Tyrantrum': 'Tyrunt',
-  'Aurorus': 'Amaura',
-  'Sliggoo': 'Goomy',
-  'Goodra': 'Sliggoo',
-  'Trevenant': 'Phantump',
-  'Gourgeist': 'Pumpkaboo',
-  'Avalugg': 'Bergmite',
-  'Noivern': 'Noibat',
-
-  // Gen 7
-  'Dartrix': 'Rowlet',
-  'Decidueye': 'Dartrix',
-  'Torracat': 'Litten',
-  'Incineroar': 'Torracat',
-  'Brionne': 'Popplio',
-  'Primarina': 'Brionne',
-  'Trumbeak': 'Pikipek',
-  'Toucannon': 'Trumbeak',
-  'Gumshoos': 'Yungoos',
-  'Charjabug': 'Grubbin',
-  'Vikavolt': 'Charjabug',
-  'Crabominable': 'Crabrawler',
-  'Ribombee': 'Cutiefly',
-  'Lycanroc': 'Rockruff',
-  'Toxapex': 'Mareanie',
-  'Mudsdale': 'Mudbray',
-  'Araquanid': 'Dewpider',
-  'Lurantis': 'Fomantis',
-  'Shiinotic': 'Morelull',
-  'Salazzle': 'Salandit',
-  'Bewear': 'Stufful',
-  'Steenee': 'Bounsweet',
-  'Tsareena': 'Steenee',
-  'Golisopod': 'Wimpod',
-  'Palossand': 'Sandygast',
-  'Silvally': 'Type: Null',
-  'Hakamo-o': 'Jangmo-o',
-  'Kommo-o': 'Hakamo-o',
-  'Cosmoem': 'Cosmog',
-  'Solgaleo': 'Cosmoem',
-  'Lunala': 'Cosmoem',
-  'Melmetal': 'Meltan',
-
-  // Gen 8
-  'Thwackey': 'Grookey',
-  'Rillaboom': 'Thwackey',
-  'Raboot': 'Scorbunny',
-  'Cinderace': 'Raboot',
-  'Drizzile': 'Sobble',
-  'Inteleon': 'Drizzile',
-  'Greedent': 'Skwovet',
-  'Corvisquire': 'Rookidee',
-  'Corviknight': 'Corvisquire',
-  'Dottler': 'Blipbug',
-  'Orbeetle': 'Dottler',
-  'Thievul': 'Nickit',
-  'Eldegoss': 'Gossifleur',
-  'Dubwool': 'Wooloo',
-  'Drednaw': 'Chewtle',
-  'Boltund': 'Yamper',
-  'Carkol': 'Rolycoly',
-  'Coalossal': 'Carkol',
-  'Flapple': 'Applin',
-  'Appletun': 'Applin',
-  'Dipplin': 'Applin',
-  'Hydrapple': 'Dipplin',
-  'Sandaconda': 'Silicobra',
-  'Barraskewda': 'Arrokuda',
-  'Toxtricity': 'Toxel',
-  'Centiskorch': 'Sizzlipede',
-  'Grapploct': 'Clobbopus',
-  'Polteageist': 'Sinistea',
-  'Hattrem': 'Hatenna',
-  'Hatterene': 'Hattrem',
-  'Morgrem': 'Impidimp',
-  'Grimmsnarl': 'Morgrem',
-  'Alcremie': 'Milcery',
-  'Frosmoth': 'Snom',
-  'Copperajah': 'Cufant',
-  'Drakloak': 'Dreepy',
-  'Dragapult': 'Drakloak',
-
-  // Gen 9
-  'Floragato': 'Sprigatito',
-  'Meowscarada': 'Floragato',
-  'Crocalor': 'Fuecoco',
-  'Skeledirge': 'Crocalor',
-  'Quaxwell': 'Quaxly',
-  'Quaquaval': 'Quaxwell',
-  'Oinkologne': 'Lechonk',
-  'Lokix': 'Nymble',
-  'Pawmo': 'Pawmi',
-  'Pawmot': 'Pawmo',
-  'Maushold': 'Tandemaus',
-  'Dachsbun': 'Fidough',
-  'Dolliv': 'Smoliv',
-  'Arboliva': 'Dolliv',
-  'Naclstack': 'Nacli',
-  'Garganacl': 'Naclstack',
-  'Armarouge': 'Charcadet',
-  'Ceruledge': 'Charcadet',
-  'Bellibolt': 'Tadbulb',
-  'Kilowattrel': 'Wattrel',
-  'Mabosstiff': 'Maschiff',
-  'Grafaiai': 'Shroodle',
-  'Scovillain': 'Capsakid',
-  'Rabsca': 'Rellor',
-  'Espathra': 'Flittle',
-  'Tinkatuff': 'Tinkatink',
-  'Tinkaton': 'Tinkatuff',
-  'Wugtrio': 'Wiglett',
-  'Palafin': 'Finizen',
-  'Revavroom': 'Varoom',
-  'Gholdengo': 'Gimmighoul',
-  'Arctibax': 'Frigibax',
-  'Baxcalibur': 'Arctibax'
-};
-
-export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
-`;
-        }
-
-        const fullTsContent = tsContent + extraContent;
-
-        fs.mkdirSync(path.dirname(configPath), { recursive: true });
-        fs.writeFileSync(configPath, fullTsContent, 'utf-8');
-
-        console.log(`[Admin] Configurazione salvata con successo da localhost.`);
+        console.log(`[Admin] Configurazione salvata con successo nel database.`);
         res.json({ success: true, message: 'Configurazione salvata con successo.' });
       } catch (err) {
+        try { const db = await getDb(); await db.run('ROLLBACK;'); } catch (_) {}
         console.error('Errore nel salvataggio della configurazione:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
 
+    // =================================================================
+    // GET /api/admin/users - Ritorna la lista di tutti gli utenti (Protetto da requireAdmin)
+    // =================================================================
+    app.get('/api/admin/users', requireAdmin, async (req, res) => {
+      try {
+        const db = await getDb();
+        const users = await db.all('SELECT id, name, email, avatarUrl, googleSubId, isProtected, privacyMode, isAdmin FROM users ORDER BY name ASC');
+        res.json(users);
+      } catch (err) {
+        console.error('Errore nel recupero degli utenti:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // PUT /api/admin/users/:id/admin-role - Imposta o revoca il ruolo admin (Protetto da requireAdmin)
+    // =================================================================
+    app.put('/api/admin/users/:id/admin-role', requireAdmin, async (req, res) => {
+      const targetUserId = parseInt(req.params.id, 10);
+      const { isAdmin } = req.body;
+
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ error: 'ID utente non valido' });
+      }
+      if (isAdmin !== 0 && isAdmin !== 1) {
+        return res.status(400).json({ error: 'Valore isAdmin non valido (deve essere 0 o 1)' });
+      }
+
+      // Impedisci a un admin di auto-revocarsi il ruolo tramite API se è l'utente attivo
+      const loggedUser = (req as AuthenticatedRequest).user;
+      if (loggedUser && loggedUser.id === targetUserId && isAdmin === 0) {
+        return res.status(400).json({ error: 'Non puoi revocare il tuo stesso ruolo di amministratore' });
+      }
+
+      try {
+        const db = await getDb();
+        const user = await db.get('SELECT * FROM users WHERE id = ?', targetUserId);
+        if (!user) {
+          return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        await db.run('UPDATE users SET isAdmin = ? WHERE id = ?', isAdmin, targetUserId);
+        await touchUserLastUpdated(targetUserId);
+
+        console.log(`[Admin] Ruolo admin aggiornato a ${isAdmin} per utente ${user.name} (ID: ${targetUserId})`);
+        res.json({ success: true, isAdmin });
+      } catch (err) {
+        console.error('Errore durante l\'aggiornamento del ruolo admin:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
     async function performShinyAutoSync(): Promise<string[]> {
-      // Helper per la normalizzazione dei nomi per il confronto robusto
       function cleanStringForMatch(str: string): string {
         return str
           .toLowerCase()
@@ -1687,12 +1236,12 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       if (!response.ok) {
         throw new Error(`PoGoAPI returned status ${response.status}`);
       }
-      const shinyData = await response.json() as Record<string, { id: number; name: string }>;
+      const shinyData = (await response.json()) as Record<string, { name: string; [key: string]: any }>;
 
-      const releasedShinyNames = new Set(
-        Object.values(shinyData).map(p => p.name.trim())
+      const releasedShinyNames = new Set<string>(
+        Object.values(shinyData).map((p: any) => p.name.trim())
       );
-      const cleanedReleasedShinyNames = new Set(
+      const cleanedReleasedShinyNames = new Set<string>(
         Array.from(releasedShinyNames).map(name => cleanStringForMatch(name))
       );
 
@@ -1700,7 +1249,7 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       if (!fs.existsSync(seedPath)) {
         throw new Error('File pokemon.json non trovato');
       }
-      const pokemonData = JSON.parse(fs.readFileSync(seedPath, 'utf-8')) as Array<{ name: string }>;
+      const pokemonData = JSON.parse(fs.readFileSync(seedPath, 'utf-8')) as any[];
 
       const shinyUnreleasedSet = new Set<string>();
       for (const p of pokemonData) {
@@ -1714,584 +1263,14 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
 
       const shinyUnreleasedCapable = Array.from(shinyUnreleasedSet).sort();
 
-      // Legge le altre liste capaci per non sovrascriverle
-      let shadowCapable: string[] = [];
-      let megaCapable: string[] = [];
-      let gigamaxCapable: string[] = [];
-      let unreleasedCapable: string[] = [];
+      const db = await getDb();
+      await db.run(
+        'INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)',
+        'SHINY_UNRELEASED_SPECIES',
+        JSON.stringify(shinyUnreleasedCapable)
+      );
 
-      if (fs.existsSync(configPath)) {
-        const content = fs.readFileSync(configPath, 'utf-8');
-        function extractArray(fileContent: string, arrayName: string): string[] {
-          const regex = new RegExp(`export\\s+const\\s+${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
-          const match = fileContent.match(regex);
-          if (!match) return [];
-          const arrayBody = match[1];
-          const nameRegex = /['"](.*?)['"]/g;
-          const names: string[] = [];
-          let nameMatch;
-          while ((nameMatch = nameRegex.exec(arrayBody)) !== null) {
-            names.push(nameMatch[1].replace(/\\'/g, "'"));
-          }
-          return names;
-        }
-
-        shadowCapable = extractArray(content, 'SHADOW_CAPABLE_SPECIES');
-        megaCapable = extractArray(content, 'MEGA_CAPABLE_SPECIES');
-        gigamaxCapable = extractArray(content, 'GIGAMAX_CAPABLE_SPECIES');
-        unreleasedCapable = extractArray(content, 'UNRELEASED_SPECIES');
-      }
-
-      const shadowLines = shadowCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-      const megaLines = megaCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-      const gigaLines = gigamaxCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-      const unreleasedLines = unreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-      const shinyUnreleasedLines = shinyUnreleasedCapable.map(name => `  '${name.replace(/'/g, "\\'")}'`).join(',\n');
-
-      const tsContent = `export const SHADOW_CAPABLE_SPECIES = [
-${shadowLines}
-];
-
-export const MEGA_CAPABLE_SPECIES = [
-${megaLines}
-];
-
-export const GIGAMAX_CAPABLE_SPECIES = [
-${gigaLines}
-];
-
-export const UNRELEASED_SPECIES = [
-${unreleasedLines}
-];
-
-export const SHINY_UNRELEASED_SPECIES = [
-${shinyUnreleasedLines}
-];
-`;
-
-      let extraContent = '';
-      if (fs.existsSync(configPath)) {
-        const oldContent = fs.readFileSync(configPath, 'utf-8');
-        const mythicalIndex = oldContent.indexOf('export const MYTHICAL_POKEMON');
-        if (mythicalIndex !== -1) {
-          extraContent = oldContent.substring(mythicalIndex);
-        }
-      }
-
-      if (!extraContent.includes('export const MYTHICAL_POKEMON') || !extraContent.includes('export const EVOLVES_FROM') || !extraContent.includes('export const MODAL_FORMS_SPECIES')) {
-        extraContent = `export const MYTHICAL_POKEMON = [
-  'Mew', 'Celebi', 'Jirachi', 'Deoxys', 'Phione', 'Manaphy', 'Darkrai', 'Shaymin', 'Arceus',
-  'Victini', 'Meloetta', 'Genesect', 'Keldeo', 'Diancie', 'Hoopa', 'Volcanion', 'Magearna',
-  'Marshadow', 'Zeraora', 'Meltan', 'Melmetal', 'Zarude', 'Pecharunt'
-];
-
-export const LEGENDARY_POKEMON = [
-  'Articuno', 'Zapdos', 'Moltres', 'Mewtwo', 'Raikou', 'Entei', 'Suicune', 'Lugia', 'Ho-Oh',
-  'Regirock', 'Regice', 'Registeel', 'Latias', 'Latios', 'Kyogre', 'Groudon', 'Rayquaza',
-  'Uxie', 'Mesprit', 'Azelf', 'Dialga', 'Palkia', 'Heatran', 'Regigigas', 'Giratina', 'Cresselia',
-  'Cobalion', 'Terrakion', 'Virizion', 'Tornadus', 'Thundurus', 'Reshiram', 'Zekrom', 'Landorus',
-  'Kyurem', 'Xerneas', 'Yveltal', 'Zygarde', 'Type: Null', 'Silvally', 'Tapu Koko', 'Tapu Lele',
-  'Tapu Bulu', 'Tapu Fini', 'Cosmog', 'Cosmoem', 'Solgaleo', 'Lunala', 'Necrozma', 'Zacian',
-  'Zamazenta', 'Eternatus', 'Kubfu', 'Urshifu', 'Regieleki', 'Regidrago', 'Glastrier', 'Spectrier',
-  'Calyrex', 'Enamorus', 'Wo-Chien', 'Chien-Pao', 'Ting-Lu', 'Chi-Yu', 'Koraidon', 'Miraidon',
-  'Okidogi', 'Munkidori', 'Fezandipiti', 'Ogerpon', 'Gouging Fire', 'Raging Bolt', 'Iron Boulder',
-  'Iron Crown', 'Terapagos'
-];
-
-export const ULTRA_BEASTS = [
-  'Nihilego', 'Buzzwole', 'Pheromosa', 'Xurkitree', 'Celesteela', 'Kartana', 'Guzzlord',
-  'Poipole', 'Naganadel', 'Stakataka', 'Blacephalon'
-];
-
-export const EVOLVES_FROM: Record<string, string> = {
-  // Gen 1
-  'Ivysaur': 'Bulbasaur',
-  'Venusaur': 'Ivysaur',
-  'Charmeleon': 'Charmander',
-  'Charizard': 'Charmeleon',
-  'Wartortle': 'Squirtle',
-  'Blastoise': 'Wartortle',
-  'Metapod': 'Caterpie',
-  'Butterfree': 'Metapod',
-  'Kakuna': 'Weedle',
-  'Beedrill': 'Kakuna',
-  'Pidgeotto': 'Pidgey',
-  'Pidgeot': 'Pidgeotto',
-  'Raticate': 'Rattata',
-  'Fearow': 'Spearow',
-  'Arbok': 'Ekans',
-  'Raichu': 'Pikachu',
-  'Pikachu': 'Pichu',
-  'Sandslash': 'Sandshrew',
-  'Nidorina': 'Nidoran♀',
-  'Nidoqueen': 'Nidorina',
-  'Nidorino': 'Nidoran♂',
-  'Nidoking': 'Nidorino',
-  'Clefairy': 'Cleffa',
-  'Clefable': 'Clefairy',
-  'Jigglypuff': 'Igglybuff',
-  'Wigglytuff': 'Jigglypuff',
-  'Golbat': 'Zubat',
-  'Crobat': 'Golbat',
-  'Gloom': 'Oddish',
-  'Vileplume': 'Gloom',
-  'Bellossom': 'Gloom',
-  'Parasect': 'Paras',
-  'Venomoth': 'Venonat',
-  'Dugtrio': 'Diglett',
-  'Persian': 'Meowth',
-  'Perrserker': 'Meowth',
-  'Golduck': 'Psyduck',
-  'Primeape': 'Mankey',
-  'Annihilape': 'Primeape',
-  'Arcanine': 'Growlithe',
-  'Poliwhirl': 'Poliwag',
-  'Poliwrath': 'Poliwhirl',
-  'Politoed': 'Poliwhirl',
-  'Kadabra': 'Abra',
-  'Alakazam': 'Kadabra',
-  'Machoke': 'Machop',
-  'Machamp': 'Machoke',
-  'Weepinbell': 'Bellsprout',
-  'Tentacruel': 'Tentacool',
-  'Graveler': 'Geodude',
-  'Golem': 'Graveler',
-  'Rapidash': 'Ponyta',
-  'Slowbro': 'Slowpoke',
-  'Slowking': 'Slowpoke',
-  'Magneton': 'Magnemite',
-  'Magnezone': 'Magneton',
-  'Sirfetch\\'d': 'Farfetch\\'d',
-  'Dodrio': 'Doduo',
-  'Dewgong': 'Seel',
-  'Muk': 'Grimer',
-  'Haunter': 'Gastly',
-  'Gengar': 'Haunter',
-  'Steelix': 'Onix',
-  'Hypno': 'Drowzee',
-  'Kingler': 'Krabby',
-  'Electrode': 'Voltorb',
-  'Exeggutor': 'Exeggcute',
-  'Marowak': 'Cubone',
-  'Hitmonlee': 'Tyrogue',
-  'Hitmonchan': 'Tyrogue',
-  'Hitmontop': 'Tyrogue',
-  'Lickilicky': 'Lickitung',
-  'Weezing': 'Koffing',
-  'Rhydon': 'Rhyhorn',
-  'Rhyperior': 'Rhydon',
-  'Chansey': 'Happiny',
-  'Blissey': 'Chansey',
-  'Tangrowth': 'Tangela',
-  'Seadra': 'Horsea',
-  'Kingdra': 'Seadra',
-  'Seaking': 'Goldeen',
-  'Starmie': 'Staryu',
-  'Mr. Mr. Mr. Mr. Mr. Mime': 'Mime Jr.',
-  'Mr. Rime': 'Mr. Mime',
-  'Scizor': 'Scyther',
-  'Kleavor': 'Scyther',
-  'Jynx': 'Smoochum',
-  'Electabuzz': 'Elekid',
-  'Electivire': 'Electabuzz',
-  'Magmar': 'Magby',
-  'Magmortar': 'Magmar',
-  'Gyarados': 'Magikarp',
-  'Vaporeon': 'Eevee',
-  'Jolteon': 'Eevee',
-  'Flareon': 'Eevee',
-  'Espeon': 'Eevee',
-  'Umbreon': 'Eevee',
-  'Leafeon': 'Eevee',
-  'Glaceon': 'Eevee',
-  'Sylveon': 'Eevee',
-  'Porygon2': 'Porygon',
-  'Porygon-Z': 'Porygon2',
-  'Omastar': 'Omanyte',
-  'Kabutops': 'Kabuto',
-  'Snorlax': 'Munchlax',
-  'Dragonair': 'Dratini',
-  'Dragonite': 'Dragonair',
-
-  // Gen 2
-  'Bayleef': 'Chikorita',
-  'Meganium': 'Bayleef',
-  'Quilava': 'Cyndaquil',
-  'Typhlosion': 'Quilava',
-  'Croconaw': 'Totodile',
-  'Feraligatr': 'Croconaw',
-  'Furret': 'Sentret',
-  'Noctowl': 'Hoothoot',
-  'Ledian': 'Ledyba',
-  'Ariados': 'Spinarak',
-  'Lanturn': 'Chinchou',
-  'Togetic': 'Togepi',
-  'Togekiss': 'Togetic',
-  'Xatu': 'Natu',
-  'Flaaffy': 'Mareep',
-  'Ampharos': 'Flaaffy',
-  'Azumarill': 'Marill',
-  'Marill': 'Azurill',
-  'Sudowoodo': 'Bonsly',
-  'Jumpluff': 'Skiploom',
-  'Skiploom': 'Hoppip',
-  'Sunflora': 'Sunkern',
-  'Quagsire': 'Wooper',
-  'Wobbuffet': 'Wynaut',
-  'Farigiraf': 'Girafarig',
-  'Forretress': 'Pineco',
-  'Dudunsparce': 'Dunsparce',
-  'Granbull': 'Snubbull',
-  'Ursaring': 'Teddiursa',
-  'Ursaluna': 'Ursaring',
-  'Magcargo': 'Slugma',
-  'Piloswine': 'Swinub',
-  'Mamoswine': 'Piloswine',
-  'Octillery': 'Remoraid',
-  'Mantine': 'Mantyke',
-  'Houndoom': 'Houndour',
-  'Donphan': 'Phanpy',
-  'Pupitar': 'Larvitar',
-  'Tyranitar': 'Pupitar',
-
-  // Gen 3
-  'Grovyle': 'Treecko',
-  'Sceptile': 'Grovyle',
-  'Combusken': 'Torchic',
-  'Blaziken': 'Combusken',
-  'Marshtomp': 'Mudkip',
-  'Swampert': 'Marshtomp',
-  'Mightyena': 'Poochyena',
-  'Linoone': 'Zigzagoon',
-  'Obstagoon': 'Linoone',
-  'Beautifly': 'Silcoon',
-  'Silcoon': 'Wurmple',
-  'Dustox': 'Cascoon',
-  'Cascoon': 'Wurmple',
-  'Lombre': 'Lotad',
-  'Ludicolo': 'Lombre',
-  'Nuzleaf': 'Seedot',
-  'Shiftry': 'Nuzleaf',
-  'Swellow': 'Taillow',
-  'Pelipper': 'Wingull',
-  'Kirlia': 'Ralts',
-  'Gardevoir': 'Kirlia',
-  'Gallade': 'Kirlia',
-  'Masquerain': 'Surskit',
-  'Breloom': 'Shroomish',
-  'Vigoroth': 'Slakoth',
-  'Slaking': 'Vigoroth',
-  'Ninjask': 'Nincada',
-  'Shedinja': 'Nincada',
-  'Loudred': 'Whismur',
-  'Exploud': 'Loudred',
-  'Hariyama': 'Makuhita',
-  'Delcatty': 'Skitty',
-  'Lairon': 'Aron',
-  'Aggron': 'Lairon',
-  'Medicham': 'Meditite',
-  'Manectric': 'Electrike',
-  'Roselia': 'Budew',
-  'Roserade': 'Roselia',
-  'Swalot': 'Gulpin',
-  'Sharpedo': 'Carvanha',
-  'Wailord': 'Wailmer',
-  'Camerupt': 'Numel',
-  'Grumpig': 'Spoink',
-  'Vibrava': 'Trapinch',
-  'Flygon': 'Vibrava',
-  'Cacturne': 'Cacnea',
-  'Altaria': 'Swablu',
-  'Crawdaunt': 'Corphish',
-  'Claydol': 'Baltoy',
-  'Cradily': 'Lileep',
-  'Armaldo': 'Anorith',
-  'Milotic': 'Feebas',
-  'Banette': 'Shuppet',
-  'Dusclops': 'Duskull',
-  'Dusknoir': 'Dusclops',
-  'Chimecho': 'Chingling',
-  'Glalie': 'Snorunt',
-  'Froslass': 'Snorunt',
-  'Sealeo': 'Spheal',
-  'Walrein': 'Sealeo',
-  'Huntail': 'Clamperl',
-  'Gorebyss': 'Clamperl',
-  'Shelgon': 'Bagon',
-  'Salamence': 'Shelgon',
-  'Metang': 'Beldum',
-  'Metagross': 'Metang',
-
-  // Gen 4
-  'Grotle': 'Turtwig',
-  'Torterra': 'Grotle',
-  'Monferno': 'Chimchar',
-  'Infernape': 'Monferno',
-  'Prinplup': 'Piplup',
-  'Empoleon': 'Prinplup',
-  'Staravia': 'Starly',
-  'Staraptor': 'Staravia',
-  'Bibarel': 'Bidoof',
-  'Kricketune': 'Kricketot',
-  'Luxio': 'Shinx',
-  'Luxray': 'Luxio',
-  'Rampardos': 'Cranidos',
-  'Bastiodon': 'Shieldon',
-  'Wormadam': 'Burmy',
-  'Mothim': 'Burmy',
-  'Vespiquen': 'Combee',
-  'Floatzel': 'Buizel',
-  'Cherrim': 'Cherubi',
-  'Gastrodon': 'Shellos',
-  'Ambipom': 'Aipom',
-  'Drifblim': 'Drifloon',
-  'Lopunny': 'Buneary',
-  'Mismagius': 'Misdreavus',
-  'Honchkrow': 'Murkrow',
-  'Purugly': 'Glameow',
-  'Skuntank': 'Stunky',
-  'Bronzong': 'Bronzor',
-  'Lucario': 'Riolu',
-  'Hippowdon': 'Hippopotas',
-  'Drapion': 'Skorupi',
-  'Toxicroak': 'Croagunk',
-  'Lumineon': 'Finneon',
-  'Abomasnow': 'Snover',
-  'Weavile': 'Sneasel',
-  'Sneasler': 'Sneasel',
-  'Yanmega': 'Yanma',
-  'Gliscor': 'Gligar',
-
-  // Gen 5
-  'Servine': 'Snivy',
-  'Serperior': 'Servine',
-  'Pignite': 'Tepig',
-  'Emboar': 'Pignite',
-  'Dewott': 'Oshawott',
-  'Samurott': 'Dewott',
-  'Watchog': 'Patrat',
-  'Herdier': 'Lillipup',
-  'Stoutland': 'Herdier',
-  'Liepard': 'Purrloin',
-  'Simisage': 'Pansage',
-  'Simisear': 'Pansear',
-  'Simipour': 'Panpour',
-  'Musharna': 'Munna',
-  'Tranquill': 'Pidove',
-  'Unfezant': 'Tranquill',
-  'Zebstrika': 'Blitzle',
-  'Boldore': 'Roggenrola',
-  'Gigalith': 'Boldore',
-  'Swoobat': 'Woobat',
-  'Excadrill': 'Drilbur',
-  'Gurdurr': 'Timburr',
-  'Conkeldurr': 'Gurdurr',
-  'Palpitoad': 'Tympole',
-  'Seismitoad': 'Palpitoad',
-  'Swadloon': 'Sewaddle',
-  'Leavanny': 'Swadloon',
-  'Whimsicott': 'Cottonee',
-  'Lilligant': 'Petilil',
-  'Krokorok': 'Sandile',
-  'Krookodile': 'Krokorok',
-  'Darmanitan': 'Darumaka',
-  'Crustle': 'Dwebble',
-  'Scrafty': 'Scraggy',
-  'Cofagrigus': 'Yamask',
-  'Carracosta': 'Tirtouga',
-  'Archeops': 'Archen',
-  'Garbodor': 'Trubbish',
-  'Zoroark': 'Zorua',
-  'Cinccino': 'Minccino',
-  'Gothorita': 'Gothita',
-  'Gothitelle': 'Gothorita',
-  'Duosion': 'Solosis',
-  'Reuniclus': 'Duosion',
-  'Swanna': 'Ducklett',
-  'Vanillish': 'Vanillite',
-  'Vanilluxe': 'Vanillish',
-  'Sawsbuck': 'Deerling',
-  'Escavalier': 'Karrablast',
-  'Amoonguss': 'Foongus',
-  'Jellicent': 'Frillish',
-  'Galvantula': 'Joltik',
-  'Ferrothorn': 'Ferroseed',
-  'Klang': 'Klink',
-  'Klinklang': 'Klang',
-  'Eelektrik': 'Tynamo',
-  'Eelektross': 'Eelektrik',
-  'Beheeyem': 'Elgyem',
-  'Lampent': 'Litwick',
-  'Chandelure': 'Lampent',
-  'Fraxure': 'Axew',
-  'Haxorus': 'Fraxure',
-  'Beartic': 'Cubchoo',
-  'Accelgor': 'Shelmet',
-  'Mienshao': 'Mienfoo',
-  'Golurk': 'Golett',
-  'Bisharp': 'Pawniard',
-  'Kingambit': 'Bisharp',
-  'Braviary': 'Rufflet',
-  'Mandibuzz': 'Vullaby',
-  'Zweilous': 'Deino',
-  'Hydreigon': 'Zweilous',
-  'Volcarona': 'Larvesta',
-
-  // Gen 6
-  'Quilladin': 'Chespin',
-  'Chesnaught': 'Quilladin',
-  'Braixen': 'Fennekin',
-  'Delphox': 'Braixen',
-  'Frogadier': 'Froakie',
-  'Greninja': 'Frogadier',
-  'Diggersby': 'Bunnelby',
-  'Fletchinder': 'Fletchling',
-  'Talonflame': 'Fletchinder',
-  'Spewpa': 'Scatterbug',
-  'Vivillon': 'Spewpa',
-  'Pyroar': 'Litleo',
-  'Floette': 'Flabebe',
-  'Florges': 'Floette',
-  'Gogoat': 'Skiddo',
-  'Pangoro': 'Pancham',
-  'Meowstic': 'Espurr',
-  'Doublade': 'Honedge',
-  'Aegislash': 'Doublade',
-  'Aromatisse': 'Spritzee',
-  'Slurpuff': 'Swirlix',
-  'Malamar': 'Inkay',
-  'Barbaracle': 'Binacle',
-  'Dragalge': 'Skrelp',
-  'Clawitzer': 'Clauncher',
-  'Heliolisk': 'Helioptile',
-  'Tyrantrum': 'Tyrunt',
-  'Aurorus': 'Amaura',
-  'Sliggoo': 'Goomy',
-  'Goodra': 'Sliggoo',
-  'Trevenant': 'Phantump',
-  'Gourgeist': 'Pumpkaboo',
-  'Avalugg': 'Bergmite',
-  'Noivern': 'Noibat',
-
-  // Gen 7
-  'Dartrix': 'Rowlet',
-  'Decidueye': 'Dartrix',
-  'Torracat': 'Litten',
-  'Incineroar': 'Torracat',
-  'Brionne': 'Popplio',
-  'Primarina': 'Brionne',
-  'Trumbeak': 'Pikipek',
-  'Toucannon': 'Trumbeak',
-  'Gumshoos': 'Yungoos',
-  'Charjabug': 'Grubbin',
-  'Vikavolt': 'Charjabug',
-  'Crabominable': 'Crabrawler',
-  'Ribombee': 'Cutiefly',
-  'Lycanroc': 'Rockruff',
-  'Toxapex': 'Mareanie',
-  'Mudsdale': 'Mudbray',
-  'Araquanid': 'Dewpider',
-  'Lurantis': 'Fomantis',
-  'Shiinotic': 'Morelull',
-  'Salazzle': 'Salandit',
-  'Bewear': 'Stufful',
-  'Steenee': 'Bounsweet',
-  'Tsareena': 'Steenee',
-  'Golisopod': 'Wimpod',
-  'Palossand': 'Sandygast',
-  'Silvally': 'Type: Null',
-  'Hakamo-o': 'Jangmo-o',
-  'Kommo-o': 'Hakamo-o',
-  'Cosmoem': 'Cosmog',
-  'Solgaleo': 'Cosmoem',
-  'Lunala': 'Cosmoem',
-  'Melmetal': 'Meltan',
-
-  // Gen 8
-  'Thwackey': 'Grookey',
-  'Rillaboom': 'Thwackey',
-  'Raboot': 'Scorbunny',
-  'Cinderace': 'Raboot',
-  'Drizzile': 'Sobble',
-  'Inteleon': 'Drizzile',
-  'Greedent': 'Skwovet',
-  'Corvisquire': 'Rookidee',
-  'Corviknight': 'Corvisquire',
-  'Dottler': 'Blipbug',
-  'Orbeetle': 'Dottler',
-  'Thievul': 'Nickit',
-  'Eldegoss': 'Gossifleur',
-  'Dubwool': 'Wooloo',
-  'Drednaw': 'Chewtle',
-  'Boltund': 'Yamper',
-  'Carkol': 'Rolycoly',
-  'Coalossal': 'Carkol',
-  'Flapple': 'Applin',
-  'Appletun': 'Applin',
-  'Dipplin': 'Applin',
-  'Hydrapple': 'Dipplin',
-  'Sandaconda': 'Silicobra',
-  'Barraskewda': 'Arrokuda',
-  'Toxtricity': 'Toxel',
-  'Centiskorch': 'Sizzlipede',
-  'Grapploct': 'Clobbopus',
-  'Polteageist': 'Sinistea',
-  'Hattrem': 'Hatenna',
-  'Hatterene': 'Hattrem',
-  'Morgrem': 'Impidimp',
-  'Grimmsnarl': 'Morgrem',
-  'Alcremie': 'Milcery',
-  'Frosmoth': 'Snom',
-  'Copperajah': 'Cufant',
-  'Drakloak': 'Dreepy',
-  'Dragapult': 'Drakloak',
-
-  // Gen 9
-  'Floragato': 'Sprigatito',
-  'Meowscarada': 'Floragato',
-  'Crocalor': 'Fuecoco',
-  'Skeledirge': 'Crocalor',
-  'Quaxwell': 'Quaxly',
-  'Quaquaval': 'Quaxwell',
-  'Oinkologne': 'Lechonk',
-  'Lokix': 'Nymble',
-  'Pawmo': 'Pawmi',
-  'Pawmot': 'Pawmo',
-  'Maushold': 'Tandemaus',
-  'Dachsbun': 'Fidough',
-  'Dolliv': 'Smoliv',
-  'Arboliva': 'Dolliv',
-  'Naclstack': 'Nacli',
-  'Garganacl': 'Naclstack',
-  'Armarouge': 'Charcadet',
-  'Ceruledge': 'Charcadet',
-  'Bellibolt': 'Tadbulb',
-  'Kilowattrel': 'Wattrel',
-  'Mabosstiff': 'Maschiff',
-  'Grafaiai': 'Shroodle',
-  'Scovillain': 'Capsakid',
-  'Rabsca': 'Rellor',
-  'Espathra': 'Flittle',
-  'Tinkatuff': 'Tinkatink',
-  'Tinkaton': 'Tinkatuff',
-  'Wugtrio': 'Wiglett',
-  'Palafin': 'Finizen',
-  'Revavroom': 'Varoom',
-  'Gholdengo': 'Gimmighoul',
-  'Arctibax': 'Frigibax',
-  'Baxcalibur': 'Arctibax'
-};
-
-export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
-`;
-      }
-
-      const fullTsContent = tsContent + extraContent;
-
-      fs.mkdirSync(path.dirname(configPath), { recursive: true });
-      fs.writeFileSync(configPath, fullTsContent, 'utf-8');
-
-      console.log(`[Auto-Sync] Shiny auto-sincronizzati con successo su disk. Trovati ${shinyUnreleasedCapable.length} shiny non rilasciati.`);
+      console.log(`[Auto-Sync] Shiny cromatici sincronizzati con successo nel database. Trovati ${shinyUnreleasedCapable.length} shiny non rilasciati.`);
       return shinyUnreleasedCapable;
     }
 
@@ -2423,13 +1402,9 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
     }
 
     // =================================================================
-    // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Solo Locale)
+    // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Protetto da requireAdmin)
     // =================================================================
-    app.post('/api/admin/sync-shinies', async (req, res) => {
-      if (!isLocalRequest(req)) {
-        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
-      }
-
+    app.post('/api/admin/sync-shinies', requireAdmin, async (req, res) => {
       try {
         const shinyUnreleasedCapable = await performShinyAutoSync();
         res.json({ success: true, shinyUnreleasedCapable });
@@ -2440,13 +1415,9 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
     });
 
     // =================================================================
-    // 9.1. POST /api/admin/sync-raids - Sincronizza automaticamente i raid da Pokemon GO API (Solo Locale)
+    // 9.1. POST /api/admin/sync-raids - Sincronizza automaticamente i raid da Pokemon GO API (Protetto da requireAdmin)
     // =================================================================
-    app.post('/api/admin/sync-raids', async (req, res) => {
-      if (!isLocalRequest(req)) {
-        return res.status(403).json({ error: 'Accesso Negato: questa console di amministrazione è disponibile esclusivamente in ambiente locale.' });
-      }
-
+    app.post('/api/admin/sync-raids', requireAdmin, async (req, res) => {
       try {
         await performRaidAutoSync();
         res.json({ success: true });

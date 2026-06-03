@@ -107,6 +107,7 @@ export interface AuthenticatedRequest extends Request {
     id: number;
     name: string;
     googleSubId?: string;
+    isAdmin?: number;
   };
 }
 
@@ -143,3 +144,52 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   (req as AuthenticatedRequest).user = decoded;
   next();
 }
+
+/**
+ * Helper per verificare se la richiesta proviene da localhost (loopback)
+ */
+export function isLocalRequest(req: Request): boolean {
+  const ip = req.ip || req.socket.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.includes('localhost');
+}
+
+/**
+ * Middleware di autorizzazione amministratore: consente l'accesso libero da localhost
+ * oppure richiede autenticazione ed il ruolo admin = 1 nel database.
+ */
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  // 1. Se è una richiesta da localhost, salta ogni controllo (dev convenience)
+  if (isLocalRequest(req)) {
+    return next();
+  }
+
+  // 2. Altrimenti, richiede autenticazione
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Autenticazione richiesta' });
+  }
+
+  const token = authHeader.substring(7);
+  const decoded = verifyJwt(token);
+  if (!decoded) {
+    return res.status(401).json({ error: 'Token non valido o scaduto' });
+  }
+
+  try {
+    const db = await getDb();
+    const user = await db.get('SELECT isAdmin FROM users WHERE id = ?', decoded.id);
+    if (!user || user.isAdmin !== 1) {
+      return res.status(403).json({ error: 'Accesso Negato: Console di Amministrazione riservata agli amministratori.' });
+    }
+
+    (req as AuthenticatedRequest).user = {
+      ...decoded,
+      isAdmin: user.isAdmin
+    };
+    next();
+  } catch (err) {
+    console.error('[Auth] Errore verifica ruolo admin:', err);
+    res.status(500).json({ error: 'Errore interno del server' });
+  }
+}
+
