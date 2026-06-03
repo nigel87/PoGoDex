@@ -71,7 +71,10 @@ async function initializeTables(database: Database) {
       megaVarietyId INTEGER DEFAULT NULL,
       megaVarietyId2 INTEGER DEFAULT NULL,
       gigamaxVarietyId INTEGER DEFAULT NULL,
-      parentId INTEGER DEFAULT NULL
+      parentId INTEGER DEFAULT NULL,
+      attack INTEGER DEFAULT NULL,
+      defense INTEGER DEFAULT NULL,
+      stamina INTEGER DEFAULT NULL
     );
   `);
 
@@ -111,6 +114,21 @@ async function initializeTables(database: Database) {
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN parentId INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN attack INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN defense INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE pokemons ADD COLUMN stamina INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE raids ADD COLUMN minCpBoost INTEGER DEFAULT NULL;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE raids ADD COLUMN maxCpBoost INTEGER DEFAULT NULL;');
   } catch (_) {}
 
   // Tabella PokedexEntries (con spunte di cattura integer 0/1)
@@ -436,14 +454,16 @@ async function initializeTables(database: Database) {
       // Creazione tabella
       await database.exec(`
         CREATE TABLE IF NOT EXISTS raids (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          pokemonId INTEGER NOT NULL,
-          minCp INTEGER NOT NULL,
-          maxCp INTEGER NOT NULL,
-          tier TEXT NOT NULL,
-          isShadow INTEGER DEFAULT 0,
-          isMega INTEGER DEFAULT 0
-        );
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pokemonId INTEGER NOT NULL,
+        minCp INTEGER NOT NULL,
+        maxCp INTEGER NOT NULL,
+        minCpBoost INTEGER DEFAULT NULL,
+        maxCpBoost INTEGER DEFAULT NULL,
+        tier TEXT NOT NULL,
+        isShadow INTEGER DEFAULT 0,
+        isMega INTEGER DEFAULT 0
+      );
       `);
 
       // Default Raids

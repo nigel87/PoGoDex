@@ -70,7 +70,12 @@
                   <span class="shadow-tag" *ngIf="r.isShadow">OMBRA</span>
                   <span class="boss-name">{{ r.name }}</span>
                 </div>
-                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                <div class="cp-display-block">
+                  <span class="cp-range-line">Lvl 20: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                  <span class="cp-range-line boosted" *ngIf="r.minCpBoost && r.maxCpBoost">
+                    ☀️ Lvl 25: <strong>{{ r.minCpBoost }} - {{ r.maxCpBoost }}</strong>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -95,6 +100,16 @@
                   ✅ Completato
                 </span>
               </div>
+            </div>
+
+            <!-- Calcolatore IV per Pokémon Ombra -->
+            <div class="shadow-iv-action-row" *ngIf="r.isShadow && r.attack">
+              <button 
+                type="button" 
+                class="shadow-iv-btn" 
+                (click)="openShadowIvModal(r); $event.stopPropagation()">
+                🎯 Verifica IV 100% Purificato
+              </button>
             </div>
 
           </div>
@@ -129,7 +144,12 @@
                   <span class="mega-tag">MEGA</span>
                   <span class="boss-name">Mega {{ r.name }}</span>
                 </div>
-                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                <div class="cp-display-block">
+                  <span class="cp-range-line">Lvl 20: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                  <span class="cp-range-line boosted" *ngIf="r.minCpBoost && r.maxCpBoost">
+                    ☀️ Lvl 25: <strong>{{ r.minCpBoost }} - {{ r.maxCpBoost }}</strong>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -189,7 +209,12 @@
                   <span class="shadow-tag" *ngIf="r.isShadow">OMBRA</span>
                   <span class="boss-name">{{ r.name }}</span>
                 </div>
-                <span class="cp-range">CP: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                <div class="cp-display-block">
+                  <span class="cp-range-line">Lvl 20: <strong>{{ r.minCp }} - {{ r.maxCp }}</strong></span>
+                  <span class="cp-range-line boosted" *ngIf="r.minCpBoost && r.maxCpBoost">
+                    ☀️ Lvl 25: <strong>{{ r.minCpBoost }} - {{ r.maxCpBoost }}</strong>
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -216,10 +241,96 @@
               </div>
             </div>
 
+            <!-- Calcolatore IV per Pokémon Ombra -->
+            <div class="shadow-iv-action-row" *ngIf="r.isShadow && r.attack">
+              <button 
+                type="button" 
+                class="shadow-iv-btn" 
+                (click)="openShadowIvModal(r); $event.stopPropagation()">
+                🎯 Verifica IV 100% Purificato
+              </button>
+            </div>
+
           </div>
         </div>
       </section>
 
     </div>
   </main>
+
+  <!-- Modal per Calcolatore IV Pokémon Ombra Purificati 100% -->
+  <div class="modal-overlay" *ngIf="selectedShadowRaid()" (click)="closeShadowIvModal()">
+    <div class="modal-card shadow-iv-modal glass-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-icon">💯</span>
+          <h3>IV 100% Purificato: {{ selectedShadowRaid()?.name }}</h3>
+        </div>
+        <button type="button" class="close-modal-btn" (click)="closeShadowIvModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-intro">
+          Un Pokémon Ombra purificato guadagna <strong>+2 in ciascuna statistica IV</strong>. Per ottenere un 100% (15/15/15), il Pokémon Ombra originale deve avere IV minimi di <strong>13/13/13</strong>. 
+          Sotto trovi i Punti Lotta (CP) del raid con la probabilità che nasconda un 100% purificabile (basato su IV floor di 6/6/6 per i raid).
+        </p>
+
+        <!-- Level selection tabs -->
+        <div class="level-tabs">
+          <button 
+            type="button" 
+            class="tab-btn" 
+            [class.active]="selectedLevel() === 20" 
+            (click)="selectedLevel.set(20)">
+            Livello 20 (Normale)
+          </button>
+          <button 
+            type="button" 
+            class="tab-btn" 
+            [class.active]="selectedLevel() === 25" 
+            (click)="selectedLevel.set(25)">
+            Livello 25 (Meteo Boost ☀️)
+          </button>
+        </div>
+
+        <!-- IV Table -->
+        <div class="table-scroll-wrapper">
+          <table class="iv-probability-table">
+            <thead>
+              <tr>
+                <th>CP</th>
+                <th>Probabilità 100%</th>
+                <th>IV Vincenti (Ombra)</th>
+                <th>Altre Combinazioni (Ombra)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of shadowIvTable()">
+                <td class="cell-cp"><strong>{{ row.cp }}</strong></td>
+                <td class="cell-prob">
+                  <span class="prob-badge" [class.prob-high]="row.probability >= 50" [class.prob-medium]="row.probability < 50 && row.probability > 15" [class.prob-low]="row.probability <= 15">
+                    {{ row.probability | number:'1.0-1' }}%
+                  </span>
+                </td>
+                <td class="cell-ivs matching">
+                  <span class="iv-tag" *ngFor="let iv of row.matchingIvs">{{ iv }}</span>
+                </td>
+                <td class="cell-ivs other">
+                  <span class="iv-tag other" *ngFor="let iv of row.otherIvs.slice(0, 6)">{{ iv }}</span>
+                  <span class="more-tag" *ngIf="row.otherIvs.length > 6">+{{ row.otherIvs.length - 6 }}</span>
+                </td>
+              </tr>
+              <tr *ngIf="shadowIvTable().length === 0">
+                <td colspan="4" class="no-data">Nessuna statistica disponibile per questo Pokémon.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="action-btn close-btn" (click)="closeShadowIvModal()">Chiudi</button>
+      </div>
+    </div>
+  </div>
 </div>

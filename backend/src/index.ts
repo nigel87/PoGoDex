@@ -570,7 +570,7 @@ async function startServer() {
     app.get('/api/raids', async (req, res) => {
       try {
         const raids = await db.all(`
-          SELECT r.*, p.name, p.spriteUrl, p.generation 
+          SELECT r.*, p.name, p.spriteUrl, p.generation, p.attack, p.defense, p.stamina 
           FROM raids r 
           LEFT JOIN pokemons p ON r.pokemonId = p.id 
           ORDER BY r.id ASC
@@ -584,9 +584,14 @@ async function startServer() {
           generation: r.generation || 0,
           minCp: r.minCp,
           maxCp: r.maxCp,
+          minCpBoost: r.minCpBoost || null,
+          maxCpBoost: r.maxCpBoost || null,
           tier: r.tier,
           isShadow: !!r.isShadow,
-          isMega: !!r.isMega
+          isMega: !!r.isMega,
+          attack: r.attack || null,
+          defense: r.defense || null,
+          stamina: r.stamina || null
         }));
 
         res.json(enrichedRaids);
@@ -658,7 +663,10 @@ async function startServer() {
             megaVarietyId: p.megaVarietyId || null,
             megaVarietyId2: p.megaVarietyId2 || null,
             gigamaxVarietyId: p.gigamaxVarietyId || null,
-            parentId: p.parentId || null
+            parentId: p.parentId || null,
+            attack: p.attack || null,
+            defense: p.defense || null,
+            stamina: p.stamina || null
           };
         });
 
@@ -2303,6 +2311,8 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
         pokemonId: number;
         minCp: number;
         maxCp: number;
+        minCpBoost: number | null;
+        maxCpBoost: number | null;
         tier: string;
         isShadow: number;
         isMega: number;
@@ -2377,11 +2387,15 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
 
           const minCp = Array.isArray(b.cpRange) ? b.cpRange[0] : 0;
           const maxCp = Array.isArray(b.cpRange) ? b.cpRange[1] : 0;
+          const minCpBoost = Array.isArray(b.cpRangeBoost) ? b.cpRangeBoost[0] : null;
+          const maxCpBoost = Array.isArray(b.cpRangeBoost) ? b.cpRangeBoost[1] : null;
 
           parsedRaids.push({
             pokemonId,
             minCp,
             maxCp,
+            minCpBoost,
+            maxCpBoost,
             tier,
             isShadow,
             isMega
@@ -2394,10 +2408,10 @@ export const MODAL_FORMS_SPECIES = ['Unown', 'Vivillon', 'Spinda', 'Furfrou'];
       try {
         await db.run('DELETE FROM raids;');
         const insertStmt = await db.prepare(
-          'INSERT INTO raids (pokemonId, minCp, maxCp, tier, isShadow, isMega) VALUES (?, ?, ?, ?, ?, ?);'
+          'INSERT INTO raids (pokemonId, minCp, maxCp, minCpBoost, maxCpBoost, tier, isShadow, isMega) VALUES (?, ?, ?, ?, ?, ?, ?, ?);'
         );
         for (const r of parsedRaids) {
-          await insertStmt.run(r.pokemonId, r.minCp, r.maxCp, r.tier, r.isShadow, r.isMega);
+          await insertStmt.run(r.pokemonId, r.minCp, r.maxCp, r.minCpBoost, r.maxCpBoost, r.tier, r.isShadow, r.isMega);
         }
         await insertStmt.finalize();
         await db.run('COMMIT;');

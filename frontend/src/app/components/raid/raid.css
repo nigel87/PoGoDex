@@ -647,3 +647,353 @@
     font-size: 0.72rem;
   }
 }
+
+/* CP Display and Weather Boost styling */
+.cp-display-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cp-range-line {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-family: var(--font-secondary);
+}
+
+.cp-range-line strong {
+  color: var(--text-primary);
+}
+
+.cp-range-line.boosted {
+  color: #ff9f43; /* Warm sun-yellow/orange for weather boost */
+}
+
+.cp-range-line.boosted strong {
+  color: #f39c12;
+}
+
+/* Layout modifications for cards to hold actions */
+.raid-boss-card {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
+  padding: 0.8rem 1rem !important;
+}
+
+.boss-main-info {
+  width: 100%;
+}
+
+.boss-status {
+  align-self: flex-end;
+  margin-top: -1.2rem;
+}
+
+.shadow-iv-action-row {
+  width: 100%;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: center;
+}
+
+.shadow-iv-btn {
+  width: 100%;
+  background: rgba(142, 68, 173, 0.15);
+  color: #c8a2c8;
+  border: 1px solid rgba(142, 68, 173, 0.3);
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  transition: all 0.2s ease;
+}
+
+.shadow-iv-btn:hover {
+  background: rgba(142, 68, 173, 0.3);
+  border-color: rgba(142, 68, 173, 0.6);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(142, 68, 173, 0.2);
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.shadow-iv-modal {
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(20, 20, 30, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.modal-icon {
+  font-size: 1.5rem;
+}
+
+.modal-header h3 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.close-modal-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0;
+}
+
+.close-modal-btn:hover {
+  color: #ff5e62;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-intro {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid #9b59b6;
+  border-radius: 0 8px 8px 0;
+}
+
+.level-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.tab-btn.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.table-scroll-wrapper {
+  max-height: 380px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.iv-probability-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.iv-probability-table th {
+  background: rgba(20, 20, 30, 0.9);
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.iv-probability-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.cell-cp {
+  font-family: var(--font-secondary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.prob-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: var(--font-secondary);
+}
+
+.prob-badge.prob-high {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.25);
+}
+
+.prob-badge.prob-medium {
+  background: rgba(230, 126, 34, 0.15);
+  color: #e67e22;
+  border: 1px solid rgba(230, 126, 34, 0.25);
+}
+
+.prob-badge.prob-low {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cell-ivs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.iv-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: var(--font-secondary);
+  background: rgba(46, 204, 113, 0.12);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.iv-tag.other {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.more-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  align-self: center;
+  margin-left: 0.2rem;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem !important;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.action-btn.close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn.close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile adjustments for the table modal */
+@media (max-width: 768px) {
+  .boss-status {
+    margin-top: 0.1rem;
+    align-self: flex-start;
+  }
+  
+  .shadow-iv-modal {
+    max-height: 95vh;
+  }
+  
+  .modal-body {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .table-scroll-wrapper {
+    max-height: 300px;
+  }
+  
+  .iv-probability-table th, 
+  .iv-probability-table td {
+    padding: 0.6rem;
+  }
+  
+  .cell-ivs.other {
+    max-width: 130px;
+  }
+}

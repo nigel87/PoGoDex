@@ -31,22 +31,107 @@ export async function runSeeder(db: Database) {
   try {
     const pokemonData = JSON.parse(fs.readFileSync(seedPath, 'utf-8')) as Pokemon[];
     
+    // Download pokedex.json to get base stats from GameMaster
+    let pokedexData: any[] = [];
+    try {
+      console.log('[Seeder] Download statistiche base da pokemon-go-api...');
+      pokedexData = await fetchPokeAPI('https://pokemon-go-api.github.io/pokemon-go-api/api/pokedex.json');
+      console.log(`[Seeder] Scaricati dati per ${pokedexData.length} specie.`);
+    } catch (err) {
+      console.warn('[Seeder] Impossibile scaricare le statistiche da pokemon-go-api, procedo senza statistiche:', String(err));
+    }
+
+    const statsMap = new Map<string, { attack: number, defense: number, stamina: number }>();
+    if (pokedexData.length > 0) {
+      const pByDex: Record<number, any[]> = {};
+      for (const p of pokedexData) {
+        if (p.dexNr) {
+          if (!pByDex[p.dexNr]) pByDex[p.dexNr] = [];
+          pByDex[p.dexNr].push(p);
+        }
+      }
+
+      for (const lp of pokemonData) {
+        const isBase = lp.parentId === null || lp.parentId === undefined;
+        const dex = isBase ? lp.id : (lp.parentId || 0);
+        const candidates = pByDex[dex] || [];
+        
+        let foundStats = null;
+        let parentStats = null;
+        
+        const parentCand = candidates.find((c: any) => c.id === c.formId) || candidates[0];
+        if (parentCand) {
+          parentStats = parentCand.stats;
+        }
+        
+        if (isBase) {
+          foundStats = parentStats;
+        } else {
+          const match = lp.name.match(/\(([^)]+)\)/);
+          if (match) {
+            let formName = match[1].toLowerCase()
+              .replace("alolan", "alola")
+              .replace("galarian", "galar")
+              .replace("hisuian", "hisui")
+              .replace("paldean", "paldea")
+              .replace("pa'u", "pau")
+              .replace("’", "")
+              .trim();
+            
+            for (const c of candidates) {
+              if (c.formId && c.formId.toLowerCase().includes(formName)) {
+                foundStats = c.stats;
+                break;
+              }
+              if (c.regionForms) {
+                for (const rfKey of Object.keys(c.regionForms)) {
+                  const rf = c.regionForms[rfKey];
+                  const formIdLower = (rf.formId || "").toLowerCase();
+                  const engName = (rf.names?.English || "").toLowerCase();
+                  if (formIdLower.includes(formName) || engName.includes(formName)) {
+                    foundStats = rf.stats;
+                    break;
+                  }
+                }
+              }
+              if (foundStats) break;
+            }
+          }
+          if (!foundStats && parentStats) {
+            foundStats = parentStats;
+          }
+        }
+        
+        if (foundStats) {
+          statsMap.set(`${lp.id}`, {
+            attack: foundStats.attack,
+            defense: foundStats.defense,
+            stamina: foundStats.stamina
+          });
+        }
+      }
+    }
+
     // Sincronizzazione in transazione singola per massimizzare le performance
     await db.run('BEGIN TRANSACTION;');
     
     const insertStmt = await db.prepare(`
-      INSERT INTO pokemons (id, name, type1, type2, generation, spriteUrl, parentId)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO pokemons (id, name, type1, type2, generation, spriteUrl, parentId, attack, defense, stamina)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         type1 = excluded.type1,
         type2 = excluded.type2,
         generation = excluded.generation,
         spriteUrl = excluded.spriteUrl,
-        parentId = excluded.parentId;
+        parentId = excluded.parentId,
+        attack = excluded.attack,
+        defense = excluded.defense,
+        stamina = excluded.stamina;
     `);
 
     for (const p of pokemonData) {
+      const stats = statsMap.get(`${p.id}`) || null;
       await insertStmt.run(
         p.id,
         p.name,
@@ -54,7 +139,10 @@ export async function runSeeder(db: Database) {
         p.type2 || null,
         p.generation,
         p.spriteUrl,
-        p.parentId !== undefined ? p.parentId : null
+        p.parentId !== undefined ? p.parentId : null,
+        stats ? stats.attack : null,
+        stats ? stats.defense : null,
+        stats ? stats.stamina : null
       );
     }
 

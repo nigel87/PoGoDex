@@ -25,6 +25,94 @@ export class RaidComponent implements OnInit, OnDestroy {
   usersList = signal<User[]>([]);
   activeUser = signal<User | null>(null);
   isLoading = signal<boolean>(true);
+  selectedShadowRaid = signal<Raid | null>(null);
+  selectedLevel = signal<20 | 25>(20);
+
+  // Computa la tabella delle combinazioni IV e probabilità per il livello selezionato
+  shadowIvTable = computed(() => {
+    const r = this.selectedShadowRaid();
+    if (!r) return [];
+    
+    const attack = r.attack || 0;
+    const defense = r.defense || 0;
+    const stamina = r.stamina || 0;
+    
+    if (attack === 0 || defense === 0 || stamina === 0) {
+      return [];
+    }
+    
+    const lvl = this.selectedLevel();
+    const cpm = lvl === 20 ? 0.59740001 : 0.667934;
+    
+    // Raggruppa le 1000 combinazioni possibili per CP
+    const cpGroups: { [cp: number]: { ivs: Array<{a: number, d: number, s: number}>; targetCount: number } } = {};
+    
+    for (let a = 6; a <= 15; a++) {
+      for (let d = 6; d <= 15; d++) {
+        for (let s = 6; s <= 15; s++) {
+          const cp = Math.floor(((attack + a) * Math.sqrt(defense + d) * Math.sqrt(stamina + s) * cpm * cpm) / 10);
+          
+          if (!cpGroups[cp]) {
+            cpGroups[cp] = { ivs: [], targetCount: 0 };
+          }
+          
+          const isTarget = a >= 13 && d >= 13 && s >= 13;
+          cpGroups[cp].ivs.push({ a, d, s });
+          if (isTarget) {
+            cpGroups[cp].targetCount++;
+          }
+        }
+      }
+    }
+    
+    // Costruisce le righe della tabella
+    const rows: Array<{
+      cp: number;
+      probability: number;
+      matchingIvs: string[];
+      otherIvs: string[];
+    }> = [];
+    
+    for (const cpStr of Object.keys(cpGroups)) {
+      const cp = parseInt(cpStr, 10);
+      const group = cpGroups[cp];
+      
+      if (group.targetCount > 0) {
+        const total = group.ivs.length;
+        const probability = (group.targetCount / total) * 100;
+        
+        const matchingIvs: string[] = [];
+        const otherIvs: string[] = [];
+        
+        for (const iv of group.ivs) {
+          const ivStr = `${iv.a}/${iv.d}/${iv.s}`;
+          if (iv.a >= 13 && iv.d >= 13 && iv.s >= 13) {
+            matchingIvs.push(ivStr);
+          } else {
+            otherIvs.push(ivStr);
+          }
+        }
+        
+        rows.push({
+          cp,
+          probability,
+          matchingIvs,
+          otherIvs
+        });
+      }
+    }
+    
+    return rows.sort((a, b) => b.cp - a.cp);
+  });
+
+  openShadowIvModal(r: Raid) {
+    this.selectedShadowRaid.set(r);
+    this.selectedLevel.set(20);
+  }
+
+  closeShadowIvModal() {
+    this.selectedShadowRaid.set(null);
+  }
 
   private sub = new Subscription();
 

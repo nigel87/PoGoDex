@@ -85,9 +85,14 @@ export interface Raid {
   generation: number;
   minCp: number;
   maxCp: number;
+  minCpBoost?: number | null;
+  maxCpBoost?: number | null;
   tier: string; // 'legendary', 'mega', 'standard'
   isShadow: boolean;
   isMega: boolean;
+  attack?: number | null;
+  defense?: number | null;
+  stamina?: number | null;
 }
 
 @Injectable({
