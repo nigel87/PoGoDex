@@ -266,3 +266,12 @@
   from { opacity: 0; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1); }
 }
+
+.dropdown-menu-link.admin-link-item {
+  color: #c084fc;
+}
+
+.dropdown-menu-link.admin-link-item:hover {
+  background: rgba(168, 85, 247, 0.08);
+  color: #d8b4fe;
+}

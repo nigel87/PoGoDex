@@ -7,13 +7,12 @@
     
     <div class="header-right-group">
       <nav class="navigation-tabs" *ngIf="username || activeUser()">
-        <a [routerLink]="['/' + (username || activeUser()?.name)]" class="nav-link" [class.active]="activeTab === 'pokedex'">{{ 'nav.pokedex' | translate }}</a>
-        <a [routerLink]="['/' + (username || activeUser()?.name) + '/stats']" class="nav-link" [class.active]="activeTab === 'stats'">{{ 'nav.stats' | translate }}</a>
-        <a [routerLink]="['/' + (username || activeUser()?.name) + '/export']" class="nav-link" [class.active]="activeTab === 'export'">{{ 'nav.export' | translate }}</a>
-        <a [routerLink]="['/' + (username || activeUser()?.name) + '/settings']" class="nav-link" [class.active]="activeTab === 'settings'">{{ 'nav.settings' | translate }}</a>
-        <a [routerLink]="['/quest']" class="nav-link" [class.active]="activeTab === 'quests'">{{ 'nav.quests' | translate }}</a>
-        <a [routerLink]="['/eggs']" class="nav-link" [class.active]="activeTab === 'eggs'">{{ 'nav.eggs' | translate }}</a>
-        <a [routerLink]="['/raids']" class="nav-link" [class.active]="activeTab === 'raids'">{{ 'nav.raids' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name)]" class="nav-link" [class.active]="activeTab === 'pokedex'">📱 {{ 'nav.pokedex' | translate }}</a>
+        <a [routerLink]="['/raids']" class="nav-link" [class.active]="activeTab === 'raids'">⚔️ {{ 'nav.raids' | translate }}</a>
+        <a [routerLink]="['/quest']" class="nav-link" [class.active]="activeTab === 'quests'">🗺️ {{ 'nav.quests' | translate }}</a>
+        <a [routerLink]="['/eggs']" class="nav-link" [class.active]="activeTab === 'eggs'">🥚 {{ 'nav.eggs' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name) + '/stats']" class="nav-link" [class.active]="activeTab === 'stats'">📊 {{ 'nav.stats' | translate }}</a>
+        <a [routerLink]="['/' + (username || activeUser()?.name) + '/export']" class="nav-link" [class.active]="activeTab === 'export'">📤 {{ 'nav.export' | translate }}</a>
       </nav>
 
       <!-- Player Profile dropdown - Logged In (Google details) -->
@@ -32,6 +31,9 @@
             </a>
             <a [routerLink]="['/' + user.name + '/settings']" class="dropdown-menu-link">
               <span class="menu-icon">⚙️</span> Impostazioni
+            </a>
+            <a *ngIf="user.isAdmin === 1" [routerLink]="['/admin']" class="dropdown-menu-link admin-link-item">
+              <span class="menu-icon">🛡️</span> Console Admin
             </a>
             <button class="dropdown-menu-link logout-btn-item" (click)="logout()">
               <span class="menu-icon">🚪</span> Disconnetti

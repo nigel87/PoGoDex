@@ -107,7 +107,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let p of filteredList()" class="config-row" 
+              <tr *ngFor="let p of visibleList()" class="config-row" 
                   [class.has-shadow]="isShadow(p.name)"
                   [class.has-mega]="isMega(p.name)"
                   [class.has-gigamax]="isGigamax(p.name)"
@@ -175,6 +175,7 @@
             </tbody>
           </table>
         </div>
+        <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1rem 0;"></div>
       </ng-container>
 
       <!-- Dashboard Gestione Utenti -->

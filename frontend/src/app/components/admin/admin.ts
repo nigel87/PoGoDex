@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, effect, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -16,7 +16,7 @@ import { TranslatePipe } from '../../services/translate.pipe';
   templateUrl: './admin.html',
   styleUrl: './admin.css'
 })
-export class AdminComponent implements OnInit {
+export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
   isLocal = signal<boolean>(false);
   isLoading = signal<boolean>(true);
   isSaving = signal<boolean>(false);
@@ -27,6 +27,14 @@ export class AdminComponent implements OnInit {
   activeTab = signal<'pokemon' | 'users'>('pokemon');
   usersList = signal<any[]>([]);
   isLoadingUsers = signal<boolean>(false);
+
+  @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
+  limit = signal<number>(50);
+  private observer: IntersectionObserver | null = null;
+
+  visibleList = computed(() => {
+    return this.filteredList().slice(0, this.limit());
+  });
 
   // Autorizzazione: locale oppure admin loggato
   isAuthorized = computed(() => {
@@ -59,6 +67,15 @@ export class AdminComponent implements OnInit {
     // Verifica rigorosa dell'host locale del browser
     const hostname = window.location.hostname.toLowerCase();
     this.isLocal.set(hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]');
+
+    // Resetta automaticamente il limite a 50 quando cambia la ricerca o il tab
+    effect(() => {
+      this.searchQuery();
+      this.activeTab();
+      setTimeout(() => {
+        this.limit.set(50);
+      });
+    });
   }
 
   ngOnInit() {
@@ -337,5 +354,37 @@ export class AdminComponent implements OnInit {
 
   setDefaultAvatar(event: any) {
     event.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2364748b"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+  }
+
+  ngAfterViewInit() {
+    this.setupIntersectionObserver();
+  }
+
+  ngOnDestroy() {
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+  }
+
+  setupIntersectionObserver() {
+    if (typeof window === 'undefined') return;
+
+    this.observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        if (this.limit() < this.filteredList().length) {
+          console.log('[Admin Lazy Rendering] Caricamento di ulteriori 50 Pokémon...');
+          this.limit.set(this.limit() + 50);
+        }
+      }
+    }, {
+      root: null,
+      rootMargin: '200px',
+      threshold: 0.1
+    });
+
+    if (this.scrollAnchor) {
+      this.observer.observe(this.scrollAnchor.nativeElement);
+    }
   }
 }
