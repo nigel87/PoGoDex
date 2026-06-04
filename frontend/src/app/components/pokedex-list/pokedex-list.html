@@ -3,765 +3,834 @@
   <app-header [activeTab]="'pokedex'" [username]="username"></app-header>
 
   <!-- Private Error Block -->
-  <div class="private-error-card glass-card" *ngIf="isPrivateError()">
-    <div class="error-icon">🔒</div>
-    <h2>Questo Pokédex è privato</h2>
-    <p>L'allenatore ha scelto di nascondere il proprio Pokédex. Se sei il proprietario di questo profilo, effettua l'accesso con Google nelle Impostazioni per visualizzarlo.</p>
-    <a routerLink="/" class="action-btn">Torna alla Home</a>
-  </div>
-
-  <ng-container *ngIf="!isPrivateError()">
-    <!-- Read-only Banner -->
-    <div class="readonly-banner glass-card" *ngIf="isReadOnly()">
-      <span class="lock-icon">🔒</span>
-      <span class="banner-text">Sei in modalità <strong>Sola Lettura</strong> per il Pokédex di <strong>{{ username }}</strong>. Non puoi modificare le sue spunte.</span>
+  @if (isPrivateError()) {
+    <div class="private-error-card glass-card">
+      <div class="error-icon">🔒</div>
+      <h2>Questo Pokédex è privato</h2>
+      <p>L'allenatore ha scelto di nascondere il proprio Pokédex. Se sei il proprietario di questo profilo, effettua l'accesso con Google nelle Impostazioni per visualizzarlo.</p>
+      <a routerLink="/" class="action-btn">Torna alla Home</a>
     </div>
+  } @else {
+    <!-- Read-only Banner -->
+    @if (isReadOnly()) {
+      <div class="readonly-banner glass-card">
+        <span class="lock-icon">🔒</span>
+        <span class="banner-text">Sei in modalità <strong>Sola Lettura</strong> per il Pokédex di <strong>{{ username }}</strong>. Non puoi modificare le sue spunte.</span>
+      </div>
+    }
 
     <!-- Filter Bar Panel -->
     <section class="filters-section">
-    <div class="glass-card filters-card">
-      <div class="search-and-status-row">
-        <!-- Input Cerca e Toggle Famiglia -->
-        <div class="search-field-container">
-          <div class="search-input-wrapper">
-            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input 
-              #searchInput
-              type="text" 
-              [placeholder]="'pokedex.search' | translate" 
-              [ngModel]="searchQuery()" 
-              (ngModelChange)="onSearchQueryChange($event)"
-              class="search-bar-input">
-          </div>
-
-          <div class="search-family-toggle" [class.disabled]="!searchQuery().trim()">
-            <label class="switch">
+      <div class="glass-card filters-card">
+        <div class="search-and-status-row">
+          <!-- Input Cerca e Toggle Famiglia -->
+          <div class="search-field-container">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <input 
-                type="checkbox" 
-                [checked]="showEvolutionFamily()" 
-                [disabled]="!searchQuery().trim()"
-                (change)="showEvolutionFamily.set($any($event.target).checked)">
-              <span class="slider round"></span>
-            </label>
-            <span class="toggle-label" [title]="'pokedex.search.show_family_desc' | translate">
-              {{ 'pokedex.search.show_family' | translate }}
-            </span>
-          </div>
-        </div>
+                #searchInput
+                type="text" 
+                [placeholder]="'pokedex.search' | translate" 
+                [ngModel]="searchQuery()" 
+                (ngModelChange)="onSearchQueryChange($event)"
+                class="search-bar-input">
+            </div>
 
-        <!-- Filtro Catturati / Mancanti -->
-        <div class="status-toggle">
-          <button 
-            type="button" 
-            class="toggle-btn" 
-            [class.active]="selectedStatus() === 'all'"
-            (click)="selectedStatus.set('all')">
-            {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
-          </button>
-          <button 
-            type="button" 
-            class="toggle-btn" 
-            [class.active]="selectedStatus() === 'caught'"
-            (click)="selectedStatus.set('caught')">
-            {{ 'status.caught' | translate }}
-          </button>
-          <button 
-            type="button" 
-            class="toggle-btn" 
-            [class.active]="selectedStatus() === 'missing'"
-            (click)="selectedStatus.set('missing')">
-            {{ 'status.missing' | translate }}
-          </button>
-        </div>
-
-        <!-- Layout Switcher Segment -->
-        <div class="layout-toggle-segment">
-          <button 
-            type="button" 
-            class="layout-toggle-btn"
-            [class.active]="settingsService.layout() === 'detailed'"
-            (click)="settingsService.setLayout('detailed')"
-            title="Visualizzazione dettagliata">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          </button>
-          <button 
-            type="button" 
-            class="layout-toggle-btn"
-            [class.active]="settingsService.layout() === 'compact'"
-            (click)="settingsService.setLayout('compact')"
-            title="Visualizzazione compatta">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-        </div>
-      </div>
- 
-      <!-- Filtro Regioni -->
-      <div class="regions-filter-row">
-        <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Regione:' : 'Region:' }}</span>
-        <div class="region-pills-scroll">
-          <button 
-            *ngFor="let reg of pokemonRegions" 
-            class="region-filter-pill"
-            [class.active]="selectedRegion() === reg.value"
-            (click)="selectRegion(reg.value)">
-            {{ 'region.' + reg.value | translate }}
-          </button>
-        </div>
-      </div>
-  
-      <!-- Filtro Forme Speciali -->
-      <div class="form-filters-row">
-        <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Forma Speciale:' : 'Special Form:' }}</span>
-        <div class="form-pills-scroll">
-          <button 
-            *ngFor="let form of specialForms" 
-            class="form-filter-pill"
-            [class.active]="selectedFormFilter() === form.value"
-            [class]="'form-' + form.value"
-            (click)="selectFormFilter(form.value)">
-            {{ 'form.' + form.value | translate }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Filtro Tipi Pokémon (Scrollabile Orizzontalmente con ombre d'affordance) -->
-      <div class="types-filter-row">
-        <div class="type-pills-scroll">
-          <button 
-            *ngFor="let t of pokemonTypes" 
-            class="type-filter-pill"
-            [class.active]="selectedType() === t.value"
-            [class]="'type-' + t.value"
-            (click)="selectType(t.value)">
-            {{ getTypeLabel(t.value) }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Pokedex Listing Grid -->
-  <main class="pokedex-main">
-    <div *ngIf="isLoading()" class="loader-container">
-      <div class="spinner"></div>
-      <span>{{ i18n.currentLang() === 'it' ? 'Caricamento Pokédex...' : 'Loading Pokédex...' }}</span>
-    </div>
-
-    <!-- No results -->
-    <div *ngIf="!isLoading() && filteredList().length === 0" class="no-results-panel glass-card">
-      <svg class="no-results-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-      <h3>{{ i18n.currentLang() === 'it' ? 'Nessun Pokémon trovato' : 'No Pokémon found' }}</h3>
-      <p>{{ 'pokedex.no_results' | translate }}</p>
-    </div>
-
-    <!-- Cards Grid -->
-    <div *ngIf="!isLoading() && filteredList().length > 0" class="pokedex-grid" [class.compact-grid]="settingsService.layout() === 'compact'">
-      <div 
-        *ngFor="let base of visibleList()" 
-        class="glass-card pokemon-card"
-        [class.caught-active]="selectedFormFilter() === 'all' ? getActiveForm(base).regular : getCardState(getActiveForm(base), selectedFormFilter()) === 4"
-        [class.shadow-active]="getActiveForm(base).shadow"
-        [class.purified-active]="getActiveForm(base).purified"
-        [class.lucky-active]="getActiveForm(base).lucky"
-        [class.perfect-active]="getActiveForm(base).perfect"
-        [class.shiny-active]="getActiveForm(base).shiny"
-        [class.species-completed]="isSpeciesCompleted(base)"
-        [class.is-unreleased]="!isReleased(getActiveForm(base).name)"
-        [class.state-unreleased]="getCardState(getActiveForm(base), selectedFormFilter()) === 1"
-        [class.state-unavailable]="getCardState(getActiveForm(base), selectedFormFilter()) === 2"
-        [class.state-missing]="getCardState(getActiveForm(base), selectedFormFilter()) === 3"
-        [class.state-caught]="getCardState(getActiveForm(base), selectedFormFilter()) === 4"
-        (click)="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') ? openBottomSheet(base) : onCardClick(getActiveForm(base))"
-        [style.cursor]="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') || (selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3) ? 'pointer' : 'default'">
-        
-        <ng-container *ngIf="getActiveForm(base) as p">
-          <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
-          <div class="card-sparkles" *ngIf="p.lucky || p.purified || p.shiny">
-            <span class="sparkle s1">✦</span>
-            <span class="sparkle s2">✦</span>
-            <span class="sparkle s3">✦</span>
-          </div>
- 
-          <!-- Pokeball background badge for caught regular -->
-          <div class="pokeball-bg-watermark" [class.active]="selectedFormFilter() === 'all' ? p.regular : getCardState(p, selectedFormFilter()) === 4"></div>
- 
-          <!-- Card Header (ID & Size Badges) -->
-          <div class="card-header">
-            <div class="card-header-left" style="display: flex; align-items: center; gap: 0.35rem;">
-              <span class="pokemon-id">{{ formatId(p) }}</span>
-              <span class="completion-crown" [class.premium]="isModalFormSpecies(base.name)" *ngIf="isSpeciesCompleted(base)" [title]="(isModalFormSpecies(base.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
-                {{ isModalFormSpecies(base.name) ? '💎' : '👑' }}
+            <div class="search-family-toggle" [class.disabled]="!searchQuery().trim()">
+              <label class="switch">
+                <input 
+                  type="checkbox" 
+                  [checked]="showEvolutionFamily()" 
+                  [disabled]="!searchQuery().trim()"
+                  (change)="showEvolutionFamily.set($any($event.target).checked)">
+                <span class="slider round"></span>
+              </label>
+              <span class="toggle-label" [title]="'pokedex.search.show_family_desc' | translate">
+                {{ 'pokedex.search.show_family' | translate }}
               </span>
             </div>
-            <div class="size-badges">
-              <span class="size-badge form-badge" *ngIf="getFormRegion(p) !== 'Base'">{{ getFormRegion(p) }}</span>
-              <span class="size-badge unreleased-badge" *ngIf="!isReleased(p.name)">{{ 'pokedex.unreleased' | translate }}</span>
-            </div>
           </div>
 
-          <!-- Pokemon Image Section (Dynamic artwork form-switcher!) -->
-          <div class="image-container">
-            <img 
-              [src]="getCardSpriteUrl(p, selectedFormFilter())" 
-              [alt]="p.name" 
-              class="pokemon-sprite"
-              [loading]="visibleList().indexOf(base) < 12 ? 'eager' : 'lazy'"
-              [attr.fetchpriority]="visibleList().indexOf(base) < 6 ? 'high' : 'auto'"
-              decoding="async">
-          </div>
-
-          <!-- Pokemon Info -->
-          <div class="pokemon-info">
-            <h2 class="pokemon-name">{{ getPokemonCardName(p) }}</h2>
-            <div class="types-row">
-              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
-              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
-            </div>
-            
-            <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata, ci sono varianti e non è specie a modale) -->
-            <div class="regional-switcher-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && !isModalFormSpecies(base.name)">
-              <button 
-                type="button" 
-                class="region-pill-btn" 
-                [class.active]="p.id === base.id"
-                (click)="selectFormForCard(base.id, base.id); $event.stopPropagation()">
-                Base
-              </button>
-              <button 
-                *ngFor="let reg of getRegionalForms(base)" 
-                type="button" 
-                class="region-pill-btn" 
-                [class.active]="p.id === reg.id"
-                [class.is-unreleased]="!isReleased(reg.name)"
-                (click)="selectFormForCard(base.id, reg.id); $event.stopPropagation()">
-                {{ getFormRegion(reg) }}
-              </button>
-            </div>
-
-            <!-- Modal Trigger Button per specie con molteplici forme (es: Unown, Vivillon) -->
-            <div class="modal-trigger-row" *ngIf="settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && isModalFormSpecies(base.name)">
-              <button 
-                type="button" 
-                class="modal-trigger-btn"
-                (click)="activeModalPokemon.set(base); $event.stopPropagation()">
-                <span>✨ {{ getModalButtonLabel(base.name) }}</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Action Toggle Buttons -->
-          <div class="caught-actions-grid" *ngIf="settingsService.layout() === 'detailed' && selectedFormFilter() === 'all'">
-            <!-- Regular -->
+          <!-- Filtro Catturati / Mancanti -->
+          <div class="status-toggle">
             <button 
-              *ngIf="showButtonForPokemon(p, 'regular')"
               type="button" 
-              class="action-btn regular-btn" 
-              [class.active]="p.regular"
-              (click)="toggleForm(p, 'regular')"
-              [title]="'pokedex.btn.regular.title' | translate">
-              <span class="ball-icon"></span>
-              {{ 'pokedex.btn.regular' | translate }}
+              class="toggle-btn" 
+              [class.active]="selectedStatus() === 'all'"
+              (click)="selectedStatus.set('all')">
+              {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
             </button>
- 
-            <!-- Shiny -->
             <button 
-              *ngIf="showButtonForPokemon(p, 'shiny')"
               type="button" 
-              class="action-btn shiny-btn" 
-              [class.active]="p.shiny"
-              [class.unavailable]="isShinyUnreleased(p.name)"
-              [disabled]="isShinyUnreleased(p.name)"
-              (click)="toggleForm(p, 'shiny')"
-              [title]="(isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable' : 'pokedex.btn.shiny.title') | translate">
-              <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
-              {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
+              class="toggle-btn" 
+              [class.active]="selectedStatus() === 'caught'"
+              (click)="selectedStatus.set('caught')">
+              {{ 'status.caught' | translate }}
             </button>
- 
-            <!-- Perfect -->
             <button 
-              *ngIf="showButtonForPokemon(p, 'perfect')"
               type="button" 
-              class="action-btn perfect-btn" 
-              [class.active]="p.perfect"
-              (click)="toggleForm(p, 'perfect')"
-              [title]="'pokedex.btn.perfect.title' | translate">
-              <span class="star-icon">★★★</span>
-              {{ 'pokedex.btn.perfect' | translate }}
-            </button>
- 
-            <!-- Lucky -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'lucky')"
-              type="button" 
-              class="action-btn lucky-btn" 
-              [class.active]="p.lucky"
-              (click)="toggleForm(p, 'lucky')"
-              [title]="'pokedex.btn.lucky.title' | translate">
-              <span class="bubble-icon"></span>
-              {{ 'pokedex.btn.lucky' | translate }}
-            </button>
- 
-            <!-- XXL -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'xxl')"
-              type="button" 
-              class="action-btn xxl-btn" 
-              [class.active]="p.xxl"
-              (click)="toggleForm(p, 'xxl')"
-              [title]="'pokedex.btn.xxl.title' | translate">
-              {{ 'pokedex.btn.xxl' | translate }}
-            </button>
- 
-            <!-- XXS -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'xxs')"
-              type="button" 
-              class="action-btn xxs-btn" 
-              [class.active]="p.xxs"
-              (click)="toggleForm(p, 'xxs')"
-              [title]="'pokedex.btn.xxs.title' | translate">
-              {{ 'pokedex.btn.xxs' | translate }}
-            </button>
- 
-            <!-- Mega X / Y or Standard Mega -->
-            <ng-container *ngIf="hasTwoMegas(p.name); else standardMega">
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'x')"
-                (click)="toggleMega(p, 'x')"
-                [title]="'pokedex.btn.megax.title' | translate">
-                <span class="mega-icon">🧬</span>
-                {{ 'pokedex.btn.megax' | translate }}
-              </button>
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'y')"
-                (click)="toggleMega(p, 'y')"
-                [title]="'pokedex.btn.megay.title' | translate">
-                <span class="mega-icon">🧬</span>
-                {{ 'pokedex.btn.megay' | translate }}
-              </button>
-            </ng-container>
-            <ng-template #standardMega>
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'standard')"
-                (click)="toggleMega(p, 'standard')"
-                [title]="'pokedex.btn.mega.title' | translate">
-                <span class="mega-icon">🧬</span>
-                {{ 'pokedex.btn.mega' | translate }}
-              </button>
-            </ng-template>
- 
-            <!-- Gigamax -->
-            <button 
-              *ngIf="canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')"
-              type="button" 
-              class="action-btn gigamax-btn" 
-              [class.active]="p.gigamax"
-              (click)="toggleForm(p, 'gigamax')"
-              [title]="'pokedex.btn.gigamax.title' | translate">
-              <span class="giga-icon">🌋</span>
-              {{ 'pokedex.btn.gigamax' | translate }}
-            </button>
-            
-            <!-- Shadow -->
-            <button 
-              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'shadow')"
-              type="button" 
-              class="action-btn shadow-btn" 
-              [class.active]="p.shadow"
-              (click)="toggleForm(p, 'shadow')"
-              [title]="'pokedex.btn.shadow.title' | translate">
-              <span class="shadow-icon"></span>
-              {{ 'pokedex.btn.shadow' | translate }}
-            </button>
- 
-            <!-- Purified -->
-            <button 
-              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'purified')"
-              type="button" 
-              class="action-btn purified-btn" 
-              [class.active]="p.purified"
-              (click)="toggleForm(p, 'purified')"
-              [title]="'pokedex.btn.purified.title' | translate">
-              <span class="purified-icon"></span>
-              {{ 'pokedex.btn.purified' | translate }}
+              class="toggle-btn" 
+              [class.active]="selectedStatus() === 'missing'"
+              (click)="selectedStatus.set('missing')">
+              {{ 'status.missing' | translate }}
             </button>
           </div>
-        </ng-container>
-      </div>
-    </div>
 
-    <!-- Ancora reattiva per il caricamento lazy (Infinite Scroll) -->
-    <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1.5rem 0;"></div>
-
-    <!-- Indicatore visivo di fine lista -->
-    <div class="end-of-list-text" *ngIf="visibleList().length === filteredList().length && filteredList().length > 0">
-      ✨ {{ i18n.currentLang() === 'it' ? 'Hai visualizzato tutti i Pokémon' : 'You have viewed all Pokémon' }} ✨
-    </div>
-  </main>
-
-  <!-- Add Player Profile Modal popup (Premium glassmorphic overlay) -->
-  <div class="modal-overlay" *ngIf="showUserModal()">
-    <div class="modal-card glass-card">
-      <div class="modal-header">
-        <h3>{{ 'pokedex.modal.title' | translate }}</h3>
-        <button class="close-modal-btn" (click)="closeNewUserModal()">×</button>
-      </div>
-      <div class="modal-body">
-        <label for="new-player-name">{{ 'pokedex.modal.label' | translate }}</label>
-        <input 
-          id="new-player-name" 
-          type="text" 
-          [placeholder]="'pokedex.modal.placeholder' | translate" 
-          [ngModel]="newUserName()"
-          (ngModelChange)="newUserName.set($event)"
-          class="modal-input-text"
-          (keyup.enter)="createNewUser()"
-          autofocus>
-        <p class="modal-help-text">{{ 'pokedex.modal.help' | translate }}</p>
-      </div>
-      <div class="modal-footer">
-        <button class="modal-btn cancel-btn" (click)="closeNewUserModal()">{{ 'pokedex.modal.cancel' | translate }}</button>
-        <button class="modal-btn confirm-btn" (click)="createNewUser()" [disabled]="!newUserName().trim() || isCreatingUser()">
-          <span *ngIf="!isCreatingUser()">{{ 'pokedex.modal.create' | translate }}</span>
-          <span *ngIf="isCreatingUser()" class="btn-spinner"></span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Premium Bottom Sheet Detail Drawer for Compact View -->
-  <div 
-    class="bottom-sheet-overlay" 
-    *ngIf="activeDetailPokemon() && activeDetailBasePokemon()"
-    (click)="closeBottomSheet()">
-    <div 
-      class="bottom-sheet-drawer glass-card" 
-      (click)="$event.stopPropagation()">
-      
-      <!-- Drawer Handle Indicator -->
-      <div class="drawer-handle" (click)="closeBottomSheet()"></div>
-
-      <!-- Close Button -->
-      <button class="drawer-close-btn" (click)="closeBottomSheet()">×</button>
-
-      <ng-container *ngIf="activeDetailPokemon() as p">
-        <ng-container *ngIf="activeDetailBasePokemon() as bp">
-          <!-- Background decorative glows -->
-          <div class="drawer-glow" [class]="'type-' + p.type1.toLowerCase()"></div>
-
-          <!-- Header: ID, Name, Crown, Types -->
-          <div class="drawer-header">
-            <div class="drawer-header-left" style="display: flex; align-items: center; gap: 0.5rem;">
-              <span class="drawer-pokemon-id">{{ formatId(p) }}</span>
-              <span class="drawer-completion-crown" [class.premium]="isModalFormSpecies(bp.name)" *ngIf="isSpeciesCompleted(bp)" [title]="(isModalFormSpecies(bp.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
-                {{ isModalFormSpecies(bp.name) ? '💎' : '👑' }}
-              </span>
-              <span class="size-badge form-badge" *ngIf="getFormRegion(p) !== 'Base'">{{ getFormRegion(p) }}</span>
-            </div>
-            <h2 class="drawer-pokemon-name">{{ getPokemonCardName(p) }}</h2>
-            <div class="drawer-types-row">
-              <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
-              <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ getTypeLabel(p.type2) }}</span>
-            </div>
-          </div>
-
-          <!-- Scrollable content area inside bottom sheet -->
-          <div class="drawer-content-scroll">
-            <!-- Body: Sprite Image and Region Selection -->
-            <div class="drawer-body">
-            <div class="drawer-image-section">
-              <div class="card-sparkles" *ngIf="p.lucky || p.purified || p.shiny">
-                <span class="sparkle s1">✦</span>
-                <span class="sparkle s2">✦</span>
-                <span class="sparkle s3">✦</span>
-              </div>
-              <img 
-                [src]="getCardSpriteUrl(p, selectedFormFilter())" 
-                [alt]="p.name" 
-                class="drawer-pokemon-sprite"
-                decoding="async">
-            </div>
-
-            <!-- Regional forms inside the drawer (Solo se raggruppamento attivo, nessuna regione specifica selezionata e non è specie a modale) -->
-            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && !isModalFormSpecies(bp.name)">
-              <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Varianti Regionali:' : 'Regional Forms:' }}</span>
-              <div class="drawer-region-pills">
-                <button 
-                  type="button" 
-                  class="region-pill-btn" 
-                  [class.active]="p.id === bp.id"
-                  (click)="selectFormForDetailCard(bp.id)">
-                  Base
-                </button>
-                <button 
-                  *ngFor="let reg of getRegionalForms(bp)" 
-                  type="button" 
-                  class="region-pill-btn" 
-                  [class.active]="p.id === reg.id"
-                  [class.is-unreleased]="!isReleased(reg.name)"
-                  (click)="selectFormForDetailCard(reg.id)">
-                  {{ getFormRegion(reg) }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Modal Trigger Button inside compact drawer -->
-            <div class="drawer-regional-switcher" *ngIf="settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && isModalFormSpecies(bp.name)">
-              <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Forme Speciali:' : 'Special Forms:' }}</span>
-              <div class="drawer-region-pills">
-                <button 
-                  type="button" 
-                  class="modal-trigger-btn width-100"
-                  (click)="activeModalPokemon.set(bp); closeBottomSheet(); $event.stopPropagation()">
-                  <span>✨ {{ getModalButtonLabel(bp.name) }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-        <!-- Capture Checklist Grid -->
-        <div class="drawer-checklist-section">
-          <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Registra Catture:' : 'Record Captures:' }}</span>
-          <div class="drawer-actions-grid">
-            <!-- Regular -->
+          <!-- Layout Switcher Segment -->
+          <div class="layout-toggle-segment">
             <button 
-              *ngIf="showButtonForPokemon(p, 'regular')"
               type="button" 
-              class="action-btn regular-btn" 
-              [class.active]="p.regular"
-              (click)="toggleForm(p, 'regular')">
-              <span class="ball-icon"></span>
-              {{ 'pokedex.btn.regular' | translate }}
+              class="layout-toggle-btn"
+              [class.active]="settingsService.layout() === 'detailed'"
+              (click)="settingsService.setLayout('detailed')"
+              title="Visualizzazione dettagliata">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             </button>
-
-            <!-- Shiny -->
             <button 
-              *ngIf="showButtonForPokemon(p, 'shiny')"
               type="button" 
-              class="action-btn shiny-btn" 
-              [class.active]="p.shiny"
-              [class.unavailable]="isShinyUnreleased(p.name)"
-              [disabled]="isShinyUnreleased(p.name)"
-              (click)="toggleForm(p, 'shiny')">
-              <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
-              {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
-            </button>
-
-            <!-- Perfect -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'perfect')"
-              type="button" 
-              class="action-btn perfect-btn" 
-              [class.active]="p.perfect"
-              (click)="toggleForm(p, 'perfect')">
-              <span class="star-icon">★★★</span>
-              {{ 'pokedex.btn.perfect' | translate }}
-            </button>
-
-            <!-- Lucky -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'lucky')"
-              type="button" 
-              class="action-btn lucky-btn" 
-              [class.active]="p.lucky"
-              (click)="toggleForm(p, 'lucky')">
-              <span class="bubble-icon"></span>
-              {{ 'pokedex.btn.lucky' | translate }}
-            </button>
-
-            <!-- XXL -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'xxl')"
-              type="button" 
-              class="action-btn xxl-btn" 
-              [class.active]="p.xxl"
-              (click)="toggleForm(p, 'xxl')">
-              {{ 'pokedex.btn.xxl' | translate }}
-            </button>
-
-            <!-- XXS -->
-            <button 
-              *ngIf="showButtonForPokemon(p, 'xxs')"
-              type="button" 
-              class="action-btn xxs-btn" 
-              [class.active]="p.xxs"
-              (click)="toggleForm(p, 'xxs')">
-              {{ 'pokedex.btn.xxs' | translate }}
-            </button>
-
-            <!-- Mega X / Y or Standard Mega -->
-            <ng-container *ngIf="hasTwoMegas(p.name); else standardMega">
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'x')"
-                (click)="toggleMega(p, 'x')">
-                <span class="mega-icon">🧬</span>
-                Mega X
-              </button>
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'y')"
-                (click)="toggleMega(p, 'y')">
-                <span class="mega-icon">🧬</span>
-                Mega Y
-              </button>
-            </ng-container>
-            <ng-template #standardMega>
-              <button 
-                *ngIf="canMega(p.name) && showButtonForPokemon(p, 'mega')"
-                type="button" 
-                class="action-btn mega-btn" 
-                [class.active]="isMegaActive(p, 'standard')"
-                (click)="toggleMega(p, 'standard')">
-                <span class="mega-icon">🧬</span>
-                Mega
-              </button>
-            </ng-template>
-
-            <!-- Gigamax -->
-            <button 
-              *ngIf="canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')"
-              type="button" 
-              class="action-btn gigamax-btn" 
-              [class.active]="p.gigamax"
-              (click)="toggleForm(p, 'gigamax')">
-              <span class="giga-icon">🌋</span>
-              {{ 'pokedex.btn.gigamax' | translate }}
-            </button>
-            
-            <!-- Shadow -->
-            <button 
-              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'shadow')"
-              type="button" 
-              class="action-btn shadow-btn" 
-              [class.active]="p.shadow"
-              (click)="toggleForm(p, 'shadow')">
-              <span class="shadow-icon"></span>
-              {{ 'pokedex.btn.shadow' | translate }}
-            </button>
-
-            <!-- Purified -->
-            <button 
-              *ngIf="canShadow(p.name) && showButtonForPokemon(p, 'purified')"
-              type="button" 
-              class="action-btn purified-btn" 
-              [class.active]="p.purified"
-              (click)="toggleForm(p, 'purified')">
-              <span class="purified-icon"></span>
-              {{ 'pokedex.btn.purified' | translate }}
+              class="layout-toggle-btn"
+              [class.active]="settingsService.layout() === 'compact'"
+              (click)="settingsService.setLayout('compact')"
+              title="Visualizzazione compatta">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
           </div>
         </div>
-        </div> <!-- Close drawer-content-scroll -->
-      </ng-container></ng-container>
-    </div>
-  </div>
-
-
-<!-- Glassmorphic Grid Modal per Pokémon con molteplici forme (Unown, Vivillon, Spinda, Furfrou) -->
-<div class="glass-modal-backdrop" *ngIf="activeModalPokemon() as bp" (click)="activeModalPokemon.set(null)">
-  <div class="glass-modal-container" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="header-title-group">
-        <span class="modal-dex-id">{{ formatId(bp) }}</span>
-        <h3>{{ bp.name }} - {{ i18n.currentLang() === 'it' ? 'Elenco Forme' : 'Forms List' }}</h3>
-      </div>
-      <button class="close-modal-btn" (click)="activeModalPokemon.set(null)">×</button>
-    </div>
+   
+        <!-- Filtro Regioni -->
+        <div class="regions-filter-row">
+          <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Regione:' : 'Region:' }}</span>
+          <div class="region-pills-scroll">
+            @for (reg of pokemonRegions; track reg.value) {
+              <button 
+                class="region-filter-pill"
+                [class.active]="selectedRegion() === reg.value"
+                (click)="selectRegion(reg.value)">
+                {{ 'region.' + reg.value | translate }}
+              </button>
+            }
+          </div>
+        </div>
     
-    <div class="modal-body-scroll">
-      <div class="forms-grid">
-        <!-- Card Base -->
-        <div class="form-grid-card" [class.is-unreleased]="!isReleased(bp.name)">
-          <div class="form-art-wrapper">
-            <img [src]="getCardSpriteUrl(bp, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
-          </div>
-          <span class="form-pill-name">{{ getFormRegion(bp) }}</span>
-          <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(bp.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(bp.name) ? 0.4 : 1">
-            <!-- Regular -->
-            <button 
-              type="button" 
-              class="action-btn regular-btn" 
-              [class.active]="bp.regular"
-              (click)="toggleForm(bp, 'regular')"
-              [title]="'pokedex.btn.regular.title' | translate">
-              Reg
-            </button>
-            <!-- Shiny -->
-            <button 
-              *ngIf="!isShinyUnreleased(bp.name)"
-              type="button" 
-              class="action-btn shiny-btn" 
-              [class.active]="bp.shiny"
-              (click)="toggleForm(bp, 'shiny')"
-              [title]="'pokedex.btn.shiny.title' | translate">
-              Shy
-            </button>
-            <!-- Perfect -->
-            <button 
-              type="button" 
-              class="action-btn perfect-btn" 
-              [class.active]="bp.perfect"
-              (click)="toggleForm(bp, 'perfect')"
-              [title]="'pokedex.btn.perfect.title' | translate">
-              100
-            </button>
+        <!-- Filtro Forme Speciali -->
+        <div class="form-filters-row">
+          <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Forma Speciale:' : 'Special Form:' }}</span>
+          <div class="form-pills-scroll">
+            @for (form of specialForms; track form.value) {
+              <button 
+                class="form-filter-pill"
+                [class.active]="selectedFormFilter() === form.value"
+                [class]="'form-' + form.value"
+                (click)="selectFormFilter(form.value)">
+                {{ 'form.' + form.value | translate }}
+              </button>
+            }
           </div>
         </div>
-        
-        <!-- Card Forme Alternative -->
-        <div class="form-grid-card" *ngFor="let alt of getRegionalForms(bp)" [class.is-unreleased]="!isReleased(alt.name)">
-          <div class="form-art-wrapper">
-            <img [src]="getCardSpriteUrl(alt, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
+
+        <!-- Filtro Tipi Pokémon (Scrollabile Orizzontalmente con ombre d'affordance) -->
+        <div class="types-filter-row">
+          <div class="type-pills-scroll">
+            @for (t of pokemonTypes; track t.value) {
+              <button 
+                class="type-filter-pill"
+                [class.active]="selectedType() === t.value"
+                [class]="'type-' + t.value"
+                (click)="selectType(t.value)">
+                {{ getTypeLabel(t.value) }}
+              </button>
+            }
           </div>
-          <span class="form-pill-name">{{ getFormRegion(alt) }}</span>
-          <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(alt.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(alt.name) ? 0.4 : 1">
-            <!-- Regular -->
-            <button 
-              type="button" 
-              class="action-btn regular-btn" 
-              [class.active]="alt.regular"
-              (click)="toggleForm(alt, 'regular')"
-              [title]="'pokedex.btn.regular.title' | translate">
-              Reg
-            </button>
-            <!-- Shiny -->
-            <button 
-              *ngIf="!isShinyUnreleased(alt.name)"
-              type="button" 
-              class="action-btn shiny-btn" 
-              [class.active]="alt.shiny"
-              (click)="toggleForm(alt, 'shiny')"
-              [title]="'pokedex.btn.shiny.title' | translate">
-              Shy
-            </button>
-            <!-- Perfect -->
-            <button 
-              type="button" 
-              class="action-btn perfect-btn" 
-              [class.active]="alt.perfect"
-              (click)="toggleForm(alt, 'perfect')"
-              [title]="'pokedex.btn.perfect.title' | translate">
-              100
+        </div>
+      </div>
+    </section>
+
+    <!-- Pokedex Listing Grid -->
+    <main class="pokedex-main">
+      @if (isLoading()) {
+        <div class="loader-container">
+          <div class="spinner"></div>
+          <span>{{ i18n.currentLang() === 'it' ? 'Caricamento Pokédex...' : 'Loading Pokédex...' }}</span>
+        </div>
+      } @else if (filteredList().length === 0) {
+        <div class="no-results-panel glass-card">
+          <svg class="no-results-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          <h3>{{ i18n.currentLang() === 'it' ? 'Nessun Pokémon trovato' : 'No Pokémon found' }}</h3>
+          <p>{{ 'pokedex.no_results' | translate }}</p>
+        </div>
+      } @else {
+        <!-- Cards Grid -->
+        <div class="pokedex-grid" [class.compact-grid]="settingsService.layout() === 'compact'">
+          @for (base of visibleList(); track base.id) {
+            <div 
+              class="glass-card pokemon-card"
+              [class.caught-active]="selectedFormFilter() === 'all' ? getActiveForm(base).regular : getCardState(getActiveForm(base), selectedFormFilter()) === 4"
+              [class.shadow-active]="getActiveForm(base).shadow"
+              [class.purified-active]="getActiveForm(base).purified"
+              [class.lucky-active]="getActiveForm(base).lucky"
+              [class.perfect-active]="getActiveForm(base).perfect"
+              [class.shiny-active]="getActiveForm(base).shiny"
+              [class.species-completed]="isSpeciesCompleted(base)"
+              [class.is-unreleased]="!isReleased(getActiveForm(base).name)"
+              [class.state-unreleased]="getCardState(getActiveForm(base), selectedFormFilter()) === 1"
+              [class.state-unavailable]="getCardState(getActiveForm(base), selectedFormFilter()) === 2"
+              [class.state-missing]="getCardState(getActiveForm(base), selectedFormFilter()) === 3"
+              [class.state-caught]="getCardState(getActiveForm(base), selectedFormFilter()) === 4"
+              (click)="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') ? openBottomSheet(base) : onCardClick(getActiveForm(base))"
+              [style.cursor]="(settingsService.layout() === 'compact' && selectedFormFilter() === 'all') || (selectedFormFilter() !== 'all' && getCardState(getActiveForm(base), selectedFormFilter()) >= 3) ? 'pointer' : 'default'">
+              
+              @if (getActiveForm(base); as p) {
+                <!-- Card Sparkle Highlights (Attive per Shiny, Lucky, Purified) -->
+                @if (p.lucky || p.purified || p.shiny) {
+                  <div class="card-sparkles">
+                    <span class="sparkle s1">✦</span>
+                    <span class="sparkle s2">✦</span>
+                    <span class="sparkle s3">✦</span>
+                  </div>
+                }
+
+                <!-- Pokeball background badge for caught regular -->
+                <div class="pokeball-bg-watermark" [class.active]="selectedFormFilter() === 'all' ? p.regular : getCardState(p, selectedFormFilter()) === 4"></div>
+
+                <!-- Card Header (ID & Size Badges) -->
+                <div class="card-header">
+                  <div class="card-header-left" style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span class="pokemon-id">{{ formatId(p) }}</span>
+                    @if (isSpeciesCompleted(base)) {
+                      <span class="completion-crown" [class.premium]="isModalFormSpecies(base.name)" [title]="(isModalFormSpecies(base.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
+                        {{ isModalFormSpecies(base.name) ? '💎' : '👑' }}
+                      </span>
+                    }
+                  </div>
+                  <div class="size-badges">
+                    @if (getFormRegion(p) !== 'Base') {
+                      <span class="size-badge form-badge">{{ getFormRegion(p) }}</span>
+                    }
+                    @if (!isReleased(p.name)) {
+                      <span class="size-badge unreleased-badge">{{ 'pokedex.unreleased' | translate }}</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- Pokemon Image Section (Dynamic artwork form-switcher!) -->
+                <div class="image-container">
+                  <img 
+                    [src]="getCardSpriteUrl(p, selectedFormFilter())" 
+                    [alt]="p.name" 
+                    class="pokemon-sprite"
+                    [loading]="visibleList().indexOf(base) < 12 ? 'eager' : 'lazy'"
+                    [attr.fetchpriority]="visibleList().indexOf(base) < 6 ? 'high' : 'auto'"
+                    decoding="async">
+                </div>
+
+                <!-- Pokemon Info -->
+                <div class="pokemon-info">
+                  <h2 class="pokemon-name">{{ getPokemonCardName(p) }}</h2>
+                  <div class="types-row">
+                    <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
+                    @if (p.type2) {
+                      <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()">{{ getTypeLabel(p.type2) }}</span>
+                    }
+                  </div>
+                  
+                  <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata, ci sono varianti e non è specie a modale) -->
+                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && !isModalFormSpecies(base.name)) {
+                    <div class="regional-switcher-row">
+                      <button 
+                        type="button" 
+                        class="region-pill-btn" 
+                        [class.active]="p.id === base.id"
+                        (click)="selectFormForCard(base.id, base.id); $event.stopPropagation()">
+                        Base
+                      </button>
+                      @for (reg of getRegionalForms(base); track reg.id) {
+                        <button 
+                          type="button" 
+                          class="region-pill-btn" 
+                          [class.active]="p.id === reg.id"
+                          [class.is-unreleased]="!isReleased(reg.name)"
+                          (click)="selectFormForCard(base.id, reg.id); $event.stopPropagation()">
+                          {{ getFormRegion(reg) }}
+                        </button>
+                      }
+                    </div>
+                  }
+
+                  <!-- Modal Trigger Button per specie con molteplici forme (es: Unown, Vivillon) -->
+                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && isModalFormSpecies(base.name)) {
+                    <div class="modal-trigger-row">
+                      <button 
+                        type="button" 
+                        class="modal-trigger-btn"
+                        (click)="activeModalPokemon.set(base); $event.stopPropagation()">
+                        <span>✨ {{ getModalButtonLabel(base.name) }}</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+
+                <!-- Action Toggle Buttons -->
+                @if (settingsService.layout() === 'detailed' && selectedFormFilter() === 'all') {
+                  <div class="caught-actions-grid">
+                    <!-- Regular -->
+                    @if (showButtonForPokemon(p, 'regular')) {
+                      <button 
+                        type="button" 
+                        class="action-btn regular-btn" 
+                        [class.active]="p.regular"
+                        (click)="toggleForm(p, 'regular')"
+                        [title]="'pokedex.btn.regular.title' | translate">
+                        <span class="ball-icon"></span>
+                        {{ 'pokedex.btn.regular' | translate }}
+                      </button>
+                    }
+
+                    <!-- Shiny -->
+                    @if (showButtonForPokemon(p, 'shiny')) {
+                      <button 
+                        type="button" 
+                        class="action-btn shiny-btn" 
+                        [class.active]="p.shiny"
+                        [class.unavailable]="isShinyUnreleased(p.name)"
+                        [disabled]="isShinyUnreleased(p.name)"
+                        (click)="toggleForm(p, 'shiny')"
+                        [title]="(isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable' : 'pokedex.btn.shiny.title') | translate">
+                        <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
+                        {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
+                      </button>
+                    }
+
+                    <!-- Perfect -->
+                    @if (showButtonForPokemon(p, 'perfect')) {
+                      <button 
+                        type="button" 
+                        class="action-btn perfect-btn" 
+                        [class.active]="p.perfect"
+                        (click)="toggleForm(p, 'perfect')"
+                        [title]="'pokedex.btn.perfect.title' | translate">
+                        <span class="star-icon">★★★</span>
+                        {{ 'pokedex.btn.perfect' | translate }}
+                      </button>
+                    }
+
+                    <!-- Lucky -->
+                    @if (showButtonForPokemon(p, 'lucky')) {
+                      <button 
+                        type="button" 
+                        class="action-btn lucky-btn" 
+                        [class.active]="p.lucky"
+                        (click)="toggleForm(p, 'lucky')"
+                        [title]="'pokedex.btn.lucky.title' | translate">
+                        <span class="bubble-icon"></span>
+                        {{ 'pokedex.btn.lucky' | translate }}
+                      </button>
+                    }
+
+                    <!-- XXL -->
+                    @if (showButtonForPokemon(p, 'xxl')) {
+                      <button 
+                        type="button" 
+                        class="action-btn xxl-btn" 
+                        [class.active]="p.xxl"
+                        (click)="toggleForm(p, 'xxl')"
+                        [title]="'pokedex.btn.xxl.title' | translate">
+                        {{ 'pokedex.btn.xxl' | translate }}
+                      </button>
+                    }
+
+                    <!-- XXS -->
+                    @if (showButtonForPokemon(p, 'xxs')) {
+                      <button 
+                        type="button" 
+                        class="action-btn xxs-btn" 
+                        [class.active]="p.xxs"
+                        (click)="toggleForm(p, 'xxs')"
+                        [title]="'pokedex.btn.xxs.title' | translate">
+                        {{ 'pokedex.btn.xxs' | translate }}
+                      </button>
+                    }
+
+                    <!-- Mega X / Y or Standard Mega -->
+                    @if (hasTwoMegas(p.name)) {
+                      @if (canMega(p.name) && showButtonForPokemon(p, 'mega')) {
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'x')"
+                          (click)="toggleMega(p, 'x')"
+                          [title]="'pokedex.btn.megax.title' | translate">
+                          <span class="mega-icon">🧬</span>
+                          {{ 'pokedex.btn.megax' | translate }}
+                        </button>
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'y')"
+                          (click)="toggleMega(p, 'y')"
+                          [title]="'pokedex.btn.megay.title' | translate">
+                          <span class="mega-icon">🧬</span>
+                          {{ 'pokedex.btn.megay' | translate }}
+                        </button>
+                      }
+                    } @else {
+                      @if (canMega(p.name) && showButtonForPokemon(p, 'mega')) {
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'standard')"
+                          (click)="toggleMega(p, 'standard')"
+                          [title]="'pokedex.btn.mega.title' | translate">
+                          <span class="mega-icon">🧬</span>
+                          {{ 'pokedex.btn.mega' | translate }}
+                        </button>
+                      }
+                    }
+
+                    <!-- Gigamax -->
+                    @if (canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')) {
+                      <button 
+                        type="button" 
+                        class="action-btn gigamax-btn" 
+                        [class.active]="p.gigamax"
+                        (click)="toggleForm(p, 'gigamax')"
+                        [title]="'pokedex.btn.gigamax.title' | translate">
+                        <span class="giga-icon">🌋</span>
+                        {{ 'pokedex.btn.gigamax' | translate }}
+                      </button>
+                    }
+                    
+                    <!-- Shadow -->
+                    @if (canShadow(p.name) && showButtonForPokemon(p, 'shadow')) {
+                      <button 
+                        type="button" 
+                        class="action-btn shadow-btn" 
+                        [class.active]="p.shadow"
+                        (click)="toggleForm(p, 'shadow')"
+                        [title]="'pokedex.btn.shadow.title' | translate">
+                        <span class="shadow-icon"></span>
+                        {{ 'pokedex.btn.shadow' | translate }}
+                      </button>
+                    }
+
+                    <!-- Purified -->
+                    @if (showButtonForPokemon(p, 'purified')) {
+                      <button 
+                        type="button" 
+                        class="action-btn purified-btn" 
+                        [class.active]="p.purified"
+                        (click)="toggleForm(p, 'purified')"
+                        [title]="'pokedex.btn.purified.title' | translate">
+                        <span class="purified-icon"></span>
+                        {{ 'pokedex.btn.purified' | translate }}
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Ancora reattiva per il caricamento lazy (Infinite Scroll) -->
+      <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1.5rem 0;"></div>
+
+      <!-- Indicatore visivo di fine lista -->
+      @if (visibleList().length === filteredList().length && filteredList().length > 0) {
+        <div class="end-of-list-text">
+          ✨ {{ i18n.currentLang() === 'it' ? 'Hai visualizzato tutti i Pokémon' : 'You have viewed all Pokémon' }} ✨
+        </div>
+      }
+    </main>
+
+    <!-- Add Player Profile Modal popup (Premium glassmorphic overlay) -->
+    @if (showUserModal()) {
+      <div class="modal-overlay">
+        <div class="modal-card glass-card">
+          <div class="modal-header">
+            <h3>{{ 'pokedex.modal.title' | translate }}</h3>
+            <button class="close-modal-btn" (click)="closeNewUserModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <label for="new-player-name">{{ 'pokedex.modal.label' | translate }}</label>
+            <input 
+              id="new-player-name" 
+              type="text" 
+              [placeholder]="'pokedex.modal.placeholder' | translate" 
+              [ngModel]="newUserName()"
+              (ngModelChange)="newUserName.set($event)"
+              class="modal-input-text"
+              (keyup.enter)="createNewUser()"
+              autofocus>
+            <p class="modal-help-text">{{ 'pokedex.modal.help' | translate }}</p>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-btn cancel-btn" (click)="closeNewUserModal()">{{ 'pokedex.modal.cancel' | translate }}</button>
+            <button class="modal-btn confirm-btn" (click)="createNewUser()" [disabled]="!newUserName().trim() || isCreatingUser()">
+              @if (!isCreatingUser()) {
+                <span>{{ 'pokedex.modal.create' | translate }}</span>
+              } @else {
+                <span class="btn-spinner"></span>
+              }
             </button>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</div>
-  </ng-container>
+    }
+
+    <!-- Premium Bottom Sheet Detail Drawer for Compact View -->
+    @if (activeDetailPokemon() && activeDetailBasePokemon()) {
+      <div 
+        class="bottom-sheet-overlay" 
+        (click)="closeBottomSheet()">
+        <div 
+          class="bottom-sheet-drawer glass-card" 
+          (click)="$event.stopPropagation()">
+          
+          <!-- Drawer Handle Indicator -->
+          <div class="drawer-handle" (click)="closeBottomSheet()"></div>
+
+          <!-- Close Button -->
+          <button class="drawer-close-btn" (click)="closeBottomSheet()">×</button>
+
+          @if (activeDetailPokemon(); as p) {
+            @if (activeDetailBasePokemon(); as bp) {
+              <!-- Background decorative glows -->
+              <div class="drawer-glow" [class]="'type-' + p.type1.toLowerCase()"></div>
+
+              <!-- Header: ID, Name, Crown, Types -->
+              <div class="drawer-header">
+                <div class="drawer-header-left" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span class="drawer-pokemon-id">{{ formatId(p) }}</span>
+                  @if (isSpeciesCompleted(bp)) {
+                    <span class="drawer-completion-crown" [class.premium]="isModalFormSpecies(bp.name)" [title]="(isModalFormSpecies(bp.name) ? 'pokedex.premium_title' : 'pokedex.crown_title') | translate">
+                      {{ isModalFormSpecies(bp.name) ? '💎' : '👑' }}
+                    </span>
+                  }
+                  @if (getFormRegion(p) !== 'Base') {
+                    <span class="size-badge form-badge">{{ getFormRegion(p) }}</span>
+                  }
+                </div>
+                <h2 class="drawer-pokemon-name">{{ getPokemonCardName(p) }}</h2>
+                <div class="drawer-types-row">
+                  <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ getTypeLabel(p.type1) }}</span>
+                  @if (p.type2) {
+                    <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()">{{ getTypeLabel(p.type2) }}</span>
+                  }
+                </div>
+              </div>
+
+              <!-- Scrollable content area inside bottom sheet -->
+              <div class="drawer-content-scroll">
+                <!-- Body: Sprite Image and Region Selection -->
+                <div class="drawer-body">
+                  <div class="drawer-image-section">
+                    @if (p.lucky || p.purified || p.shiny) {
+                      <div class="card-sparkles">
+                        <span class="sparkle s1">✦</span>
+                        <span class="sparkle s2">✦</span>
+                        <span class="sparkle s3">✦</span>
+                      </div>
+                    }
+                    <img 
+                      [src]="getCardSpriteUrl(p, selectedFormFilter())" 
+                      [alt]="p.name" 
+                      class="drawer-pokemon-sprite"
+                      decoding="async">
+                  </div>
+
+                  <!-- Regional forms inside the drawer (Solo se raggruppamento attivo, nessuna regione specifica selezionata e non è specie a modale) -->
+                  @if (settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && !isModalFormSpecies(bp.name)) {
+                    <div class="drawer-regional-switcher">
+                      <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Varianti Regionali:' : 'Regional Forms:' }}</span>
+                      <div class="drawer-region-pills">
+                        <button 
+                          type="button" 
+                          class="region-pill-btn" 
+                          [class.active]="p.id === bp.id"
+                          (click)="selectFormForDetailCard(bp.id)">
+                          Base
+                        </button>
+                        @for (reg of getRegionalForms(bp); track reg.id) {
+                          <button 
+                            type="button" 
+                            class="region-pill-btn" 
+                            [class.active]="p.id === reg.id"
+                            [class.is-unreleased]="!isReleased(reg.name)"
+                            (click)="selectFormForDetailCard(reg.id)">
+                            {{ getFormRegion(reg) }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Modal Trigger Button inside compact drawer -->
+                  @if (settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(bp).length > 0 && isModalFormSpecies(bp.name)) {
+                    <div class="drawer-regional-switcher">
+                      <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Forme Speciali:' : 'Special Forms:' }}</span>
+                      <div class="drawer-region-pills">
+                        <button 
+                          type="button" 
+                          class="modal-trigger-btn width-100"
+                          (click)="activeModalPokemon.set(bp); closeBottomSheet(); $event.stopPropagation()">
+                          <span>✨ {{ getModalButtonLabel(bp.name) }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <!-- Capture Checklist Grid -->
+                <div class="drawer-checklist-section">
+                  <span class="drawer-section-label">{{ i18n.currentLang() === 'it' ? 'Registra Catture:' : 'Record Captures:' }}</span>
+                  <div class="drawer-actions-grid">
+                    <!-- Regular -->
+                    @if (showButtonForPokemon(p, 'regular')) {
+                      <button 
+                        type="button" 
+                        class="action-btn regular-btn" 
+                        [class.active]="p.regular"
+                        (click)="toggleForm(p, 'regular')">
+                        <span class="ball-icon"></span>
+                        {{ 'pokedex.btn.regular' | translate }}
+                      </button>
+                    }
+
+                    <!-- Shiny -->
+                    @if (showButtonForPokemon(p, 'shiny')) {
+                      <button 
+                        type="button" 
+                        class="action-btn shiny-btn" 
+                        [class.active]="p.shiny"
+                        [class.unavailable]="isShinyUnreleased(p.name)"
+                        [disabled]="isShinyUnreleased(p.name)"
+                        (click)="toggleForm(p, 'shiny')">
+                        <span class="shiny-icon">{{ isShinyUnreleased(p.name) ? '🔒' : '✨' }}</span>
+                        {{ (isShinyUnreleased(p.name) ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
+                      </button>
+                    }
+
+                    <!-- Perfect -->
+                    @if (showButtonForPokemon(p, 'perfect')) {
+                      <button 
+                        type="button" 
+                        class="action-btn perfect-btn" 
+                        [class.active]="p.perfect"
+                        (click)="toggleForm(p, 'perfect')">
+                        <span class="star-icon">★★★</span>
+                        {{ 'pokedex.btn.perfect' | translate }}
+                      </button>
+                    }
+
+                    <!-- Lucky -->
+                    @if (showButtonForPokemon(p, 'lucky')) {
+                      <button 
+                        type="button" 
+                        class="action-btn lucky-btn" 
+                        [class.active]="p.lucky"
+                        (click)="toggleForm(p, 'lucky')">
+                        <span class="bubble-icon"></span>
+                        {{ 'pokedex.btn.lucky' | translate }}
+                      </button>
+                    }
+
+                    <!-- XXL -->
+                    @if (showButtonForPokemon(p, 'xxl')) {
+                      <button 
+                        type="button" 
+                        class="action-btn xxl-btn" 
+                        [class.active]="p.xxl"
+                        (click)="toggleForm(p, 'xxl')">
+                        {{ 'pokedex.btn.xxl' | translate }}
+                      </button>
+                    }
+
+                    <!-- XXS -->
+                    @if (showButtonForPokemon(p, 'xxs')) {
+                      <button 
+                        type="button" 
+                        class="action-btn xxs-btn" 
+                        [class.active]="p.xxs"
+                        (click)="toggleForm(p, 'xxs')">
+                        {{ 'pokedex.btn.xxs' | translate }}
+                      </button>
+                    }
+
+                    <!-- Mega X / Y or Standard Mega -->
+                    @if (hasTwoMegas(p.name)) {
+                      @if (canMega(p.name) && showButtonForPokemon(p, 'mega')) {
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'x')"
+                          (click)="toggleMega(p, 'x')">
+                          <span class="mega-icon">🧬</span>
+                          Mega X
+                        </button>
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'y')"
+                          (click)="toggleMega(p, 'y')">
+                          <span class="mega-icon">🧬</span>
+                          Mega Y
+                        </button>
+                      }
+                    } @else {
+                      @if (canMega(p.name) && showButtonForPokemon(p, 'mega')) {
+                        <button 
+                          type="button" 
+                          class="action-btn mega-btn" 
+                          [class.active]="isMegaActive(p, 'standard')"
+                          (click)="toggleMega(p, 'standard')">
+                          <span class="mega-icon">🧬</span>
+                          Mega
+                        </button>
+                      }
+                    }
+
+                    <!-- Gigamax -->
+                    @if (canGigamax(p.name) && showButtonForPokemon(p, 'gigamax')) {
+                      <button 
+                        type="button" 
+                        class="action-btn gigamax-btn" 
+                        [class.active]="p.gigamax"
+                        (click)="toggleForm(p, 'gigamax')">
+                        <span class="giga-icon">🌋</span>
+                        {{ 'pokedex.btn.gigamax' | translate }}
+                      </button>
+                    }
+                    
+                    <!-- Shadow -->
+                    @if (canShadow(p.name) && showButtonForPokemon(p, 'shadow')) {
+                      <button 
+                        type="button" 
+                        class="action-btn shadow-btn" 
+                        [class.active]="p.shadow"
+                        (click)="toggleForm(p, 'shadow')">
+                        <span class="shadow-icon"></span>
+                        {{ 'pokedex.btn.shadow' | translate }}
+                      </button>
+                    }
+
+                    <!-- Purified -->
+                    @if (showButtonForPokemon(p, 'purified')) {
+                      <button 
+                        type="button" 
+                        class="action-btn purified-btn" 
+                        [class.active]="p.purified"
+                        (click)="toggleForm(p, 'purified')">
+                        <span class="purified-icon"></span>
+                        {{ 'pokedex.btn.purified' | translate }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div> <!-- Close drawer-content-scroll -->
+            }
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Glassmorphic Grid Modal per Pokémon con molteplici forme (Unown, Vivillon, Spinda, Furfrou) -->
+    @if (activeModalPokemon(); as bp) {
+      <div class="glass-modal-backdrop" (click)="activeModalPokemon.set(null)">
+        <div class="glass-modal-container" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <div class="header-title-group">
+              <span class="modal-dex-id">{{ formatId(bp) }}</span>
+              <h3>{{ bp.name }} - {{ i18n.currentLang() === 'it' ? 'Elenco Forme' : 'Forms List' }}</h3>
+            </div>
+            <button class="close-modal-btn" (click)="activeModalPokemon.set(null)">×</button>
+          </div>
+          
+          <div class="modal-body-scroll">
+            <div class="forms-grid">
+              <!-- Card Base -->
+              <div class="form-grid-card" [class.is-unreleased]="!isReleased(bp.name)">
+                <div class="form-art-wrapper">
+                  <img [src]="getCardSpriteUrl(bp, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
+                </div>
+                <span class="form-pill-name">{{ getFormRegion(bp) }}</span>
+                <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(bp.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(bp.name) ? 0.4 : 1">
+                  <!-- Regular -->
+                  <button 
+                    type="button" 
+                    class="action-btn regular-btn" 
+                    [class.active]="bp.regular"
+                    (click)="toggleForm(bp, 'regular')"
+                    [title]="'pokedex.btn.regular.title' | translate">
+                    Reg
+                  </button>
+                  <!-- Shiny -->
+                  @if (!isShinyUnreleased(bp.name)) {
+                    <button 
+                      type="button" 
+                      class="action-btn shiny-btn" 
+                      [class.active]="bp.shiny"
+                      (click)="toggleForm(bp, 'shiny')"
+                      [title]="'pokedex.btn.shiny.title' | translate">
+                      Shy
+                    </button>
+                  }
+                  <!-- Perfect -->
+                  <button 
+                    type="button" 
+                    class="action-btn perfect-btn" 
+                    [class.active]="bp.perfect"
+                    (click)="toggleForm(bp, 'perfect')"
+                    [title]="'pokedex.btn.perfect.title' | translate">
+                    100
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Card Forme Alternative -->
+              @for (alt of getRegionalForms(bp); track alt.id) {
+                <div class="form-grid-card" [class.is-unreleased]="!isReleased(alt.name)">
+                  <div class="form-art-wrapper">
+                    <img [src]="getCardSpriteUrl(alt, selectedFormFilter())" class="form-sprite" alt="" loading="lazy" decoding="async">
+                  </div>
+                  <span class="form-pill-name">{{ getFormRegion(alt) }}</span>
+                  <div class="caught-actions-grid mini" [style.pointer-events]="!isReleased(alt.name) ? 'none' : 'auto'" [style.opacity]="!isReleased(alt.name) ? 0.4 : 1">
+                    <!-- Regular -->
+                    <button 
+                      type="button" 
+                      class="action-btn regular-btn" 
+                      [class.active]="alt.regular"
+                      (click)="toggleForm(alt, 'regular')"
+                      [title]="'pokedex.btn.regular.title' | translate">
+                      Reg
+                    </button>
+                    <!-- Shiny -->
+                    @if (!isShinyUnreleased(alt.name)) {
+                      <button 
+                        type="button" 
+                        class="action-btn shiny-btn" 
+                        [class.active]="alt.shiny"
+                        (click)="toggleForm(alt, 'shiny')"
+                        [title]="'pokedex.btn.shiny.title' | translate">
+                        Shy
+                      </button>
+                    }
+                    <!-- Perfect -->
+                    <button 
+                      type="button" 
+                      class="action-btn perfect-btn" 
+                      [class.active]="alt.perfect"
+                      (click)="toggleForm(alt, 'perfect')"
+                      [title]="'pokedex.btn.perfect.title' | translate">
+                      100
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  }
 </div>

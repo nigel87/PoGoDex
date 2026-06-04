@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, effect, viewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -12,7 +12,7 @@ import { TranslatePipe } from '../../services/translate.pipe';
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe],
+  imports: [FormsModule, RouterModule, TranslatePipe],
   templateUrl: './admin.html',
   styleUrl: './admin.css'
 })
@@ -39,8 +39,8 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
   usersList = signal<any[]>([]);
   isLoadingUsers = signal<boolean>(false);
 
-  @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
-  @ViewChild('searchInput') searchInput!: ElementRef;
+  scrollAnchor = viewChild<ElementRef>('scrollAnchor');
+  searchInput = viewChild<ElementRef>('searchInput');
   limit = signal<number>(50);
   private observer: IntersectionObserver | null = null;
 
@@ -56,7 +56,7 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (event.key === '/') {
       event.preventDefault();
-      this.searchInput?.nativeElement?.focus();
+      this.searchInput()?.nativeElement?.focus();
     }
   }
 
@@ -504,8 +504,9 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
       threshold: 0.1
     });
 
-    if (this.scrollAnchor) {
-      this.observer.observe(this.scrollAnchor.nativeElement);
+    const anchor = this.scrollAnchor();
+    if (anchor) {
+      this.observer.observe(anchor.nativeElement);
     }
   }
 }

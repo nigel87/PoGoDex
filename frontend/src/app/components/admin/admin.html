@@ -1,15 +1,17 @@
 <div class="admin-container">
   <!-- Schermata di Accesso Negato (Sicurezza Remota attiva) -->
-  <div *ngIf="!isAuthorized()" class="security-barrier glass-card">
-    <div class="security-icon">🛡️</div>
-    <h2>{{ 'admin.barrier.title' | translate }}</h2>
-    <p>{{ 'admin.barrier.desc' | translate }}</p>
-    <p class="help-text">{{ 'admin.barrier.help' | translate }}</p>
-    <button [routerLink]="['/']" class="admin-btn back-btn">{{ 'admin.barrier.btn' | translate }}</button>
-  </div>
+  @if (!isAuthorized()) {
+    <div class="security-barrier glass-card">
+      <div class="security-icon">🛡️</div>
+      <h2>{{ 'admin.barrier.title' | translate }}</h2>
+      <p>{{ 'admin.barrier.desc' | translate }}</p>
+      <p class="help-text">{{ 'admin.barrier.help' | translate }}</p>
+      <button [routerLink]="['/']" class="admin-btn back-btn">{{ 'admin.barrier.btn' | translate }}</button>
+    </div>
+  }
 
   <!-- Contenuto della console locale o autorizzata -->
-  <ng-container *ngIf="isAuthorized()">
+  @if (isAuthorized()) {
     <!-- Header fisso -->
     <header class="admin-header glass-card">
       <div class="header-left">
@@ -27,8 +29,11 @@
           <span>⚔️ Raid</span>
         </button>
         <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
-          <span *ngIf="!isSaving()">{{ 'admin.btn.save' | translate }}</span>
-          <span *ngIf="isSaving()" class="btn-spinner"></span>
+          @if (!isSaving()) {
+            <span>{{ 'admin.btn.save' | translate }}</span>
+          } @else {
+            <span class="btn-spinner"></span>
+          }
         </button>
       </div>
     </header>
@@ -36,263 +41,290 @@
     <!-- I banner statici sono stati sostituiti con le notifiche Toast in tempo reale -->
 
     <!-- Barra di caricamento -->
-    <div *ngIf="isLoading()" class="loader-container glass-card">
-      <div class="spinner"></div>
-      <span>{{ i18n.currentLang() === 'it' ? 'Caricamento del catalogo e lettura delle configurazioni...' : 'Loading catalog and configuration settings...' }}</span>
-    </div>
+    @if (isLoading()) {
+      <div class="loader-container glass-card">
+        <div class="spinner"></div>
+        <span>{{ i18n.currentLang() === 'it' ? 'Caricamento del catalogo e lettura delle configurazioni...' : 'Loading catalog and configuration settings...' }}</span>
+      </div>
+    }
 
     <!-- Pannello principale dei controlli -->
-    <main *ngIf="!isLoading()" class="admin-main glass-card">
-      <!-- Navigation Tabs -->
-      <div class="admin-tabs">
-        <button 
-          (click)="activeTab.set('pokemon')" 
-          [class.active]="activeTab() === 'pokemon'" 
-          class="tab-btn">
-          ✨ {{ i18n.currentLang() === 'it' ? 'Abilità Pokémon' : 'Pokémon Capabilities' }}
-        </button>
-        <button 
-          (click)="activeTab.set('users')" 
-          [class.active]="activeTab() === 'users'" 
-          class="tab-btn">
-          👥 {{ i18n.currentLang() === 'it' ? 'Gestione Utenti' : 'User Management' }}
-        </button>
-      </div>
-
-      <!-- Tabella delle configurazioni (Pokémon) -->
-      <ng-container *ngIf="activeTab() === 'pokemon'">
-        <!-- Filtro di ricerca -->
-        <div class="search-row">
-          <div class="search-input-wrapper">
-            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input 
-              #searchInput
-              type="text" 
-              [placeholder]="'admin.search' | translate" 
-              [ngModel]="searchQuery()" 
-              (ngModelChange)="searchQuery.set($event)"
-              class="search-bar-input">
-          </div>
-          <div class="results-badge">
-            {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
-          </div>
-        </div>
-
-        <!-- Filtri Rapidi -->
-        <div class="quick-filters-row">
-          <button (click)="activeFilter.set('all')" [class.active]="activeFilter() === 'all'" class="filter-chip">
-            📁 {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
+    @if (!isLoading()) {
+      <main class="admin-main glass-card">
+        <!-- Navigation Tabs -->
+        <div class="admin-tabs">
+          <button 
+            (click)="activeTab.set('pokemon')" 
+            [class.active]="activeTab() === 'pokemon'" 
+            class="tab-btn">
+            ✨ {{ i18n.currentLang() === 'it' ? 'Abilità Pokémon' : 'Pokémon Capabilities' }}
           </button>
-          <button (click)="activeFilter.set('unreleased')" [class.active]="activeFilter() === 'unreleased'" class="filter-chip">
-            🔒 {{ i18n.currentLang() === 'it' ? 'Non Rilasciati' : 'Unreleased' }}
-          </button>
-          <button (click)="activeFilter.set('shiny-unreleased')" [class.active]="activeFilter() === 'shiny-unreleased'" class="filter-chip">
-            ✨ {{ i18n.currentLang() === 'it' ? 'Shiny Non Ril.' : 'Shiny Unreleased' }}
-          </button>
-          <button (click)="activeFilter.set('shadow')" [class.active]="activeFilter() === 'shadow'" class="filter-chip shadow-chip-btn">
-            😈 {{ i18n.currentLang() === 'it' ? 'Ombra' : 'Shadow' }}
-          </button>
-          <button (click)="activeFilter.set('mega')" [class.active]="activeFilter() === 'mega'" class="filter-chip mega-chip-btn">
-            💗 {{ i18n.currentLang() === 'it' ? 'Mega' : 'Mega' }}
-          </button>
-          <button (click)="activeFilter.set('gigamax')" [class.active]="activeFilter() === 'gigamax'" class="filter-chip gigamax-chip-btn">
-            🛑 {{ i18n.currentLang() === 'it' ? 'Gigamax' : 'Gigamax' }}
+          <button 
+            (click)="activeTab.set('users')" 
+            [class.active]="activeTab() === 'users'" 
+            class="tab-btn">
+            👥 {{ i18n.currentLang() === 'it' ? 'Gestione Utenti' : 'User Management' }}
           </button>
         </div>
 
-        <!-- Tabella delle configurazioni -->
-        <div class="table-scroll-wrapper">
-          <table class="config-table">
-            <thead>
-              <tr>
-                <th class="col-id">{{ 'admin.col.id' | translate }}</th>
-                <th class="col-sprite">{{ 'admin.col.sprite' | translate }}</th>
-                <th class="col-name">{{ 'admin.col.name' | translate }}</th>
-                <th class="col-types">{{ 'admin.col.types' | translate }}</th>
-                <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
-                <th class="col-check text-center shiny-header">{{ 'admin.col.shiny' | translate }}</th>
-                <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
-                <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
-                <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let p of visibleList()" class="config-row" 
-                  [class.has-shadow]="isShadow(p.name)"
-                  [class.has-mega]="isMega(p.name)"
-                  [class.has-gigamax]="isGigamax(p.name)"
-                  [class.is-unreleased]="!isReleased(p.name)">
-                <td class="col-id font-mono">{{ formatId(p) }}</td>
-                <td class="col-sprite">
-                  <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
-                </td>
-                <td class="col-name font-bold">{{ getPokemonAdminName(p) }}</td>
-                <td class="col-types">
-                  <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
-                  <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()" *ngIf="p.type2">{{ p.type2 }}</span>
-                </td>
-                <!-- Release check -->
-                <td class="col-check text-center">
-                  <label class="custom-checkbox release-checkbox">
-                    <input 
-                      type="checkbox" 
-                      [checked]="isReleased(p.name)" 
-                      (change)="toggleCapability(p.name, 'release')">
-                    <span class="checkmark"></span>
-                  </label>
-                </td>
-                <!-- Shiny check -->
-                <td class="col-check text-center">
-                  <label class="custom-checkbox shiny-checkbox">
-                    <input 
-                      type="checkbox" 
-                      [checked]="isShinyReleased(p.name)" 
-                      (change)="toggleCapability(p.name, 'shiny')">
-                    <span class="checkmark"></span>
-                  </label>
-                </td>
-                <!-- Shadow check -->
-                <td class="col-check text-center">
-                  <label class="custom-checkbox shadow-checkbox">
-                    <input 
-                      type="checkbox" 
-                      [checked]="isShadow(p.name)" 
-                      (change)="toggleCapability(p.name, 'shadow')">
-                    <span class="checkmark"></span>
-                  </label>
-                </td>
-                <!-- Mega check -->
-                <td class="col-check text-center">
-                  <label class="custom-checkbox mega-checkbox">
-                    <input 
-                      type="checkbox" 
-                      [checked]="isMega(p.name)" 
-                      (change)="toggleCapability(p.name, 'mega')">
-                    <span class="checkmark"></span>
-                  </label>
-                </td>
-                <!-- Gigamax check -->
-                <td class="col-check text-center">
-                  <label class="custom-checkbox gigamax-checkbox">
-                    <input 
-                      type="checkbox" 
-                      [checked]="isGigamax(p.name)" 
-                      (change)="toggleCapability(p.name, 'gigamax')">
-                    <span class="checkmark"></span>
-                  </label>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1rem 0;"></div>
-      </ng-container>
-
-      <!-- Dashboard Gestione Utenti -->
-      <ng-container *ngIf="activeTab() === 'users'">
-        <div *ngIf="isLoadingUsers()" class="users-loader">
-          <div class="spinner"></div>
-          <span>{{ i18n.currentLang() === 'it' ? 'Caricamento elenco utenti...' : 'Loading users list...' }}</span>
-        </div>
-
-        <div *ngIf="!isLoadingUsers()" class="users-content">
-          <div class="users-summary-bar">
-            <span>👥 {{ i18n.currentLang() === 'it' ? 'Utenti totali nel database:' : 'Total users in database:' }} <strong>{{ usersList().length }}</strong></span>
-          </div>
-
-          <div class="users-grid">
-            <div *ngFor="let u of usersList()" class="user-card glass-card" [class.is-admin]="u.isAdmin === 1">
-              <div class="user-card-header">
-                <div class="avatar-wrapper">
-                  <img [src]="u.avatarUrl || ''" alt="Avatar" class="user-avatar" (error)="setDefaultAvatar($event)">
-                  <span class="admin-badge" *ngIf="u.isAdmin === 1">ADMIN</span>
-                </div>
-                <div class="user-info">
-                  <h3 class="user-name">{{ u.name }}</h3>
-                  <p class="user-email">{{ u.email || (i18n.currentLang() === 'it' ? 'Nessun indirizzo email' : 'No email address') }}</p>
-                </div>
-              </div>
-
-              <div class="user-details">
-                <div class="detail-item">
-                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Tipo Accesso:' : 'Auth Type:' }}</span>
-                  <span class="detail-value text-glow" [class.google-glow]="u.googleSubId">
-                    {{ u.googleSubId ? 'Google OAuth' : (i18n.currentLang() === 'it' ? 'Account Locale' : 'Local Account') }}
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Stato Profilo:' : 'Profile Status:' }}</span>
-                  <span class="detail-value status-glow" [class.protected-glow]="u.isProtected === 1">
-                    {{ u.isProtected === 1 ? (i18n.currentLang() === 'it' ? 'Protetto (Password)' : 'Protected (Password)') : (i18n.currentLang() === 'it' ? 'Pubblico' : 'Public') }}
-                  </span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Visibilità:' : 'Visibility:' }}</span>
-                  <span class="detail-value mode-glow">{{ u.privacyMode }}</span>
-                </div>
-              </div>
-
-              <div class="user-actions">
-                <button 
-                  (click)="toggleAdminRole(u)" 
-                  class="admin-btn role-toggle-btn"
-                  [class.demote-btn]="u.isAdmin === 1"
-                  [class.promote-btn]="u.isAdmin !== 1"
-                  [disabled]="isOwnUser(u)">
-                  <span *ngIf="u.isAdmin === 1">🛡️ {{ i18n.currentLang() === 'it' ? 'Revoca Admin' : 'Revoke Admin' }}</span>
-                  <span *ngIf="u.isAdmin !== 1">👑 {{ i18n.currentLang() === 'it' ? 'Promuovi Admin' : 'Promote Admin' }}</span>
-                </button>
-              </div>
+        <!-- Tabella delle configurazioni (Pokémon) -->
+        @if (activeTab() === 'pokemon') {
+          <!-- Filtro di ricerca -->
+          <div class="search-row">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input 
+                #searchInput
+                type="text" 
+                [placeholder]="'admin.search' | translate" 
+                [ngModel]="searchQuery()" 
+                (ngModelChange)="searchQuery.set($event)"
+                class="search-bar-input">
+            </div>
+            <div class="results-badge">
+              {{ 'admin.shown' | translate }} <strong>{{ filteredList().length }}</strong> / {{ pokemonList().length }} {{ 'admin.pokemon' | translate }}
             </div>
           </div>
-        </div>
-      </ng-container>
-    </main>
-  </ng-container>
+
+          <!-- Filtri Rapidi -->
+          <div class="quick-filters-row">
+            <button (click)="activeFilter.set('all')" [class.active]="activeFilter() === 'all'" class="filter-chip">
+              📁 {{ i18n.currentLang() === 'it' ? 'Tutti' : 'All' }}
+            </button>
+            <button (click)="activeFilter.set('unreleased')" [class.active]="activeFilter() === 'unreleased'" class="filter-chip">
+              🔒 {{ i18n.currentLang() === 'it' ? 'Non Rilasciati' : 'Unreleased' }}
+            </button>
+            <button (click)="activeFilter.set('shiny-unreleased')" [class.active]="activeFilter() === 'shiny-unreleased'" class="filter-chip">
+              ✨ {{ i18n.currentLang() === 'it' ? 'Shiny Non Ril.' : 'Shiny Unreleased' }}
+            </button>
+            <button (click)="activeFilter.set('shadow')" [class.active]="activeFilter() === 'shadow'" class="filter-chip shadow-chip-btn">
+              😈 {{ i18n.currentLang() === 'it' ? 'Ombra' : 'Shadow' }}
+            </button>
+            <button (click)="activeFilter.set('mega')" [class.active]="activeFilter() === 'mega'" class="filter-chip mega-chip-btn">
+              💗 {{ i18n.currentLang() === 'it' ? 'Mega' : 'Mega' }}
+            </button>
+            <button (click)="activeFilter.set('gigamax')" [class.active]="activeFilter() === 'gigamax'" class="filter-chip gigamax-chip-btn">
+              🛑 {{ i18n.currentLang() === 'it' ? 'Gigamax' : 'Gigamax' }}
+            </button>
+          </div>
+
+          <!-- Tabella delle configurazioni -->
+          <div class="table-scroll-wrapper">
+            <table class="config-table">
+              <thead>
+                <tr>
+                  <th class="col-id">{{ 'admin.col.id' | translate }}</th>
+                  <th class="col-sprite">{{ 'admin.col.sprite' | translate }}</th>
+                  <th class="col-name">{{ 'admin.col.name' | translate }}</th>
+                  <th class="col-types">{{ 'admin.col.types' | translate }}</th>
+                  <th class="col-check text-center release-header">{{ 'admin.col.released' | translate }}</th>
+                  <th class="col-check text-center shiny-header">{{ 'admin.col.shiny' | translate }}</th>
+                  <th class="col-check text-center shadow-header">{{ 'admin.col.shadow' | translate }}</th>
+                  <th class="col-check text-center mega-header">{{ 'admin.col.mega' | translate }}</th>
+                  <th class="col-check text-center gigamax-header">{{ 'admin.col.gigamax' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of visibleList(); track p.id) {
+                  <tr class="config-row" 
+                      [class.has-shadow]="isShadow(p.name)"
+                      [class.has-mega]="isMega(p.name)"
+                      [class.has-gigamax]="isGigamax(p.name)"
+                      [class.is-unreleased]="!isReleased(p.name)">
+                    <td class="col-id font-mono">{{ formatId(p) }}</td>
+                    <td class="col-sprite">
+                      <img [src]="p.spriteUrl" [alt]="p.name" class="table-sprite" loading="lazy">
+                    </td>
+                    <td class="col-name font-bold">{{ getPokemonAdminName(p) }}</td>
+                    <td class="col-types">
+                      <span class="type-badge" [class]="'type-' + p.type1.toLowerCase()">{{ p.type1 }}</span>
+                      @if (p.type2) {
+                        <span class="type-badge" [class]="'type-' + p.type2.toLowerCase()">{{ p.type2 }}</span>
+                      }
+                    </td>
+                    <!-- Release check -->
+                    <td class="col-check text-center">
+                      <label class="custom-checkbox release-checkbox">
+                        <input 
+                          type="checkbox" 
+                          [checked]="isReleased(p.name)" 
+                          (change)="toggleCapability(p.name, 'release')">
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                    <!-- Shiny check -->
+                    <td class="col-check text-center">
+                      <label class="custom-checkbox shiny-checkbox">
+                        <input 
+                          type="checkbox" 
+                          [checked]="isShinyReleased(p.name)" 
+                          (change)="toggleCapability(p.name, 'shiny')">
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                    <!-- Shadow check -->
+                    <td class="col-check text-center">
+                      <label class="custom-checkbox shadow-checkbox">
+                        <input 
+                          type="checkbox" 
+                          [checked]="isShadow(p.name)" 
+                          (change)="toggleCapability(p.name, 'shadow')">
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                    <!-- Mega check -->
+                    <td class="col-check text-center">
+                      <label class="custom-checkbox mega-checkbox">
+                        <input 
+                          type="checkbox" 
+                          [checked]="isMega(p.name)" 
+                          (change)="toggleCapability(p.name, 'mega')">
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                    <!-- Gigamax check -->
+                    <td class="col-check text-center">
+                      <label class="custom-checkbox gigamax-checkbox">
+                        <input 
+                          type="checkbox" 
+                          [checked]="isGigamax(p.name)" 
+                          (change)="toggleCapability(p.name, 'gigamax')">
+                        <span class="checkmark"></span>
+                      </label>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div #scrollAnchor class="infinite-scroll-anchor" style="height: 20px; margin: 1rem 0;"></div>
+        }
+
+        <!-- Dashboard Gestione Utenti -->
+        @if (activeTab() === 'users') {
+          @if (isLoadingUsers()) {
+            <div class="users-loader">
+              <div class="spinner"></div>
+              <span>{{ i18n.currentLang() === 'it' ? 'Caricamento elenco utenti...' : 'Loading users list...' }}</span>
+            </div>
+          }
+
+          @if (!isLoadingUsers()) {
+            <div class="users-content">
+              <div class="users-summary-bar">
+                <span>👥 {{ i18n.currentLang() === 'it' ? 'Utenti totali nel database:' : 'Total users in database:' }} <strong>{{ usersList().length }}</strong></span>
+              </div>
+
+              <div class="users-grid">
+                @for (u of usersList(); track u.id) {
+                  <div class="user-card glass-card" [class.is-admin]="u.isAdmin === 1">
+                    <div class="user-card-header">
+                      <div class="avatar-wrapper">
+                        <img [src]="u.avatarUrl || ''" alt="Avatar" class="user-avatar" (error)="setDefaultAvatar($event)">
+                        @if (u.isAdmin === 1) {
+                          <span class="admin-badge">ADMIN</span>
+                        }
+                      </div>
+                      <div class="user-info">
+                        <h3 class="user-name">{{ u.name }}</h3>
+                        <p class="user-email">{{ u.email || (i18n.currentLang() === 'it' ? 'Nessun indirizzo email' : 'No email address') }}</p>
+                      </div>
+                    </div>
+
+                    <div class="user-details">
+                      <div class="detail-item">
+                        <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Tipo Accesso:' : 'Auth Type:' }}</span>
+                        <span class="detail-value text-glow" [class.google-glow]="u.googleSubId">
+                          {{ u.googleSubId ? 'Google OAuth' : (i18n.currentLang() === 'it' ? 'Account Locale' : 'Local Account') }}
+                        </span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Stato Profilo:' : 'Profile Status:' }}</span>
+                        <span class="detail-value status-glow" [class.protected-glow]="u.isProtected === 1">
+                          {{ u.isProtected === 1 ? (i18n.currentLang() === 'it' ? 'Protetto (Password)' : 'Protected (Password)') : (i18n.currentLang() === 'it' ? 'Pubblico' : 'Public') }}
+                        </span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">{{ i18n.currentLang() === 'it' ? 'Visibilità:' : 'Visibility:' }}</span>
+                        <span class="detail-value mode-glow">{{ u.privacyMode }}</span>
+                      </div>
+                    </div>
+
+                    <div class="user-actions">
+                      <button 
+                        (click)="toggleAdminRole(u)" 
+                        class="admin-btn role-toggle-btn"
+                        [class.demote-btn]="u.isAdmin === 1"
+                        [class.promote-btn]="u.isAdmin !== 1"
+                        [disabled]="isOwnUser(u)">
+                        @if (u.isAdmin === 1) {
+                          <span>🛡️ {{ i18n.currentLang() === 'it' ? 'Revoca Admin' : 'Revoke Admin' }}</span>
+                        } @else {
+                          <span>👑 {{ i18n.currentLang() === 'it' ? 'Promuovi Admin' : 'Promote Admin' }}</span>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        }
+      </main>
+    }
+  }
 
   <!-- Toast Container per notifiche animate -->
   <div class="toast-container">
-    <div *ngFor="let t of toasts()" class="toast-card" [class]="t.type">
-      <span class="toast-icon">
-        <span *ngIf="t.type === 'success'">✓</span>
-        <span *ngIf="t.type === 'error'">✗</span>
-        <span *ngIf="t.type === 'info'">ℹ️</span>
-      </span>
-      <span class="toast-message">{{ t.message }}</span>
-      <button class="toast-close" (click)="removeToast(t.id)">×</button>
-    </div>
+    @for (t of toasts(); track t.id) {
+      <div class="toast-card" [class]="t.type">
+        <span class="toast-icon">
+          @if (t.type === 'success') { <span>✓</span> }
+          @if (t.type === 'error') { <span>✗</span> }
+          @if (t.type === 'info') { <span>ℹ️</span> }
+        </span>
+        <span class="toast-message">{{ t.message }}</span>
+        <button class="toast-close" (click)="removeToast(t.id)">×</button>
+      </div>
+    }
   </div>
 
   <!-- Live Terminal Sync Console Overlay -->
-  <div class="terminal-overlay" *ngIf="showSyncConsole()">
-    <div class="terminal-modal glass-card">
-      <div class="terminal-header">
-        <div class="terminal-title">
-          <span class="terminal-dot red"></span>
-          <span class="terminal-dot yellow"></span>
-          <span class="terminal-dot green"></span>
-          <h3>{{ syncConsoleTitle() }}</h3>
+  @if (showSyncConsole()) {
+    <div class="terminal-overlay">
+      <div class="terminal-modal glass-card">
+        <div class="terminal-header">
+          <div class="terminal-title">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+            <h3>{{ syncConsoleTitle() }}</h3>
+          </div>
+          <button class="terminal-close" (click)="showSyncConsole.set(false)" [disabled]="syncConsoleStatus() === 'running'">×</button>
         </div>
-        <button class="terminal-close" (click)="showSyncConsole.set(false)" [disabled]="syncConsoleStatus() === 'running'">×</button>
-      </div>
-      <div class="terminal-body">
-        <div *ngFor="let log of syncConsoleLogs()" class="terminal-line" [class.error]="log.startsWith('[ERROR]')" [class.success]="log.startsWith('[SUCCESS]')">
-          <span class="prompt">></span> {{ log }}
+        <div class="terminal-body">
+          @for (log of syncConsoleLogs(); track $index) {
+            <div class="terminal-line" [class.error]="log.startsWith('[ERROR]')" [class.success]="log.startsWith('[SUCCESS]')">
+              <span class="prompt">></span> {{ log }}
+            </div>
+          }
+          @if (syncConsoleStatus() === 'running') {
+            <div class="terminal-spinner">
+              <span class="spinner-dot"></span>
+              <span class="spinner-dot"></span>
+              <span class="spinner-dot"></span>
+            </div>
+          }
         </div>
-        <div class="terminal-spinner" *ngIf="syncConsoleStatus() === 'running'">
-          <span class="spinner-dot"></span>
-          <span class="spinner-dot"></span>
-          <span class="spinner-dot"></span>
+        <div class="terminal-footer">
+          <button 
+            class="admin-btn confirm-btn" 
+            (click)="showSyncConsole.set(false)" 
+            [disabled]="syncConsoleStatus() === 'running'">
+            {{ syncConsoleStatus() === 'running' ? (i18n.currentLang() === 'it' ? 'Esecuzione...' : 'Running...') : (i18n.currentLang() === 'it' ? 'Chiudi Console' : 'Close Console') }}
+          </button>
         </div>
-      </div>
-      <div class="terminal-footer">
-        <button 
-          class="admin-btn confirm-btn" 
-          (click)="showSyncConsole.set(false)" 
-          [disabled]="syncConsoleStatus() === 'running'">
-          {{ syncConsoleStatus() === 'running' ? (i18n.currentLang() === 'it' ? 'Esecuzione...' : 'Running...') : (i18n.currentLang() === 'it' ? 'Chiudi Console' : 'Close Console') }}
-        </button>
       </div>
     </div>
-  </div>
+  }
 </div>

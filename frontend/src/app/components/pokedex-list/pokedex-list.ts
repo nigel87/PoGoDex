@@ -1,5 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, ViewChild, ElementRef, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, viewChild, ElementRef, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -106,7 +105,7 @@ const GIGAMAX_ID_MAP: { [key: number]: number } = {
 @Component({
   selector: 'app-pokedex-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslatePipe, HeaderComponent],
+  imports: [FormsModule, RouterModule, TranslatePipe, HeaderComponent],
   templateUrl: './pokedex-list.html',
   styleUrl: './pokedex-list.css'
 })
@@ -144,8 +143,8 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     return this.pokemonList().find(p => p.id === id) || null;
   });
 
-  @ViewChild('scrollAnchor') scrollAnchor!: ElementRef;
-  @ViewChild('searchInput') searchInput!: ElementRef;
+  scrollAnchor = viewChild<ElementRef>('scrollAnchor');
+  searchInput = viewChild<ElementRef>('searchInput');
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
@@ -155,7 +154,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     }
     if (event.key === '/') {
       event.preventDefault();
-      this.searchInput?.nativeElement?.focus();
+      this.searchInput()?.nativeElement?.focus();
     }
   }
   limit = signal<number>(50);
@@ -1115,8 +1114,9 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       threshold: 0.1
     });
 
-    if (this.scrollAnchor) {
-      this.observer.observe(this.scrollAnchor.nativeElement);
+    const anchor = this.scrollAnchor()?.nativeElement;
+    if (anchor) {
+      this.observer.observe(anchor);
     }
   }
 
