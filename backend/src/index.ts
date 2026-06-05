@@ -1401,6 +1401,124 @@ async function startServer() {
       }
     }
 
+    async function performQuestAutoSync(): Promise<void> {
+      console.log('[Auto-Sync-Quests] Avvio sincronizzazione Ricerche automatica. Contatto leekduck.com...');
+      const response = await fetch('https://leekduck.com/research/');
+      if (!response.ok) {
+        throw new Error(`Leek Duck returned status ${response.status}`);
+      }
+      const html = await response.text();
+
+      // Funzione helper per normalizzare i nomi
+      function normalizeQuestRewardName(name: string): string {
+        name = name.trim();
+        if (name.startsWith('Galarian ')) {
+          return name.replace('Galarian ', '') + ' (Galarian)';
+        }
+        if (name.startsWith('Alolan ')) {
+          return name.replace('Alolan ', '') + ' (Alolan)';
+        }
+        if (name.startsWith('Hisuian ')) {
+          return name.replace('Hisuian ', '') + ' (Hisuian)';
+        }
+        if (name.startsWith('Paldean ')) {
+          return name.replace('Paldean ', '') + ' (Paldean)';
+        }
+        if (name.includes('Origin Forme') || name.includes('Origin Form')) {
+          return name.replace(' Origin Forme', '').replace(' Origin Form', '') + ' (Origin)';
+        }
+        return name;
+      }
+
+      const db = await getDb();
+      // Carica i Pokemon dal DB per fare mapping
+      const pokemonsList = await db.all<{ id: number; name: string }[]>('SELECT id, name FROM pokemons;');
+      const pokemonNameMap = new Map<string, number>();
+      for (const p of pokemonsList) {
+        pokemonNameMap.set(p.name.toLowerCase().trim(), p.id);
+      }
+
+      // Regex per estrarre le task items
+      const taskItemRegex = /<li class="task-item">([\s\S]*?)<\/li>\s*(?=<li class="task-item">|<\/ul>)/g;
+      let match;
+      const parsedQuests: Array<{
+        name: string;
+        rewards: string; // JSON string
+        displayOrder: number;
+      }> = [];
+      let count = 0;
+
+      while ((match = taskItemRegex.exec(html)) !== null) {
+        const taskHtml = match[1];
+
+        // Estrai nome missione
+        const taskTextMatch = taskHtml.match(/<span class="task-text">([^<]+)<\/span>/);
+        if (!taskTextMatch) continue;
+        const taskName = taskTextMatch[1].trim();
+
+        // Estrai incontri Pokémon
+        const rewardRegex = /<li class="reward"[^>]*data-reward-type="encounter"[\s\S]*?<\/li>/g;
+        let rewardMatch;
+        const rewards: Array<{ pokemonId: number; minCp: number; maxCp: number }> = [];
+
+        while ((rewardMatch = rewardRegex.exec(taskHtml)) !== null) {
+          const rewardHtml = rewardMatch[0];
+
+          const pokemonNameMatch = rewardHtml.match(/<span class="reward-label">\s*<span>([^<]+)<\/span>\s*<\/span>/);
+          if (!pokemonNameMatch) continue;
+          const leekDuckPokemonName = pokemonNameMatch[1].trim();
+          const normalizedName = normalizeQuestRewardName(leekDuckPokemonName);
+
+          const maxCpMatch = rewardHtml.match(/max-cp">[^<]*<div>Max CP<\/div>\s*(\d+)\s*/);
+          const minCpMatch = rewardHtml.match(/min-cp">[^<]*<div>Min CP<\/div>\s*(\d+)\s*/);
+
+          const maxCp = maxCpMatch ? parseInt(maxCpMatch[1], 10) : 0;
+          const minCp = minCpMatch ? parseInt(minCpMatch[1], 10) : 0;
+
+          const pokemonId = pokemonNameMap.get(normalizedName.toLowerCase());
+          if (pokemonId) {
+            rewards.push({
+              pokemonId,
+              minCp,
+              maxCp
+            });
+          } else {
+            console.warn(`[Auto-Sync-Quests] Impossibile mappare "${leekDuckPokemonName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+          }
+        }
+
+        if (rewards.length > 0) {
+          count++;
+          parsedQuests.push({
+            name: taskName,
+            rewards: JSON.stringify(rewards),
+            displayOrder: count
+          });
+        }
+      }
+
+      if (parsedQuests.length === 0) {
+        throw new Error('Nessuna ricerca sul campo trovata o errore nel parsing');
+      }
+
+      await db.run('BEGIN TRANSACTION;');
+      try {
+        await db.run('DELETE FROM quests;');
+        const insertStmt = await db.prepare(
+          'INSERT INTO quests (name, rewards, displayOrder) VALUES (?, ?, ?);'
+        );
+        for (const q of parsedQuests) {
+          await insertStmt.run(q.name, q.rewards, q.displayOrder);
+        }
+        await insertStmt.finalize();
+        await db.run('COMMIT;');
+        console.log(`[Auto-Sync-Quests] Ricerche auto-sincronizzate con successo. Inserite ${parsedQuests.length} missioni.`);
+      } catch (err) {
+        await db.run('ROLLBACK;');
+        throw err;
+      }
+    }
+
     // =================================================================
     // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Protetto da requireAdmin)
     // =================================================================
@@ -1424,6 +1542,19 @@ async function startServer() {
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica dei raid:', err);
         res.status(500).json({ error: 'Errore durante la sincronizzazione dei raid: ' + String(err) });
+      }
+    });
+
+    // =================================================================
+    // 9.2. POST /api/admin/sync-quests - Sincronizza automaticamente le ricerche da Leek Duck (Protetto da requireAdmin)
+    // =================================================================
+    app.post('/api/admin/sync-quests', requireAdmin, async (req, res) => {
+      try {
+        await performQuestAutoSync();
+        res.json({ success: true });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica delle ricerche:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione delle ricerche: ' + String(err) });
       }
     });
 
@@ -1459,15 +1590,24 @@ async function startServer() {
         } catch (err) {
           console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Raid all\'avvio:', err);
         }
+
+        try {
+          console.log('[Startup Background Worker] Avvio sincronizzazione Ricerche programmata...');
+          await performQuestAutoSync();
+          console.log('[Startup Background Worker] Sincronizzazione Ricerche iniziale completata con successo.');
+        } catch (err) {
+          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Ricerche all\'avvio:', err);
+        }
       }, 5000); // Ritardo di 5 secondi per far avviare il server liberamente
 
       // 11. Esegui la sincronizzazione automatica ogni 24 ore
       setInterval(async () => {
         try {
-          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny e Raid giornaliera...');
+          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny, Raid e Ricerche giornaliera...');
           await performShinyAutoSync();
           await performRaidAutoSync();
-          console.log('[Periodic Background Worker] Sincronizzazione Shiny e Raid giornaliera completata con successo.');
+          await performQuestAutoSync();
+          console.log('[Periodic Background Worker] Sincronizzazione Shiny, Raid e Ricerche giornaliera completata con successo.');
         } catch (err) {
           console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica periodica:', err);
         }

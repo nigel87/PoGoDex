@@ -28,6 +28,9 @@
         <button (click)="runSyncRaidsWithConsole()" class="admin-btn raid-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span>⚔️ Raid</span>
         </button>
+        <button (click)="runSyncQuestsWithConsole()" class="admin-btn quest-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>{{ i18n.currentLang() === 'it' ? '🗺️ Ricerche' : '🗺️ Quests' }}</span>
+        </button>
         <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           @if (!isSaving()) {
             <span>{{ 'admin.btn.save' | translate }}</span>

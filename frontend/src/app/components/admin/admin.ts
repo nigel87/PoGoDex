@@ -425,6 +425,55 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     })();
   }
 
+  runSyncQuestsWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Ricerche sul Campo' : 'Field Research Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Inizializzazione sincronizzazione Ricerche...', 100);
+      await addLog('[INFO] Contatto leekduck.com/research/ in corso...', 400);
+      await addLog('[INFO] Download dell\'HTML e avvio del parsing...', 500);
+
+      const syncQuestsUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-quests`
+        : '/api/admin/sync-quests';
+
+      this.http.post<any>(syncQuestsUrl, {}).subscribe({
+        next: async (res) => {
+          await addLog(`[SUCCESS] HTML scaricato ed elaborato con successo.`, 300);
+          await addLog(`[INFO] Analisi delle categorie di ricerca sul campo...`, 400);
+          await addLog(`[INFO] Svuotamento e aggiornamento della tabella quests nel database...`, 500);
+          await addLog(`[SUCCESS] Database SQLite allineato con le ricerche attive di Leek Duck!`, 500);
+          
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Ricerche aggiornate con successo!' : 'Field research updated successfully!');
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Connessione a Leek Duck o parsing fallito.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 400);
+          
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento delle ricerche.' : 'Error during research sync.', 'error');
+        }
+      });
+    })();
+  }
+
   loadUsersList() {
     this.isLoadingUsers.set(true);
     const usersUrl = window.location.port === '4205' || window.location.port === '4200'
