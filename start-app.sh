@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script per avviare contemporaneamente il Backend (Node.js Express) e il Frontend (Angular 18)
+# Script per avviare contemporaneamente il Backend (Node.js Express) e il Frontend (Angular)
 # per l'applicazione PoGODex.
 
 # Colori per i log
@@ -81,8 +81,12 @@ npm run start > backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
  
-# 3. Avvio del Frontend Angular 18
-echo -e "${YELLOW}Configurazione e Avvio del Frontend (Angular 18)...${NC}"
+# 3. Avvio del Frontend Angular
+ANGULAR_VERSION=$(grep -o '"@angular/core": "[^"]*' frontend/package.json 2>/dev/null | cut -d'"' -f4 | tr -d '^~' | cut -d'.' -f1)
+if [ -z "$ANGULAR_VERSION" ]; then
+    ANGULAR_VERSION="21"
+fi
+echo -e "${YELLOW}Configurazione e Avvio del Frontend (Angular $ANGULAR_VERSION)...${NC}"
 cd frontend
 if [ ! -d "node_modules" ]; then
     echo -e "${YELLOW}node_modules non trovato in frontend. Installazione delle dipendenze in corso (potrebbe richiedere qualche minuto)...${NC}"

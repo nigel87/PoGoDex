@@ -9432,6 +9432,15 @@
     "parentId": 80
   },
   {
+    "id": 10166,
+    "name": "Farfetch’d (Galarian)",
+    "type1": "Fighting",
+    "type2": null,
+    "generation": 8,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10166.png",
+    "parentId": 83
+  },
+  {
     "id": 10167,
     "name": "Weezing (Galarian)",
     "type1": "Poison",
