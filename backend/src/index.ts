@@ -1401,6 +1401,266 @@ async function startServer() {
       }
     }
 
+    function translateQuestsLocalFallback(questNames: string[]): string[] {
+      const typeMap: Record<string, string> = {
+        'normal': 'Normale', 'fire': 'Fuoco', 'water': 'Acqua', 'grass': 'Erba',
+        'electric': 'Elettro', 'ice': 'Ghiaccio', 'fighting': 'Lotta', 'poison': 'Veleno',
+        'ground': 'Terra', 'flying': 'Volante', 'psychic': 'Psico', 'bug': 'Coleottero',
+        'rock': 'Roccia', 'ghost': 'Spettro', 'dragon': 'Drago', 'dark': 'Buio',
+        'steel': 'Acciaio', 'fairy': 'Folletto'
+      };
+
+      const berryMap: Record<string, string> = {
+        'golden razz': 'bacche Lampon dorata',
+        'silver pinap': 'bacche Baccanana d\'argento',
+        'razz': 'bacche Lampon',
+        'pinap': 'bacche Baccanana',
+        'nanab': 'bacche Bananan'
+      };
+
+      return questNames.map(name => {
+        let t = name.trim();
+
+        // 1. Catch tasks
+        if (/^Catch (\d+)\s+([a-zA-Z]+)-type Pokémon$/i.test(t)) {
+          t = t.replace(/^Catch (\d+)\s+([a-zA-Z]+)-type Pokémon$/i, (match, p1, p2) => {
+            const typeIt = typeMap[p2.toLowerCase()] || p2;
+            return `Cattura ${p1} Pokémon di tipo ${typeIt}`;
+          });
+        }
+        else if (/^Catch (\d+)\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Catch (\d+)\s+Pokémon$/i, 'Cattura $1 Pokémon');
+        }
+        else if (/^Catch (\d+)\s+different species of Pokémon$/i.test(t)) {
+          t = t.replace(/^Catch (\d+)\s+different species of Pokémon$/i, 'Cattura $1 specie diverse di Pokémon');
+        }
+        else if (/^Catch a ([a-zA-Z]+)-type Pokémon$/i.test(t)) {
+          t = t.replace(/^Catch a ([a-zA-Z]+)-type Pokémon$/i, (match, p1) => {
+            const typeIt = typeMap[p1.toLowerCase()] || p1;
+            return `Cattura un Pokémon di tipo ${typeIt}`;
+          });
+        }
+
+        // 2. Throws
+        if (/^Make (\d+)\s+(Nice|Great|Excellent)\s+(Curveball\s+)?Throws(\s+in\s+a\s+row)?$/i.test(t)) {
+          t = t.replace(/^Make (\d+)\s+(Nice|Great|Excellent)\s+(Curveball\s+)?Throws(\s+in\s+a\s+row)?$/i, (match, num, quality, curve, row) => {
+            let qualIt = 'buoni';
+            if (quality.toLowerCase() === 'great') qualIt = 'ottimi';
+            if (quality.toLowerCase() === 'excellent') qualIt = 'eccellenti';
+            const curveIt = curve ? ' con effetto' : '';
+            const rowIt = row ? ' di fila' : '';
+            return `Effettua ${num} lanci ${qualIt}${curveIt}${rowIt}`;
+          });
+        }
+        else if (/^Make (\d+)\s+Curveball\s+Throws$/i.test(t)) {
+          t = t.replace(/^Make (\d+)\s+Curveball\s+Throws$/i, 'Effettua $1 lanci con effetto');
+        }
+        else if (/^Make (\d+)\s+Curveball\s+Throws\s+in\s+a\s+row$/i.test(t)) {
+          t = t.replace(/^Make (\d+)\s+Curveball\s+Throws\s+in\s+a\s+row$/i, 'Effettua $1 lanci con effetto di fila');
+        }
+
+        // 3. Evolve
+        if (/^Evolve (\d+)\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Evolve (\d+)\s+Pokémon$/i, 'Fai evolvere $1 Pokémon');
+        }
+        else if (/^Evolve a Pokémon$/i.test(t)) {
+          t = 'Fai evolvere un Pokémon';
+        }
+        else if (/^Evolve (\d+)\s+([a-zA-Z]+)-type Pokémon$/i.test(t)) {
+          t = t.replace(/^Evolve (\d+)\s+([a-zA-Z]+)-type Pokémon$/i, (match, p1, p2) => {
+            const typeIt = typeMap[p2.toLowerCase()] || p2;
+            return `Fai evolvere ${p1} Pokémon di tipo ${typeIt}`;
+          });
+        }
+
+        // 4. Power up
+        if (/^Power up Pokémon (\d+)\s+times$/i.test(t)) {
+          t = t.replace(/^Power up Pokémon (\d+)\s+times$/i, 'Potenzia i tuoi Pokémon $1 volte');
+        }
+        else if (/^Power up a Pokémon (\d+)\s+times$/i.test(t)) {
+          t = t.replace(/^Power up a Pokémon (\d+)\s+times$/i, 'Potenzia un Pokémon $1 volte');
+        }
+
+        // 5. Spin PokéStops
+        if (/^Spin (\d+)\s+PokéStops?\s+or\s+Gyms$/i.test(t)) {
+          t = t.replace(/^Spin (\d+)\s+PokéStops?\s+or\s+Gyms$/i, 'Gira $1 Pokéstop o Palestre');
+        }
+        else if (/^Spin (\d+)\s+PokéStops?$/i.test(t)) {
+          t = t.replace(/^Spin (\d+)\s+PokéStops?$/i, 'Gira $1 Pokéstop');
+        }
+
+        // 6. Hatch
+        if (/^Hatch (\d+)\s+Eggs?$/i.test(t)) {
+          t = t.replace(/^Hatch (\d+)\s+Eggs?$/i, (match, p1) => {
+            const num = parseInt(p1, 10);
+            return num === 1 ? 'Fai schiudere 1 uovo' : `Fai schiudere ${num} uova`;
+          });
+        }
+        else if (/^Hatch an Egg$/i.test(t)) {
+          t = 'Fai schiudere un uovo';
+        }
+
+        // 7. Snapshots
+        if (/^Take a snapshot of a wild Pokémon$/i.test(t)) {
+          t = 'Scatta una foto a un Pokémon selvatico';
+        }
+        else if (/^Take (\d+)\s+snapshots\s+of\s+wild\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Take (\d+)\s+snapshots\s+of\s+wild\s+Pokémon$/i, 'Scatta $1 foto a Pokémon selvatici');
+        }
+
+        // 8. Berries
+        if (/^Use (\d+)\s+Berries\s+to\s+help\s+catch\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Use (\d+)\s+Berries\s+to\s+help\s+catch\s+Pokémon$/i, 'Usa $1 bacche per catturare Pokémon');
+        }
+        else if (/^Use (\d+)\s+([a-zA-Z\s]+)\s+Berries\s+to\s+help\s+catch\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Use (\d+)\s+([a-zA-Z\s]+)\s+Berries\s+to\s+help\s+catch\s+Pokémon$/i, (match, p1, p2) => {
+            const berryKey = p2.toLowerCase().replace(/\s+berry$/i, '').trim();
+            const berryIt = berryMap[berryKey] || `bacche ${p2}`;
+            return `Usa ${p1} ${berryIt} per catturare Pokémon`;
+          });
+        }
+
+        // 9. Gifts
+        if (/^Send (\d+)\s+Gifts\s+to\s+friends$/i.test(t)) {
+          t = t.replace(/^Send (\d+)\s+Gifts\s+to\s+friends$/i, 'Invia $1 pacchi amicizia agli amici');
+        }
+
+        // 10. Buddy
+        if (/^Earn (\d+)\s+Candies?\s+walking\s+with\s+your\s+buddy$/i.test(t)) {
+          t = t.replace(/^Earn (\d+)\s+Candies?\s+walking\s+with\s+your\s+buddy$/i, 'Guadagna $1 caramelle camminando con il tuo compagno');
+        }
+
+        // 11. Walk
+        if (/^Walk (\d+(?:\.\d+)?)\s*km$/i.test(t)) {
+          t = t.replace(/^Walk (\d+(?:\.\d+)?)\s*km$/i, 'Cammina per $1 km');
+        }
+
+        // 12. Raids
+        if (/^Win a Level (\d+)\s+or\s+higher\s+Raid$/i.test(t)) {
+          t = t.replace(/^Win a Level (\d+)\s+or\s+higher\s+Raid$/i, 'Vinci un raid di livello $1 o superiore');
+        }
+        else if (/^Win (\d+)\s+Raids$/i.test(t)) {
+          t = t.replace(/^Win (\d+)\s+Raids$/i, 'Vinci $1 raid');
+        }
+        else if (/^Win a Raid$/i.test(t)) {
+          t = 'Vinci un raid';
+        }
+
+        // 13. Team Rocket
+        if (/^Defeat a Team GO Rocket Member$/i.test(t)) {
+          t = 'Sconfiggi un membro del Team GO Rocket';
+        }
+        else if (/^Defeat (\d+)\s+Team\s+GO\s+Rocket\s+Grunts$/i.test(t)) {
+          t = t.replace(/^Defeat (\d+)\s+Team\s+GO\s+Rocket\s+Grunts$/i, 'Sconfiggi $1 reclute del Team GO Rocket');
+        }
+
+        // 14. Purify
+        if (/^Purify (\d+)\s+Shadow\s+Pokémon$/i.test(t)) {
+          t = t.replace(/^Purify (\d+)\s+Shadow\s+Pokémon$/i, 'Purifica $1 Pokémon Ombra');
+        }
+
+        // 15. Trade
+        if (/^Trade a Pokémon$/i.test(t)) {
+          t = 'Scambia un Pokémon';
+        }
+
+        // 16. GO Battle League
+        if (/^Battle in the GO Battle League$/i.test(t)) {
+          t = 'Sfida un altro Allenatore nella Lega Lotte GO';
+        }
+        else if (/^Win in the GO Battle League$/i.test(t)) {
+          t = 'Vinci nella Lega Lotte GO';
+        }
+
+        return t;
+      });
+    }
+
+    async function translateQuestsToItalian(questNames: string[]): Promise<string[]> {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.log('[Quest-Translation] GEMINI_API_KEY non definita. Utilizzo del traduttore locale a regole.');
+        return translateQuestsLocalFallback(questNames);
+      }
+
+      console.log(`[Quest-Translation] Richiesta traduzione per ${questNames.length} missioni a Gemini 2.5 Flash...`);
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const prompt = `Translate the following Pokémon GO field research quests from English into official, idiomatic Italian Pokémon GO quests. Keep the same sequence and variables (e.g. numbers, Pokemon names). Return only a JSON array of strings containing the translations in the exact same order.
+
+Key terminology:
+- 'Curveball Throw' -> 'Tiro con effetto'
+- 'Great' -> 'Ottimo'
+- 'Nice' -> 'Buono'
+- 'Excellent' -> 'Eccellente'
+- 'Power up' -> 'Potenzia'
+- 'Evolve' -> 'Fai evolvere'
+- 'Catch' -> 'Cattura'
+- 'Spin' -> 'Gira'
+- 'PokéStop' -> 'Pokéstop'
+- 'Raid' -> 'Raid'
+- 'Egg' -> 'Uovo'
+- 'Hatch' -> 'Fai schiudere'
+- 'Win' -> 'Vinci'
+- 'In a row' -> 'di fila'
+- 'Golden Razz Berry' -> 'Bacca Lampon dorata'
+- 'Razz Berry' -> 'Bacca Lampon'
+- 'Silver Pinap Berry' -> 'Baccanana d'argento'
+- 'Pinap Berry' -> 'Baccanana'
+- 'Nanab Berry' -> 'Bacca Bananan'
+- 'Send' -> 'Invia'
+- 'Gift' -> 'Pacco amicizia'
+- 'Gifts' -> 'pacchi amicizia'
+
+Input:
+${JSON.stringify(questNames)}`;
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: 'ARRAY',
+                items: {
+                  type: 'STRING'
+                }
+              }
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Gemini API returned status ${response.status}: ${response.statusText}`);
+        }
+
+        const data: any = await response.json();
+        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) {
+          throw new Error('Risposta vuota o non valida da parte dell\'API di Gemini');
+        }
+
+        const parsed = JSON.parse(textResponse.trim());
+        if (Array.isArray(parsed) && parsed.length === questNames.length) {
+          console.log('[Quest-Translation] Traduzione con Gemini completata con successo.');
+          return parsed;
+        } else {
+          throw new Error(`L'array tradotto ha lunghezza differente (${parsed?.length}) rispetto all'input (${questNames.length})`);
+        }
+      } catch (err) {
+        console.warn('[Quest-Translation] Errore durante la chiamata a Gemini API. Fallback sul traduttore locale.', err);
+        return translateQuestsLocalFallback(questNames);
+      }
+    }
+
     async function performQuestAutoSync(): Promise<void> {
       console.log('[Auto-Sync-Quests] Avvio sincronizzazione Ricerche automatica. Contatto leekduck.com...');
       const response = await fetch('https://leekduck.com/research/');
@@ -1499,6 +1759,20 @@ async function startServer() {
 
       if (parsedQuests.length === 0) {
         throw new Error('Nessuna ricerca sul campo trovata o errore nel parsing');
+      }
+
+      // Traduzione in italiano
+      console.log(`[Auto-Sync-Quests] Traduzione di ${parsedQuests.length} ricerche...`);
+      const rawNames = parsedQuests.map(q => q.name);
+      try {
+        const translatedNames = await translateQuestsToItalian(rawNames);
+        for (let i = 0; i < parsedQuests.length; i++) {
+          if (translatedNames[i]) {
+            parsedQuests[i].name = translatedNames[i];
+          }
+        }
+      } catch (transErr) {
+        console.error('[Auto-Sync-Quests] Errore critico durante la traduzione:', transErr);
       }
 
       await db.run('BEGIN TRANSACTION;');
