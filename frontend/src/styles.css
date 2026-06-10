@@ -218,6 +218,34 @@
     -webkit-text-fill-color: transparent;
   }
 
+  .logo-pokeball-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    position: relative;
+    top: -0.05em;
+    margin: 0 0.05em;
+    letter-spacing: normal;
+  }
+
+  .logo-pokeball {
+    height: 0.85em;
+    width: 0.85em;
+    object-fit: contain;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .logo-wrapper:hover .logo-pokeball,
+  .brand-logo-container:hover .logo-pokeball,
+  .logo-header:hover .logo-pokeball,
+  .admin-header:hover .logo-pokeball,
+  .logo:hover .logo-pokeball,
+  .logo-large:hover .logo-pokeball,
+  .logo-pokeball:hover {
+    transform: rotate(360deg);
+  }
+
   .navigation-tabs {
     display: flex;
     gap: 0.5rem;

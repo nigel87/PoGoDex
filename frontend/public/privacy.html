@@ -63,6 +63,29 @@
       -webkit-text-fill-color: transparent;
     }
 
+    .logo-pokeball-container {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      position: relative;
+      top: -0.05em;
+      margin: 0 0.05em;
+      letter-spacing: normal;
+    }
+
+    .logo-pokeball {
+      height: 0.85em;
+      width: 0.85em;
+      object-fit: contain;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .logo-header:hover .logo-pokeball,
+    .logo-pokeball:hover {
+      transform: rotate(360deg);
+    }
+
     h2 {
       font-size: 1.5rem;
       border-bottom: 1px solid var(--border-color);
@@ -118,7 +141,7 @@
   <div class="container">
     <div class="privacy-card">
       <div class="logo-header">
-        <h1>PoGO<span>Dex</span></h1>
+        <h1>PoG<span class="logo-pokeball-container"><img src="pokeball.svg" class="logo-pokeball" alt="O"></span><span>Dex</span></h1>
         <p>Privacy Policy</p>
       </div>
 
