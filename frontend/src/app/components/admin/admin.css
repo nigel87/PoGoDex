@@ -677,6 +677,13 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
+svg.user-avatar {
+  padding: 6px;
+  box-sizing: border-box;
+  color: #94a3b8;
+  fill: currentColor;
+}
+
 .user-card.is-admin .user-avatar {
   border-color: #a855f7;
   box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);

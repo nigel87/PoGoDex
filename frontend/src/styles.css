@@ -313,6 +313,14 @@
     object-fit: cover;
   }
 
+  svg.player-avatar {
+    padding: 3px;
+    box-sizing: border-box;
+    color: var(--text-secondary);
+    fill: currentColor;
+    background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+  }
+
   .player-name {
     font-size: 0.95rem;
     font-weight: 700;
