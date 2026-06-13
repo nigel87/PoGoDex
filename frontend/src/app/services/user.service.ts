@@ -12,6 +12,7 @@ export interface User {
   isProtected?: number;
   privacyMode?: 'public_edit' | 'public_readonly' | 'private';
   isAdmin?: number;
+  hasPassword?: boolean;
 }
 
 @Injectable({
@@ -146,5 +147,57 @@ export class UserService {
    */
   getGoogleClientId(): Observable<{ googleClientId: string | null }> {
     return this.http.get<{ googleClientId: string | null }>(`${this.apiBaseUrl}/auth/config`);
+  }
+
+  /**
+   * Verifica lo stato di registrazione e protezione di un nickname.
+   */
+  checkAuthStatus(name: string): Observable<{ exists: boolean; hasPassword: boolean; hasGoogle: boolean }> {
+    return this.http.post<{ exists: boolean; hasPassword: boolean; hasGoogle: boolean }>(
+      `${this.apiBaseUrl}/auth/check-status`,
+      { name }
+    );
+  }
+
+  /**
+   * Esegue l'autenticazione tramite Nome Allenatore e Password.
+   */
+  loginWithPassword(name: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/auth/login-password`, { name, password }).pipe(
+      tap(res => {
+        if (res.token && res.user) {
+          localStorage.setItem('pogodex_jwt_token', res.token);
+          this.setActiveUser(res.user);
+        }
+      })
+    );
+  }
+
+  /**
+   * Registra un nuovo utente con Nome Allenatore e Password.
+   */
+  registerWithPassword(name: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/users/register-password`, { name, password }).pipe(
+      tap(res => {
+        if (res.token && res.user) {
+          localStorage.setItem('pogodex_jwt_token', res.token);
+          this.setActiveUser(res.user);
+        }
+      })
+    );
+  }
+
+  /**
+   * Imposta, aggiorna o rimuove la password dalle impostazioni di un utente.
+   * Se newPassword è vuoto/null, rimuove la password.
+   */
+  updatePassword(userId: number, currentPassword?: string, newPassword?: string): Observable<any> {
+    return this.http.post<any>(`${this.apiBaseUrl}/users/${userId}/password`, { currentPassword, newPassword }).pipe(
+      tap(res => {
+        if (res.success && res.user) {
+          this.setActiveUser(res.user);
+        }
+      })
+    );
   }
 }

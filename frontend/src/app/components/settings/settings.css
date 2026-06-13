@@ -587,3 +587,38 @@
 .logout-btn:hover svg {
   transform: translateX(2px);
 }
+
+/* Premium Action buttons */
+.premium-action-btn {
+  background: rgba(27, 124, 252, 0.1);
+  border: 1px solid rgba(27, 124, 252, 0.2);
+  color: var(--pogo-blue);
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  font-family: var(--font-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.premium-action-btn:hover {
+  background: rgba(27, 124, 252, 0.18);
+  border-color: var(--pogo-blue);
+  transform: translateY(-1px);
+}
+
+.premium-action-btn.delete-btn {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.premium-action-btn.delete-btn:hover {
+  background: rgba(231, 76, 60, 0.18);
+  border-color: #e74c3c;
+}
+

@@ -66,13 +66,44 @@
       <div class="auth-message error-msg" *ngIf="loginError()">⚠️ {{ loginError() }}</div>
       <div class="auth-message success-msg" *ngIf="loginSuccess()">✓ {{ loginSuccess() }}</div>
 
-      <!-- Step 1: Google Login -->
-      <div class="google-login-section" *ngIf="!isUsernameRequired() && !isProcessing()">
-        <p class="auth-instruction">Esegui l'accesso sicuro con il tuo account Google per salvare o rivendicare i tuoi dati:</p>
-        <div class="google-btn-wrapper">
-          <div id="google-header-btn-container"></div>
+      <!-- Step 1: Default View (Local Username OR Google Sign-In) -->
+      <ng-container *ngIf="!isUsernameRequired() && !isProcessing() && !showPasswordInput() && !isNewUser()">
+        <!-- Modulo Input Nome Allenatore -->
+        <form (submit)="onSubmit(); $event.preventDefault();" class="trainer-form" style="width: 100%;">
+          <div class="input-group" [class.shake]="showError()">
+            <label for="modal-trainer-name">{{ 'landing.placeholder' | translate }}</label>
+            <div class="input-wrapper">
+              <span class="input-prefix">@</span>
+              <input 
+                id="modal-trainer-name"
+                type="text" 
+                [placeholder]="'landing.placeholder' | translate" 
+                [ngModel]="trainerName()" 
+                (ngModelChange)="trainerName.set($event)"
+                name="trainerName"
+                autocomplete="off"
+                required>
+            </div>
+            <span class="error-msg" *ngIf="showError()">{{ 'landing.error' | translate }}</span>
+          </div>
+
+          <button type="submit" class="modal-btn confirm-btn">
+            <span>{{ 'landing.btn' | translate }}</span>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="auth-divider">
+          <span>oppure</span>
         </div>
-      </div>
+
+        <!-- Google Login -->
+        <div class="google-login-section">
+          <div class="google-btn-wrapper">
+            <div id="google-header-btn-container"></div>
+          </div>
+        </div>
+      </ng-container>
 
       <!-- Step 2: Choose Username (Claim / Registration) -->
       <div class="username-setup-section" *ngIf="isUsernameRequired() && !isProcessing()">
@@ -95,6 +126,119 @@
         <button class="modal-btn confirm-btn" (click)="submitTrainerName()" [disabled]="!requestedTrainerName().trim()">
           Completa Registrazione
         </button>
+      </div>
+
+      <!-- Step 3: Login with Password -->
+      <div class="password-login-section" *ngIf="showPasswordInput() && !isProcessing()">
+        <p class="auth-instruction">Il profilo di <strong>@{{ trainerName() }}</strong> è protetto da password. Inserisci la tua password:</p>
+        <div class="input-group" style="margin-bottom: 1.5rem;">
+          <label for="modal-login-password">Password</label>
+          <div class="input-wrapper">
+            <input 
+              id="modal-login-password" 
+              type="password" 
+              placeholder="Inserisci la password..." 
+              [ngModel]="password()" 
+              (ngModelChange)="password.set($event)"
+              name="password"
+              class="modal-input-text"
+              (keyup.enter)="onLoginWithPassword()"
+              autofocus>
+          </div>
+        </div>
+        <div class="button-group">
+          <button class="modal-btn confirm-btn" (click)="onLoginWithPassword()" [disabled]="!password().trim()">
+            Accedi
+          </button>
+          <button class="cancel-btn text-link" (click)="resetForm()">
+            Torna indietro
+          </button>
+        </div>
+      </div>
+
+      <div class="register-section" *ngIf="isNewUser() && !isProcessing()" style="width: 100%;">
+        <p class="auth-instruction">Il nome allenatore <strong>@{{ trainerName() }}</strong> è disponibile. Come vuoi proteggere il tuo profilo?</p>
+        
+        <!-- Tab Pills for protection method -->
+        <div class="protection-methods-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+          <button type="button" class="method-tab-btn" [class.active]="registerMethod() === 'password'" (click)="setRegisterMethod('password')" style="flex: 1;">
+            🔑 Password
+          </button>
+          <button type="button" class="method-tab-btn" [class.active]="registerMethod() === 'google'" (click)="setRegisterMethod('google')" style="flex: 1;">
+            🌐 Google Auth
+          </button>
+          <button type="button" class="method-tab-btn" [class.active]="registerMethod() === 'none'" (click)="setRegisterMethod('none')" style="flex: 1;">
+            🔓 Nessuna
+          </button>
+        </div>
+
+        <!-- Method 1: Password -->
+        <ng-container *ngIf="registerMethod() === 'password'">
+          <div class="input-group" style="margin-bottom: 1.2rem;">
+            <label for="modal-reg-password">Password</label>
+            <div class="input-wrapper">
+              <input 
+                id="modal-reg-password" 
+                type="password" 
+                placeholder="Crea una password..." 
+                [ngModel]="password()" 
+                (ngModelChange)="password.set($event)"
+                name="regPassword"
+                class="modal-input-text">
+            </div>
+          </div>
+
+          <div class="input-group" style="margin-bottom: 1.5rem;">
+            <label for="modal-confirm-password">Conferma Password</label>
+            <div class="input-wrapper">
+              <input 
+                id="modal-confirm-password" 
+                type="password" 
+                placeholder="Conferma la password..." 
+                [ngModel]="confirmPassword()" 
+                (ngModelChange)="confirmPassword.set($event)"
+                name="confirmPassword"
+                class="modal-input-text"
+                (keyup.enter)="onRegisterWithPassword()">
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button class="modal-btn confirm-btn" (click)="onRegisterWithPassword()" [disabled]="!password().trim() || !confirmPassword().trim()">
+              Registrati con Password
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- Method 2: Google Auth -->
+        <ng-container *ngIf="registerMethod() === 'google'">
+          <p class="auth-instruction" style="font-size: 0.85rem; margin-bottom: 1rem; text-align: center;">
+            Associa questo profilo ad un account Google. Potrai accedere in modo sicuro con un solo click.
+          </p>
+          <div class="google-login-section" style="margin-bottom: 1.5rem;">
+            <div class="google-btn-wrapper">
+              <div id="google-header-register-btn-container"></div>
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- Method 3: None (Passwordless unprotected) -->
+        <ng-container *ngIf="registerMethod() === 'none'">
+          <p class="auth-instruction" style="font-size: 0.85rem; color: #ef4444; margin-bottom: 1.5rem; font-weight: 600; text-align: center;">
+            ⚠️ Attenzione: senza protezione, chiunque conosca il tuo nickname potrà modificare il tuo Pokédex.
+          </p>
+          <div class="button-group">
+            <button class="modal-btn confirm-btn" (click)="onRegisterPasswordless()">
+              Registrati Senza Protezione
+            </button>
+          </div>
+        </ng-container>
+
+        <div class="button-group" style="margin-top: 1rem;">
+          <button class="cancel-btn text-link" (click)="resetForm()">
+            Torna indietro
+          </button>
+        </div>
       </div>
 
       <!-- Loading spinner -->

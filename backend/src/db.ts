@@ -56,7 +56,8 @@ async function initializeTables(database: Database) {
       googleSubId TEXT UNIQUE,
       isProtected INTEGER DEFAULT 0,
       privacyMode TEXT DEFAULT 'public_edit',
-      isAdmin INTEGER DEFAULT 0
+      isAdmin INTEGER DEFAULT 0,
+      passwordHash TEXT DEFAULT NULL
     );
   `);
 
@@ -106,6 +107,9 @@ async function initializeTables(database: Database) {
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0;');
+  } catch (_) {}
+  try {
+    await database.exec('ALTER TABLE users ADD COLUMN passwordHash TEXT DEFAULT NULL;');
   } catch (_) {}
   try {
     await database.exec('ALTER TABLE pokemons ADD COLUMN megaVarietyId INTEGER DEFAULT NULL;');

@@ -514,3 +514,110 @@
   outline: none;
 }
 
+/* Checkbox Custom styling */
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  text-align: left;
+  line-height: 1.4;
+  margin: 0.5rem 0;
+}
+
+.checkbox-container input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.checkbox-container input[type="checkbox"]:checked {
+  background: #1b7cfc;
+  border-color: #1b7cfc;
+  box-shadow: 0 0 8px rgba(27, 124, 252, 0.4);
+}
+
+.checkbox-container input[type="checkbox"]:checked::after {
+  content: "✓";
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Cancel Button / Text Link */
+.cancel-btn.text-link {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: color 0.2s ease;
+  text-decoration: none;
+  margin-top: 0.5rem;
+  display: inline-block;
+}
+
+.cancel-btn.text-link:hover {
+  color: #f1f5f9;
+}
+
+.button-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Protection Methods Tabs */
+.protection-methods-tabs {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 0.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.method-tab-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 0.6rem;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.method-tab-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.method-tab-btn.active {
+  background: #1b7cfc;
+  color: white;
+  box-shadow: 0 4px 10px rgba(27, 124, 252, 0.25);
+}
+
+
+

@@ -9,6 +9,7 @@ export interface User {
   isProtected?: number;
   privacyMode?: 'public_edit' | 'public_readonly' | 'private';
   isAdmin?: number;
+  hasPassword?: boolean;
 }
 
 export interface Pokemon {

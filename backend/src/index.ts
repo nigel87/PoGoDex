@@ -5,7 +5,7 @@ import fs from 'fs';
 import { getDb } from './db';
 import { runSeeder } from './seed';
 import { PokedexDTO, User } from './types';
-import { signJwt, verifyJwt, verifyGoogleToken, requireAdmin, isLocalRequest, AuthenticatedRequest } from './auth';
+import { signJwt, verifyJwt, verifyGoogleToken, requireAdmin, isLocalRequest, AuthenticatedRequest, hashPassword, verifyPassword } from './auth';
 
 // Carica variabili d'ambiente da .env
 function loadEnv() {
@@ -103,6 +103,16 @@ async function startServer() {
       }
     }
 
+    // Helper per sanificare l'oggetto utente da inviare al client
+    function sanitizeUser(user: any) {
+      if (!user) return null;
+      const sanitized = { ...user };
+      sanitized.hasPassword = !!sanitized.passwordHash;
+      delete sanitized.passwordHash;
+      return sanitized;
+    }
+
+
     // Verifica i permessi di lettura di un Pokédex
     async function checkReadPermission(req: express.Request, userId: number): Promise<boolean> {
       try {
@@ -162,7 +172,7 @@ async function startServer() {
     app.get('/api/users', async (req, res) => {
       try {
         const users = await db.all<User[]>('SELECT * FROM users ORDER BY id ASC');
-        res.json(users);
+        res.json(users.map(sanitizeUser));
       } catch (err) {
         console.error('Errore nel recupero degli utenti:', err);
         res.status(500).json({ error: 'Errore interno del server' });
@@ -238,7 +248,7 @@ async function startServer() {
           }
           // Utente già registrato, effettua il login
           const token = signJwt({ id: user.id, name: user.name, googleSubId: user.googleSubId, isAdmin: user.isAdmin });
-          return res.json({ token, user });
+          return res.json({ token, user: sanitizeUser(user) });
         }
 
         // Se l'utente non è ancora associato a nessun profilo
@@ -270,7 +280,7 @@ async function startServer() {
           const updatedUser = await db.get<User>('SELECT * FROM users WHERE id = ?', existingUser.id);
           const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId, isAdmin: updatedUser?.isAdmin });
           log('INFO', `Profilo esistente collegato con Google (Admin: ${isAdminVal})`, { id: updatedUser?.id, name: updatedUser?.name });
-          return res.json({ token, user: updatedUser });
+          return res.json({ token, user: sanitizeUser(updatedUser) });
         } else {
           const isAdminVal = shouldBeAdmin ? 1 : 0;
           // Crea un nuovo profilo protetto
@@ -284,10 +294,169 @@ async function startServer() {
           const newUser = await db.get<User>('SELECT * FROM users WHERE id = ?', newUserId);
           const token = signJwt({ id: newUser?.id, name: newUser?.name, googleSubId: newUser?.googleSubId, isAdmin: newUser?.isAdmin });
           log('INFO', `Nuovo profilo creato con Google (Admin: ${isAdminVal})`, { id: newUserId, name: trimmedName });
-          return res.json({ token, user: newUser });
+          return res.json({ token, user: sanitizeUser(newUser) });
         }
       } catch (err) {
         log('ERROR', 'Errore durante l\'autenticazione Google', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/auth/check-status - Verifica lo stato di un nome allenatore
+    // =================================================================
+    app.post('/api/auth/check-status', async (req, res) => {
+      const { name } = req.body;
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ error: 'Il nome è richiesto' });
+      }
+
+      const trimmedName = name.trim();
+      try {
+        const user = await db.get('SELECT googleSubId, passwordHash FROM users WHERE name = ?', trimmedName);
+        if (!user) {
+          return res.json({ exists: false, hasPassword: false, hasGoogle: false });
+        }
+        return res.json({
+          exists: true,
+          hasPassword: !!user.passwordHash,
+          hasGoogle: !!user.googleSubId
+        });
+      } catch (err) {
+        log('ERROR', 'Errore nella verifica dello stato dell\'utente', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/auth/login-password - Login con Nome Allenatore + Password
+    // =================================================================
+    app.post('/api/auth/login-password', async (req, res) => {
+      const { name, password } = req.body;
+      if (!name || name.trim() === '' || !password) {
+        return res.status(400).json({ error: 'Nome e password sono richiesti' });
+      }
+
+      const trimmedName = name.trim();
+      try {
+        const user = await db.get('SELECT * FROM users WHERE name = ?', trimmedName);
+        if (!user || !user.passwordHash) {
+          return res.status(401).json({ error: 'Credenziali non valide o profilo non protetto da password' });
+        }
+
+        const isValid = verifyPassword(password, user.passwordHash);
+        if (!isValid) {
+          return res.status(401).json({ error: 'Password errata' });
+        }
+
+        const token = signJwt({ id: user.id, name: user.name, googleSubId: user.googleSubId, isAdmin: user.isAdmin });
+        return res.json({ token, user: sanitizeUser(user) });
+      } catch (err) {
+        log('ERROR', 'Errore durante il login con password', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/users/register-password - Registrazione nuovo allenatore con password
+    // =================================================================
+    app.post('/api/users/register-password', async (req, res) => {
+      const { name, password } = req.body;
+      if (!name || name.trim() === '' || !password || password.trim() === '') {
+        return res.status(400).json({ error: 'Nome e password sono richiesti' });
+      }
+
+      const trimmedName = name.trim();
+      try {
+        const existingUser = await db.get('SELECT id FROM users WHERE name = ?', trimmedName);
+        if (existingUser) {
+          return res.status(400).json({ error: 'Questo nome allenatore è già registrato' });
+        }
+
+        const hash = hashPassword(password);
+        const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${trimmedName}`;
+        
+        const result = await db.run(
+          'INSERT INTO users (name, passwordHash, isProtected, avatarUrl, privacyMode) VALUES (?, ?, ?, ?, ?);',
+          trimmedName,
+          hash,
+          1,
+          avatarUrl,
+          'public_edit'
+        );
+
+        const newUser = {
+          id: result.lastID,
+          name: trimmedName,
+          email: null,
+          googleId: null,
+          avatarUrl,
+          isProtected: 1,
+          privacyMode: 'public_edit',
+          isAdmin: 0
+        };
+
+        const token = signJwt({ id: newUser.id, name: newUser.name, isAdmin: 0 });
+        log('INFO', `Nuovo profilo creato con Password`, { id: newUser.id, name: trimmedName });
+        return res.json({ token, user: sanitizeUser(newUser) });
+      } catch (err) {
+        log('ERROR', 'Errore nella registrazione con password', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // POST /api/users/:id/password - Gestione password da Settings (Aggiungi/Modifica/Rimuovi)
+    // =================================================================
+    app.post('/api/users/:id/password', async (req, res) => {
+      const id = parseInt(req.params.id, 10);
+      const { currentPassword, newPassword } = req.body;
+
+      // Richiede autenticazione
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Autenticazione richiesta' });
+      }
+      const token = authHeader.substring(7);
+      const decoded = verifyJwt(token);
+      if (!decoded || decoded.id !== id) {
+        return res.status(403).json({ error: 'Non autorizzato a modificare le credenziali di questo profilo' });
+      }
+
+      try {
+        const user = await db.get('SELECT * FROM users WHERE id = ?', id);
+        if (!user) {
+          return res.status(404).json({ error: 'Utente non trovato' });
+        }
+
+        // Se l'utente ha già una password, deve fornire quella corrente prima di cambiarla o rimuoverla
+        if (user.passwordHash) {
+          if (!currentPassword) {
+            return res.status(400).json({ error: 'La password corrente è richiesta' });
+          }
+          const isValid = verifyPassword(currentPassword, user.passwordHash);
+          if (!isValid) {
+            return res.status(401).json({ error: 'La password corrente non è corretta' });
+          }
+        }
+
+        if (newPassword && newPassword.trim() !== '') {
+          // Aggiunge o modifica la password
+          const hash = hashPassword(newPassword);
+          await db.run('UPDATE users SET passwordHash = ?, isProtected = 1 WHERE id = ?', hash, id);
+          log('INFO', `Password aggiornata per l'utente`, { id });
+          const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', id);
+          return res.json({ success: true, message: 'Password impostata con successo', user: sanitizeUser(updatedUser) });
+        } else {
+          // Rimuove la password (l'account torna libero, tranne se ha Google associato)
+          const newIsProtected = user.googleSubId ? 1 : 0;
+          await db.run('UPDATE users SET passwordHash = NULL, isProtected = ? WHERE id = ?', newIsProtected, id);
+          log('INFO', `Password rimossa per l'utente`, { id });
+          const updatedUser = await db.get('SELECT * FROM users WHERE id = ?', id);
+          return res.json({ success: true, message: 'Password rimossa con successo', user: sanitizeUser(updatedUser) });
+        }
+      } catch (err) {
+        log('ERROR', 'Errore nella gestione della password in settings', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     });
@@ -343,7 +512,7 @@ async function startServer() {
         const updatedUser = await db.get<any>('SELECT * FROM users WHERE id = ?', id);
         const token = signJwt({ id: updatedUser?.id, name: updatedUser?.name, googleSubId: updatedUser?.googleSubId, isAdmin: updatedUser?.isAdmin });
         log('INFO', `Collegato Google account a profilo esistente via settings (Admin: ${isAdminVal})`, { id });
-        res.json({ success: true, token, user: updatedUser });
+        res.json({ success: true, token, user: sanitizeUser(updatedUser) });
       } catch (err) {
         log('ERROR', 'Errore durante il collegamento Google', err);
         res.status(500).json({ error: 'Errore interno del server' });
@@ -380,7 +549,7 @@ async function startServer() {
 
         // Se si vuole impostare una privacy restrittiva, l'utente deve essere protetto!
         if (privacyMode !== 'public_edit' && user.isProtected !== 1) {
-          return res.status(400).json({ error: 'Collega prima un account Google per proteggere il tuo Pokédex e cambiarne la privacy' });
+          return res.status(400).json({ error: 'Proteggi prima il tuo profilo con una password o collegando un account Google per cambiarne la privacy' });
         }
 
         await db.run('UPDATE users SET privacyMode = ? WHERE id = ?', privacyMode, id);
@@ -409,7 +578,7 @@ async function startServer() {
         // Verifica se l'utente esiste già
         const existingUser = await db.get<User>('SELECT * FROM users WHERE name = ?', trimmedName);
         if (existingUser) {
-          return res.json(existingUser);
+          return res.json(sanitizeUser(existingUser));
         }
 
         // Altrimenti, crea un nuovo profilo
@@ -429,7 +598,7 @@ async function startServer() {
         };
 
         console.log(`Profilo registrato per: ${trimmedName} (ID: ${result.lastID})`);
-        res.json(newUser);
+        res.json(sanitizeUser(newUser));
       } catch (err) {
         console.error('Errore nella registrazione dell\'utente:', err);
         res.status(500).json({ error: 'Errore interno del server' });

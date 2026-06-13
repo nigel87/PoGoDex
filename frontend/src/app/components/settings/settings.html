@@ -194,33 +194,52 @@
           </span>
         </div>
 
-        <!-- Flow 1: Profile is unprotected -> show Link Google Option -->
-        <div class="auth-flow-section" *ngIf="activeProfileUser()?.isProtected !== 1">
-          <p class="flow-info">{{ 'settings.auth.privacy_info_unprotected' | translate }}</p>
-          <div class="google-btn-wrapper">
-            <div id="google-btn-container"></div>
-          </div>
+        <!-- Flow 1: If user is NOT logged in as owner -->
+        <div class="auth-flow-section" *ngIf="!isCurrentUserOwner()">
+          <!-- Case 1.1: Profile is protected -> show Login options -->
+          <ng-container *ngIf="activeProfileUser()?.isProtected === 1">
+            <p class="flow-info">
+              {{ i18n.currentLang() === 'it' ? 'Questo profilo è protetto. Accedi per gestirlo.' : 'This profile is protected. Sign in to manage it.' }}
+            </p>
+            <div class="google-btn-wrapper" *ngIf="activeProfileUser()?.googleSubId">
+              <div id="google-btn-container"></div>
+            </div>
+            <p class="flow-info-sub" *ngIf="activeProfileUser()?.hasPassword && !activeProfileUser()?.googleSubId" style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-top: 0.5rem;">
+              {{ i18n.currentLang() === 'it' ? 'Usa il pulsante "Accedi" in alto a destra per inserire la password.' : 'Use the "Accedi" button in the top right to enter your password.' }}
+            </p>
+          </ng-container>
+
+          <!-- Case 1.2: Profile is unprotected -> show Google Link option -->
+          <ng-container *ngIf="activeProfileUser()?.isProtected !== 1">
+            <p class="flow-info">{{ 'settings.auth.privacy_info_unprotected' | translate }}</p>
+            <div class="google-btn-wrapper">
+              <div id="google-btn-container"></div>
+            </div>
+          </ng-container>
         </div>
 
-        <!-- Flow 2: Profile is protected, but user is NOT logged in as owner -> show Login option -->
-        <div class="auth-flow-section" *ngIf="activeProfileUser()?.isProtected === 1 && !isCurrentUserOwner()">
-          <p class="flow-info">
-            {{ i18n.currentLang() === 'it' ? 'Questo profilo è protetto. Accedi con Google per gestirlo.' : 'This profile is protected. Sign in with Google to manage it.' }}
-          </p>
-          <div class="google-btn-wrapper">
-            <div id="google-btn-container"></div>
+        <!-- Flow 2: If user IS logged in as owner -> show full management -->
+        <div class="auth-flow-section owner-authenticated" *ngIf="isCurrentUserOwner()">
+          
+          <!-- 1. Google Link section (if not already linked) -->
+          <div class="setting-item" *ngIf="!activeProfileUser()?.googleSubId" style="border-top: none; padding-top: 0; margin-top: 0; flex-direction: column; align-items: flex-start; gap: 0.8rem;">
+            <div class="item-info">
+              <span class="item-title">Collega Account Google</span>
+              <span class="item-desc">Associa l'accesso Google a questo profilo per accedere con un solo click.</span>
+            </div>
+            <div class="google-btn-wrapper" style="padding: 0.2rem 0; width: 100%; display: flex; justify-content: flex-start;">
+              <div id="google-btn-container"></div>
+            </div>
           </div>
-        </div>
 
-        <!-- Flow 3: User is logged in as the owner -> show privacy options and logout button -->
-        <div class="auth-flow-section owner-authenticated" *ngIf="activeProfileUser()?.isProtected === 1 && isCurrentUserOwner()">
-          <div class="setting-item privacy-setting-item">
+          <!-- 2. Privacy Mode (Only if protected) -->
+          <div class="setting-item privacy-setting-item" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
             <div class="item-info">
               <span class="item-title">{{ 'settings.auth.privacy_mode.title' | translate }}</span>
               <span class="item-desc">{{ 'settings.auth.privacy_mode.desc' | translate }}</span>
             </div>
             
-            <div class="privacy-select-wrapper">
+            <div class="privacy-select-wrapper" *ngIf="activeProfileUser()?.isProtected === 1">
               <select 
                 [value]="activeProfileUser()?.privacyMode || 'public_edit'" 
                 (change)="changePrivacyMode($any($event.target).value)"
@@ -230,9 +249,99 @@
                 <option value="private">{{ 'settings.auth.privacy_mode.private' | translate }}</option>
               </select>
             </div>
+
+            <div class="privacy-locked-notice" *ngIf="activeProfileUser()?.isProtected !== 1" style="font-size: 0.85rem; color: #ef4444; font-weight: 600; text-align: right;">
+              🔒 Proteggi prima il profilo con una password o Google per cambiare la privacy
+            </div>
           </div>
 
-          <div class="logout-wrapper">
+          <!-- 3. Password Management -->
+          <div class="password-management-section" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); width: 100%;">
+            <div class="setting-item" style="border-top: none; padding-top: 0; margin-top: 0;">
+              <div class="item-info">
+                <span class="item-title">Password di Accesso</span>
+                <span class="item-desc" *ngIf="activeProfileUser()?.hasPassword">Il tuo profilo è protetto da una password locale.</span>
+                <span class="item-desc" *ngIf="!activeProfileUser()?.hasPassword">Il tuo profilo non ha ancora una password locale impostata.</span>
+              </div>
+              
+              <div class="password-action-buttons" *ngIf="!passwordActionType()">
+                <button type="button" class="premium-action-btn" *ngIf="!activeProfileUser()?.hasPassword" (click)="setPasswordAction('add')">
+                  🔒 Imposta Password
+                </button>
+                <div class="btn-group-row" *ngIf="activeProfileUser()?.hasPassword" style="display: flex; gap: 0.5rem;">
+                  <button type="button" class="premium-action-btn" (click)="setPasswordAction('change')">
+                    🔑 Modifica
+                  </button>
+                  <button type="button" class="premium-action-btn delete-btn" (click)="setPasswordAction('remove')">
+                    🗑️ Rimuovi
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Password Form -->
+            <div class="password-form-wrapper" *ngIf="passwordActionType()" style="margin-top: 1rem; background: rgba(0,0,0,0.15); padding: 1.2rem; border-radius: 12px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box;">
+              <h4 class="form-title" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary);">
+                <span *ngIf="passwordActionType() === 'add'">Imposta nuova password</span>
+                <span *ngIf="passwordActionType() === 'change'">Modifica la tua password</span>
+                <span *ngIf="passwordActionType() === 'remove'">Rimuovi la tua password</span>
+              </h4>
+
+              <!-- Current Password (required for change and remove) -->
+              <div class="input-group" *ngIf="passwordActionType() === 'change' || passwordActionType() === 'remove'" style="margin-bottom: 1rem;">
+                <label for="settings-current-pwd" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Password Corrente</label>
+                <div class="input-wrapper" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 0.8rem;">
+                  <input 
+                    id="settings-current-pwd" 
+                    type="password" 
+                    placeholder="Inserisci password corrente..." 
+                    [ngModel]="currentPassword()" 
+                    (ngModelChange)="currentPassword.set($event)"
+                    style="width: 100%; background: transparent; border: none; padding: 0.6rem 0; color: var(--text-primary); outline: none;">
+                </div>
+              </div>
+
+              <!-- New Password (required for add and change) -->
+              <div class="input-group" *ngIf="passwordActionType() === 'add' || passwordActionType() === 'change'" style="margin-bottom: 1rem;">
+                <label for="settings-new-pwd" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Nuova Password</label>
+                <div class="input-wrapper" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 0.8rem;">
+                  <input 
+                    id="settings-new-pwd" 
+                    type="password" 
+                    placeholder="Inserisci nuova password..." 
+                    [ngModel]="newPassword()" 
+                    (ngModelChange)="newPassword.set($event)"
+                    style="width: 100%; background: transparent; border: none; padding: 0.6rem 0; color: var(--text-primary); outline: none;">
+                </div>
+              </div>
+
+              <!-- Confirm New Password (required for add and change) -->
+              <div class="input-group" *ngIf="passwordActionType() === 'add' || passwordActionType() === 'change'" style="margin-bottom: 1.2rem;">
+                <label for="settings-confirm-pwd" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Conferma Nuova Password</label>
+                <div class="input-wrapper" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 0.8rem;">
+                  <input 
+                    id="settings-confirm-pwd" 
+                    type="password" 
+                    placeholder="Conferma nuova password..." 
+                    [ngModel]="confirmNewPassword()" 
+                    (ngModelChange)="confirmNewPassword.set($event)"
+                    style="width: 100%; background: transparent; border: none; padding: 0.6rem 0; color: var(--text-primary); outline: none;">
+                </div>
+              </div>
+
+              <div class="form-actions" style="display: flex; gap: 0.5rem;">
+                <button type="button" class="modal-btn confirm-btn" (click)="submitPasswordChange()" style="flex: 1; padding: 0.6rem; font-size: 0.9rem; border-radius: 8px;">
+                  Conferma
+                </button>
+                <button type="button" class="modal-btn cancel-btn" (click)="cancelPasswordAction()" style="flex: 1; padding: 0.6rem; font-size: 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border-color);">
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Logout Button -->
+          <div class="logout-wrapper" style="margin-top: 1.5rem; width: 100%; display: flex; justify-content: flex-end;">
             <button type="button" class="logout-btn" (click)="logout()">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -243,7 +352,6 @@
             </button>
           </div>
         </div>
-
       </div>
 
       <!-- Card 1.5: Language / Lingua (ACTIVE) -->

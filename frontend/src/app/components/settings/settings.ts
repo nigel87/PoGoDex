@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { SettingsService } from '../../services/settings.service';
 import { I18nService, Language } from '../../services/i18n.service';
 import { TranslatePipe } from '../../services/translate.pipe';
@@ -12,7 +13,7 @@ import { HeaderComponent } from '../header/header';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslatePipe, HeaderComponent],
+  imports: [CommonModule, RouterModule, TranslatePipe, HeaderComponent, FormsModule],
   templateUrl: './settings.html',
   styleUrl: './settings.css'
 })
@@ -295,5 +296,74 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
   changeLanguage(lang: Language) {
     this.i18n.setLanguage(lang);
+  }
+
+  // Password Management States
+  currentPassword = signal<string>('');
+  newPassword = signal<string>('');
+  confirmNewPassword = signal<string>('');
+  passwordActionType = signal<'add' | 'change' | 'remove' | null>(null);
+
+  setPasswordAction(action: 'add' | 'change' | 'remove' | null) {
+    this.errorMessage.set('');
+    this.successMessage.set('');
+    this.currentPassword.set('');
+    this.newPassword.set('');
+    this.confirmNewPassword.set('');
+    this.passwordActionType.set(action);
+  }
+
+  cancelPasswordAction() {
+    this.setPasswordAction(null);
+  }
+
+  submitPasswordChange() {
+    this.errorMessage.set('');
+    this.successMessage.set('');
+    const profile = this.activeProfileUser();
+    if (!profile) return;
+
+    const action = this.passwordActionType();
+    const current = this.currentPassword().trim();
+    const newPwd = this.newPassword().trim();
+    const confirm = this.confirmNewPassword().trim();
+
+    if (action === 'change' || action === 'remove') {
+      if (profile.hasPassword && !current) {
+        this.errorMessage.set(this.i18n.currentLang() === 'it' ? 'La password corrente è richiesta.' : 'Current password is required.');
+        return;
+      }
+    }
+
+    if (action === 'add' || action === 'change') {
+      if (!newPwd) {
+        this.errorMessage.set(this.i18n.currentLang() === 'it' ? 'La nuova password è richiesta.' : 'New password is required.');
+        return;
+      }
+      if (newPwd !== confirm) {
+        this.errorMessage.set(this.i18n.currentLang() === 'it' ? 'Le password non corrispondono.' : 'Passwords do not match.');
+        return;
+      }
+    }
+
+    const targetNewPwd = action === 'remove' ? '' : newPwd;
+
+    this.userService.updatePassword(profile.id, current, targetNewPwd).subscribe({
+      next: (res) => {
+        if (action === 'remove') {
+          this.successMessage.set(this.i18n.currentLang() === 'it' ? 'Password rimossa con successo!' : 'Password removed successfully!');
+        } else {
+          this.successMessage.set(this.i18n.currentLang() === 'it' ? 'Password salvata con successo!' : 'Password saved successfully!');
+        }
+        // Aggiorna lo stato locale del profilo
+        this.loadProfileDetails(this.username);
+        this.setPasswordAction(null);
+      },
+      error: (err) => {
+        console.error(err);
+        const errorMsg = err.error?.error || (this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento della password.' : 'Error updating password.');
+        this.errorMessage.set(errorMsg);
+      }
+    });
   }
 }

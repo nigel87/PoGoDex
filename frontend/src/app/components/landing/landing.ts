@@ -17,6 +17,13 @@ export class LandingComponent implements OnInit, OnDestroy {
   trainerName = signal<string>('');
   showError = signal<boolean>(false);
 
+  // Password Login States
+  showPasswordInput = signal<boolean>(false);
+  password = signal<string>('');
+  confirmPassword = signal<string>('');
+  isNewUser = signal<boolean>(false);
+  registerMethod = signal<'password' | 'google' | 'none'>('password');
+
   // Google Login States
   googleClientId = signal<string | null>(null);
   isUsernameRequired = signal<boolean>(false);
@@ -57,6 +64,16 @@ export class LandingComponent implements OnInit, OnDestroy {
     this.sub.unsubscribe();
   }
 
+  resetForm() {
+    this.showPasswordInput.set(false);
+    this.isNewUser.set(false);
+    this.registerMethod.set('password');
+    this.password.set('');
+    this.confirmPassword.set('');
+    this.loginError.set('');
+    this.loginSuccess.set('');
+  }
+
   onSubmit() {
     const name = this.trainerName().trim();
     if (!name) {
@@ -64,8 +81,124 @@ export class LandingComponent implements OnInit, OnDestroy {
       setTimeout(() => this.showError.set(false), 2000);
       return;
     }
-    // Reindirizza alla rotta dinamica del Pokédex di quel giocatore
-    this.router.navigate(['/' + name]);
+
+    this.isProcessing.set(true);
+    this.loginError.set('');
+
+    this.userService.checkAuthStatus(name).subscribe({
+      next: (status) => {
+        this.isProcessing.set(false);
+        if (status.exists) {
+          if (status.hasPassword) {
+            this.showPasswordInput.set(true);
+            this.isNewUser.set(false);
+          } else if (status.hasGoogle) {
+            const current = this.userService.getCurrentUser();
+            if (current && current.name.toLowerCase() === name.toLowerCase()) {
+              this.loginSuccess.set('Sei già autenticato!');
+              setTimeout(() => this.router.navigate(['/' + current.name]), 1000);
+            } else {
+              this.loginError.set('Questo profilo è protetto con Google. Accedi tramite Google.');
+            }
+          } else {
+            // Utente non protetto, accede direttamente
+            this.userService.createUser(name).subscribe({
+              next: (user) => {
+                this.router.navigate(['/' + user.name]);
+              },
+              error: (err) => {
+                this.loginError.set('Errore nell\'accesso.');
+              }
+            });
+          }
+        } else {
+          // Nuovo utente
+          this.isNewUser.set(true);
+          this.showPasswordInput.set(false);
+        }
+      },
+      error: (err) => {
+        this.isProcessing.set(false);
+        this.loginError.set('Errore nella verifica dell\'utente.');
+      }
+    });
+  }
+
+  onLoginWithPassword() {
+    const name = this.trainerName().trim();
+    const pwd = this.password().trim();
+    if (!pwd) return;
+
+    this.isProcessing.set(true);
+    this.loginError.set('');
+
+    this.userService.loginWithPassword(name, pwd).subscribe({
+      next: (res) => {
+        this.isProcessing.set(false);
+        this.loginSuccess.set('Accesso effettuato!');
+        setTimeout(() => {
+          this.router.navigate(['/' + res.user.name]);
+        }, 1000);
+      },
+      error: (err) => {
+        this.isProcessing.set(false);
+        this.loginError.set(err.error?.error || 'Password errata.');
+      }
+    });
+  }
+
+  onRegisterWithPassword() {
+    const name = this.trainerName().trim();
+    const pwd = this.password().trim();
+    const confirm = this.confirmPassword().trim();
+
+    if (!pwd || !confirm) {
+      this.loginError.set('La password e la conferma sono richieste.');
+      return;
+    }
+    if (pwd !== confirm) {
+      this.loginError.set('Le password non corrispondono.');
+      return;
+    }
+
+    this.isProcessing.set(true);
+    this.loginError.set('');
+
+    this.userService.registerWithPassword(name, pwd).subscribe({
+      next: (res) => {
+        this.isProcessing.set(false);
+        this.loginSuccess.set('Profilo creato con password!');
+        setTimeout(() => {
+          this.router.navigate(['/' + res.user.name]);
+        }, 1000);
+      },
+      error: (err) => {
+        this.isProcessing.set(false);
+        this.loginError.set(err.error?.error || 'Errore durante la registrazione.');
+      }
+    });
+  }
+
+  onRegisterPasswordless() {
+    const name = this.trainerName().trim();
+    if (!name) return;
+
+    this.isProcessing.set(true);
+    this.loginError.set('');
+
+    this.userService.createUser(name).subscribe({
+      next: (user) => {
+        this.isProcessing.set(false);
+        this.loginSuccess.set('Profilo creato!');
+        setTimeout(() => {
+          this.router.navigate(['/' + user.name]);
+        }, 1000);
+      },
+      error: (err) => {
+        this.isProcessing.set(false);
+        this.loginError.set('Errore durante la registrazione.');
+      }
+    });
   }
 
   initGoogleSignIn(clientId: string) {
@@ -103,12 +236,40 @@ export class LandingComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
+  renderGoogleRegisterButton() {
+    const google = (window as any).google;
+    if (!google) return;
+
+    setTimeout(() => {
+      const container = document.getElementById('google-landing-register-btn-container');
+      if (container) {
+        google.accounts.id.renderButton(
+          container,
+          { theme: 'filled_blue', size: 'large', shape: 'pill', text: 'signup_with', width: 280 }
+        );
+      }
+    }, 100);
+  }
+
+  setRegisterMethod(method: 'password' | 'google' | 'none') {
+    this.registerMethod.set(method);
+    this.loginError.set('');
+    this.loginSuccess.set('');
+    if (method === 'google') {
+      this.renderGoogleRegisterButton();
+    }
+  }
+
   handleGoogleCredential(credential: string) {
     this.loginError.set('');
     this.loginSuccess.set('');
     this.isProcessing.set(true);
 
-    this.userService.loginWithGoogle(credential).subscribe({
+    const requestedName = (this.isNewUser() && this.registerMethod() === 'google')
+      ? this.trainerName().trim()
+      : undefined;
+
+    this.userService.loginWithGoogle(credential, requestedName).subscribe({
       next: (res) => {
         this.isProcessing.set(false);
         if (res.status === 'username_required') {
@@ -124,7 +285,8 @@ export class LandingComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.isProcessing.set(false);
         console.error(err);
-        this.loginError.set('Errore durante l\'accesso Google.');
+        const errorMsg = err.error?.error || 'Errore durante l\'accesso Google.';
+        this.loginError.set(errorMsg);
       }
     });
   }
