@@ -73,7 +73,7 @@ export class I18nService {
       'pokedex.no_results': 'Nessun Pokémon corrisponde ai criteri di ricerca e ai filtri selezionati.',
       'pokedex.modal.title': 'Aggiungi Giocatore',
       'pokedex.modal.label': 'Nome del Giocatore',
-      'pokedex.modal.placeholder': 'Es: Nigel, Sofia, Allenatore1...',
+      'pokedex.modal.placeholder': 'Es: KantoMaster, PaldeaPrince, Allenatore1...',
       'pokedex.modal.help': 'Creando il profilo, avrai un Pokédex personale e statistiche indipendenti salvate stabilmente su disco.',
       'pokedex.modal.cancel': 'Annulla',
       'pokedex.modal.create': 'Crea Profilo',

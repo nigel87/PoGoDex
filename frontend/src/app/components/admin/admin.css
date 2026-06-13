@@ -860,6 +860,24 @@
   cursor: not-allowed;
 }
 
+.egg-sync-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.egg-sync-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
+  transform: translateY(-1px);
+}
+
+.egg-sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .quick-filters-row {
   display: flex;
   flex-wrap: wrap;

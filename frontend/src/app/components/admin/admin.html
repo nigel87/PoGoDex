@@ -31,6 +31,9 @@
         <button (click)="runSyncQuestsWithConsole()" class="admin-btn quest-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span>{{ i18n.currentLang() === 'it' ? '🗺️ Ricerche' : '🗺️ Quests' }}</span>
         </button>
+        <button (click)="runSyncEggsWithConsole()" class="admin-btn egg-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>{{ i18n.currentLang() === 'it' ? '🥚 Uova' : '🥚 Eggs' }}</span>
+        </button>
         <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           @if (!isSaving()) {
             <span>{{ 'admin.btn.save' | translate }}</span>

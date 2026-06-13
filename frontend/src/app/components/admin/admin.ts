@@ -474,6 +474,55 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     })();
   }
 
+  runSyncEggsWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon dalle Uova' : 'Egg Pokémon Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Inizializzazione sincronizzazione Uova...', 100);
+      await addLog('[INFO] Contatto leekduck.com/eggs/ in corso...', 400);
+      await addLog('[INFO] Download dell\'HTML e avvio del parsing...', 500);
+
+      const syncEggsUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-eggs`
+        : '/api/admin/sync-eggs';
+
+      this.http.post<any>(syncEggsUrl, {}).subscribe({
+        next: async (res) => {
+          await addLog(`[SUCCESS] HTML scaricato ed elaborato con successo.`, 300);
+          await addLog(`[INFO] Analisi delle categorie di uova (2km, 5km, 7km, 10km, 12km)...`, 400);
+          await addLog(`[INFO] Svuotamento e aggiornamento della tabella eggs nel database...`, 500);
+          await addLog(`[SUCCESS] Database SQLite allineato con i Pokémon delle uova attivi su Leek Duck!`, 500);
+          
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Uova aggiornate con successo!' : 'Eggs updated successfully!');
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Connessione a Leek Duck o parsing fallito.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 400);
+          
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento delle uova.' : 'Error during egg sync.', 'error');
+        }
+      });
+    })();
+  }
+
   loadUsersList() {
     this.isLoadingUsers.set(true);
     const usersUrl = window.location.port === '4205' || window.location.port === '4200'

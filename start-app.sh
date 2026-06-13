@@ -38,34 +38,20 @@ if [ ! -f "frontend/src/app/version.ts" ]; then
     echo "export const APP_VERSION = '$CURRENT_VERSION';" > frontend/src/app/version.ts
 fi
 
-# 1. Verifica disponibilità delle porte (solo processi in ascolto locale LISTEN)
+# 1. Verifica ed eventuale pulizia delle porte in uso (solo processi in ascolto locale LISTEN)
 echo -e "${YELLOW}Verifica disponibilità delle porte...${NC}"
 PORT_8085=$(lsof -t -i:8085 -sTCP:LISTEN)
 if [ ! -z "$PORT_8085" ]; then
-    echo -e "${RED}Errore: La porta 8085 è già in uso dal processo PID $PORT_8085.${NC}"
-    echo -e "${YELLOW}Vuoi terminare il processo esistente? (y/n)${NC}"
-    read -r response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        kill -9 $PORT_8085
-        echo -e "${GREEN}Processo terminato.${NC}"
-    else
-        echo -e "${RED}Impossibile avviare il backend. Esco.${NC}"
-        exit 1
-    fi
+    echo -e "${YELLOW}Porta 8085 già in uso dal processo PID $PORT_8085. Terminazione in corso...${NC}"
+    kill -9 $PORT_8085 2>/dev/null
+    sleep 1
 fi
 
 PORT_4205=$(lsof -t -i:4205 -sTCP:LISTEN)
 if [ ! -z "$PORT_4205" ]; then
-    echo -e "${RED}Errore: La porta 4205 è già in uso dal processo PID $PORT_4205.${NC}"
-    echo -e "${YELLOW}Vuoi terminare il processo esistente? (y/n)${NC}"
-    read -r response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        kill -9 $PORT_4205
-        echo -e "${GREEN}Processo terminato.${NC}"
-    else
-        echo -e "${RED}Impossibile avviare il frontend. Esco.${NC}"
-        exit 1
-    fi
+    echo -e "${YELLOW}Porta 4205 già in uso dal processo PID $PORT_4205. Terminazione in corso...${NC}"
+    kill -9 $PORT_4205 2>/dev/null
+    sleep 1
 fi
 
 # 2. Avvio del Backend Node.js + SQLite

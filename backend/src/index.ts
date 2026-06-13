@@ -1436,6 +1436,152 @@ async function startServer() {
       }
     }
 
+    async function performEggAutoSync(): Promise<void> {
+      console.log('[Auto-Sync-Eggs] Avvio sincronizzazione Uova automatica. Contatto leekduck.com...');
+      const response = await fetch('https://leekduck.com/eggs/');
+      if (!response.ok) {
+        throw new Error(`Leek Duck returned status ${response.status}`);
+      }
+      const html = await response.text();
+
+      function normalizeEggPokemonName(name: string): string {
+        name = name.trim();
+        if (name.startsWith('Galarian ')) {
+          return name.replace('Galarian ', '') + ' (Galarian)';
+        }
+        if (name.startsWith('Alolan ')) {
+          return name.replace('Alolan ', '') + ' (Alolan)';
+        }
+        if (name.startsWith('Hisuian ')) {
+          return name.replace('Hisuian ', '') + ' (Hisuian)';
+        }
+        if (name.startsWith('Paldean ')) {
+          return name.replace('Paldean ', '') + ' (Paldean)';
+        }
+        if (name.includes('Origin Forme') || name.includes('Origin Form')) {
+          return name.replace(' Origin Forme', '').replace(' Origin Form', '') + ' (Origin)';
+        }
+        
+        // Forme speciali che non hanno voci separate nel DB
+        if (name.startsWith('Indeedee ')) {
+          return 'Indeedee';
+        }
+        if (name.startsWith('Basculin ')) {
+          return 'Basculin';
+        }
+        return name;
+      }
+
+      const cpMultiplier2 = 0.35688677; // Level 20 CPM squared
+
+      function calculateCp(baseAtk: number, baseDef: number, baseSta: number, ivAtk: number, ivDef: number, ivSta: number): number {
+        const atk = baseAtk + ivAtk;
+        const def = baseDef + ivDef;
+        const sta = baseSta + ivSta;
+        return Math.floor((atk * Math.sqrt(def) * Math.sqrt(sta) * cpMultiplier2) / 10);
+      }
+
+      const db = await getDb();
+      // Carica i Pokemon dal DB per fare mapping e calcolare CP
+      const pokemonsList = await db.all<{ id: number; name: string; attack: number; defense: number; stamina: number }[]>(
+        'SELECT id, name, attack, defense, stamina FROM pokemons;'
+      );
+      const pokemonMap = new Map<string, { id: number; name: string; attack: number; defense: number; stamina: number }>();
+      for (const p of pokemonsList) {
+        pokemonMap.set(p.name.toLowerCase().trim(), p);
+      }
+
+      const parts = html.split(/<h2[^>]*>/);
+      const eggPools: Record<string, Set<string>> = {};
+
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        const headingMatch = part.match(/^([\s\S]*?)<\/h2>/);
+        if (!headingMatch) continue;
+        const heading = headingMatch[1].trim();
+
+        let distanceType: string | null = null;
+        if (heading.includes('12 km')) distanceType = '12km';
+        else if (heading.includes('2 km')) distanceType = '2km';
+        else if (heading.includes('5 km')) distanceType = '5km';
+        else if (heading.includes('7 km')) distanceType = '7km';
+        else if (heading.includes('10 km')) distanceType = '10km';
+
+        if (!distanceType) {
+          continue;
+        }
+
+        if (!eggPools[distanceType]) {
+          eggPools[distanceType] = new Set<string>();
+        }
+
+        const cardRegex = /<li class="pokemon-card[^>]*>([\s\S]*?)<\/li>/g;
+        let cardMatch;
+        while ((cardMatch = cardRegex.exec(part)) !== null) {
+          const cardHtml = cardMatch[1];
+          const nameMatch = cardHtml.match(/<span class="name">([^<]+)<\/span>/);
+          if (!nameMatch) continue;
+          const originalName = nameMatch[1].trim();
+          const normalizedName = normalizeEggPokemonName(originalName);
+
+          const p = pokemonMap.get(normalizedName.toLowerCase().trim());
+          if (p) {
+            if (p.attack === null || p.defense === null || p.stamina === null) {
+              console.warn(`[Auto-Sync-Eggs] Pokemon "${p.name}" ha statistiche incomplete nel database. Salto.`);
+              continue;
+            }
+
+            const minCp = calculateCp(p.attack, p.defense, p.stamina, 10, 10, 10);
+            const maxCp = calculateCp(p.attack, p.defense, p.stamina, 15, 15, 15);
+
+            eggPools[distanceType].add(JSON.stringify({
+              pokemonId: p.id,
+              minCp,
+              maxCp
+            }));
+          } else {
+            console.warn(`[Auto-Sync-Eggs] Impossibile mappare "${originalName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+          }
+        }
+      }
+
+      // Prepara i record per le 5 categorie principali di uova
+      const targetEggs = [
+        { name: 'Uovo da 2 km', type: '2km' },
+        { name: 'Uovo da 5 km', type: '5km' },
+        { name: 'Uovo da 7 km', type: '7km' },
+        { name: 'Uovo da 10 km', type: '10km' },
+        { name: 'Uovo da 12 km', type: '12km' }
+      ];
+
+      await db.run('BEGIN TRANSACTION;');
+      try {
+        const stmt = await db.prepare(
+          'INSERT OR REPLACE INTO eggs (id, name, type, contents) VALUES (?, ?, ?, ?);'
+        );
+
+        // Per ciascuna delle 5 categorie principali di uova
+        for (let idx = 0; idx < targetEggs.length; idx++) {
+          const egg = targetEggs[idx];
+          const id = idx + 1;
+          const set = eggPools[egg.type] || new Set<string>();
+          const contentsList = Array.from(set).map(s => JSON.parse(s));
+
+          // Ordina le schiuse per pokemonId per consistenza
+          contentsList.sort((a, b) => a.pokemonId - b.pokemonId);
+
+          await stmt.run(id, egg.name, egg.type, JSON.stringify(contentsList));
+        }
+
+        await stmt.finalize();
+        await db.run('COMMIT;');
+        console.log(`[Auto-Sync-Eggs] Uova auto-sincronizzate con successo. Aggiornate ${targetEggs.length} categorie.`);
+      } catch (err) {
+        await db.run('ROLLBACK;');
+        throw err;
+      }
+    }
+
     function translateQuestLocalItalian(name: string): string {
       let t = name.trim();
       const typeMap: Record<string, string> = {
@@ -1767,9 +1913,8 @@ ${JSON.stringify(chunk)}`;
         pokemonNameMap.set(p.name.toLowerCase().trim(), p.id);
       }
 
-      // Regex per estrarre le task items
-      const taskItemRegex = /<li class="task-item">([\s\S]*?)<\/li>\s*(?=<li class="task-item">|<\/ul>)/g;
-      let match;
+      // Suddividi l'HTML in base ai blocchi di categoria per filtrare gli eventi scaduti
+      const parts = html.split(/<div class="task-category/);
       const parsedQuests: Array<{
         name: string;
         rewards: string; // JSON string
@@ -1777,52 +1922,72 @@ ${JSON.stringify(chunk)}`;
       }> = [];
       let count = 0;
 
-      while ((match = taskItemRegex.exec(html)) !== null) {
-        const taskHtml = match[1];
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
 
-        // Estrai nome missione
-        const taskTextMatch = taskHtml.match(/<span class="task-text">([^<]+)<\/span>/);
-        if (!taskTextMatch) continue;
-        const taskName = taskTextMatch[1].trim();
+        // Estrai il tag di apertura per verificare se l'evento è scaduto
+        const tagMatch = part.match(/^([^>]+)>/);
+        if (!tagMatch) continue;
+        const tagContent = tagMatch[1];
 
-        // Estrai incontri Pokémon
-        const rewardRegex = /<li class="reward"[^>]*data-reward-type="encounter"[\s\S]*?<\/li>/g;
-        let rewardMatch;
-        const rewards: Array<{ pokemonId: number; minCp: number; maxCp: number }> = [];
-
-        while ((rewardMatch = rewardRegex.exec(taskHtml)) !== null) {
-          const rewardHtml = rewardMatch[0];
-
-          const pokemonNameMatch = rewardHtml.match(/<span class="reward-label">\s*<span>([^<]+)<\/span>\s*<\/span>/);
-          if (!pokemonNameMatch) continue;
-          const leekDuckPokemonName = pokemonNameMatch[1].trim();
-          const normalizedName = normalizeQuestRewardName(leekDuckPokemonName);
-
-          const maxCpMatch = rewardHtml.match(/max-cp">[^<]*<div>Max CP<\/div>\s*(\d+)\s*/);
-          const minCpMatch = rewardHtml.match(/min-cp">[^<]*<div>Min CP<\/div>\s*(\d+)\s*/);
-
-          const maxCp = maxCpMatch ? parseInt(maxCpMatch[1], 10) : 0;
-          const minCp = minCpMatch ? parseInt(minCpMatch[1], 10) : 0;
-
-          const pokemonId = pokemonNameMap.get(normalizedName.toLowerCase());
-          if (pokemonId) {
-            rewards.push({
-              pokemonId,
-              minCp,
-              maxCp
-            });
-          } else {
-            console.warn(`[Auto-Sync-Quests] Impossibile mappare "${leekDuckPokemonName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+        const eventEndMatch = tagContent.match(/data-event-end="([^"]+)"/);
+        if (eventEndMatch) {
+          const eventEndDateStr = eventEndMatch[1];
+          const eventEndDate = new Date(eventEndDateStr);
+          if (eventEndDate.getTime() < Date.now()) {
+            console.log(`[Auto-Sync-Quests] Salto categoria evento scaduta: data fine ${eventEndDateStr}`);
+            continue;
           }
         }
 
-        if (rewards.length > 0) {
-          count++;
-          parsedQuests.push({
-            name: taskName,
-            rewards: JSON.stringify(rewards),
-            displayOrder: count
-          });
+        const taskParts = part.split(/<li class="task-item">/);
+        for (let j = 1; j < taskParts.length; j++) {
+          const taskHtml = taskParts[j];
+
+          // Estrai nome missione
+          const taskTextMatch = taskHtml.match(/<span class="task-text">([^<]+)<\/span>/);
+          if (!taskTextMatch) continue;
+          const taskName = taskTextMatch[1].trim();
+
+          // Estrai incontri Pokémon
+          const rewardRegex = /<li class="reward"[^>]*data-reward-type="encounter"[\s\S]*?<\/li>/g;
+          let rewardMatch;
+          const rewards: Array<{ pokemonId: number; minCp: number; maxCp: number }> = [];
+
+          while ((rewardMatch = rewardRegex.exec(taskHtml)) !== null) {
+            const rewardHtml = rewardMatch[0];
+
+            const pokemonNameMatch = rewardHtml.match(/<span class="reward-label">\s*<span>([^<]+)<\/span>\s*<\/span>/);
+            if (!pokemonNameMatch) continue;
+            const leekDuckPokemonName = pokemonNameMatch[1].trim();
+            const normalizedName = normalizeQuestRewardName(leekDuckPokemonName);
+
+            const maxCpMatch = rewardHtml.match(/max-cp">[^<]*<div>Max CP<\/div>\s*(\d+)\s*/);
+            const minCpMatch = rewardHtml.match(/min-cp">[^<]*<div>Min CP<\/div>\s*(\d+)\s*/);
+
+            const maxCp = maxCpMatch ? parseInt(maxCpMatch[1], 10) : 0;
+            const minCp = minCpMatch ? parseInt(minCpMatch[1], 10) : 0;
+
+            const pokemonId = pokemonNameMap.get(normalizedName.toLowerCase());
+            if (pokemonId) {
+              rewards.push({
+                pokemonId,
+                minCp,
+                maxCp
+              });
+            } else {
+              console.warn(`[Auto-Sync-Quests] Impossibile mappare "${leekDuckPokemonName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+            }
+          }
+
+          if (rewards.length > 0) {
+            count++;
+            parsedQuests.push({
+              name: taskName,
+              rewards: JSON.stringify(rewards),
+              displayOrder: count
+            });
+          }
         }
       }
 
@@ -1922,6 +2087,19 @@ ${JSON.stringify(chunk)}`;
       }
     });
 
+    // =================================================================
+    // 9.3. POST /api/admin/sync-eggs - Sincronizza automaticamente le uova da Leek Duck (Protetto da requireAdmin)
+    // =================================================================
+    app.post('/api/admin/sync-eggs', requireAdmin, async (req, res) => {
+      try {
+        await performEggAutoSync();
+        res.json({ success: true });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica delle uova:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione delle uova: ' + String(err) });
+      }
+    });
+
     // Serve static files of the Angular frontend
     const frontendPath = path.join(__dirname, '../../frontend/dist/frontend/browser');
     app.use(express.static(frontendPath));
@@ -1962,16 +2140,25 @@ ${JSON.stringify(chunk)}`;
         } catch (err) {
           console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Ricerche all\'avvio:', err);
         }
+
+        try {
+          console.log('[Startup Background Worker] Avvio sincronizzazione Uova programmata...');
+          await performEggAutoSync();
+          console.log('[Startup Background Worker] Sincronizzazione Uova iniziale completata con successo.');
+        } catch (err) {
+          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Uova all\'avvio:', err);
+        }
       }, 5000); // Ritardo di 5 secondi per far avviare il server liberamente
 
       // 11. Esegui la sincronizzazione automatica ogni 24 ore
       setInterval(async () => {
         try {
-          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny, Raid e Ricerche giornaliera...');
+          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny, Raid, Ricerche e Uova giornaliera...');
           await performShinyAutoSync();
           await performRaidAutoSync();
           await performQuestAutoSync();
-          console.log('[Periodic Background Worker] Sincronizzazione Shiny, Raid e Ricerche giornaliera completata con successo.');
+          await performEggAutoSync();
+          console.log('[Periodic Background Worker] Sincronizzazione Shiny, Raid, Ricerche e Uova giornaliera completata con successo.');
         } catch (err) {
           console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica periodica:', err);
         }
