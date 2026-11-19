@@ -9801,17 +9801,8 @@
     "parentId": 479
   },
   {
-    "id": 10022,
-    "name": "Kyurem (White)",
-    "type1": "Dragon",
-    "type2": "Ice",
-    "generation": 5,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10022.png",
-    "parentId": 646
-  },
-  {
     "id": 10023,
-    "name": "Kyurem (Black)",
+    "name": "Kyurem (White)",
     "type1": "Dragon",
     "type2": "Ice",
     "generation": 5,
@@ -9819,12 +9810,21 @@
     "parentId": 646
   },
   {
-    "id": 10026,
+    "id": 10022,
+    "name": "Kyurem (Black)",
+    "type1": "Dragon",
+    "type2": "Ice",
+    "generation": 5,
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10022.png",
+    "parentId": 646
+  },
+  {
+    "id": 10126,
     "name": "Lycanroc (Midnight)",
     "type1": "Rock",
     "type2": null,
     "generation": 7,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10026.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10126.png",
     "parentId": 745
   },
   {
@@ -9837,30 +9837,30 @@
     "parentId": 745
   },
   {
-    "id": 10121,
+    "id": 10123,
     "name": "Oricorio (Pom-Pom)",
     "type1": "Electric",
     "type2": "Flying",
     "generation": 7,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10121.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10123.png",
     "parentId": 741
   },
   {
-    "id": 10122,
+    "id": 10124,
     "name": "Oricorio (Pa'u)",
     "type1": "Psychic",
     "type2": "Flying",
     "generation": 7,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10122.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10124.png",
     "parentId": 741
   },
   {
-    "id": 10123,
+    "id": 10125,
     "name": "Oricorio (Sensu)",
     "type1": "Ghost",
     "type2": "Flying",
     "generation": 7,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10123.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10125.png",
     "parentId": 741
   },
   {
@@ -10521,21 +10521,21 @@
     "parentId": 676
   },
   {
-    "id": 10227,
+    "id": 10245,
     "name": "Dialga (Origin)",
     "type1": "Steel",
     "type2": "Dragon",
     "generation": 4,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10227.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10245.png",
     "parentId": 483
   },
   {
-    "id": 10228,
+    "id": 10246,
     "name": "Palkia (Origin)",
     "type1": "Water",
     "type2": "Dragon",
     "generation": 4,
-    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10228.png",
+    "spriteUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/10246.png",
     "parentId": 484
   },
   {

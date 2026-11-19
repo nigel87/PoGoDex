@@ -151,6 +151,9 @@ export async function runSeeder(db: Database) {
     
     console.log(`Catalogo Pokémon sincronizzato con successo. Totale specie: ${pokemonData.length}`);
     
+    // Migra eventuali riferimenti a ID di forme errati e rimuove gli ID obsoleti
+    await migrateWrongFormIds(db);
+
     // Avvia l'auto-risolutore in background (senza bloccare l'avvio del server)
     resolveVarietyIds(db).catch(err => {
       console.error("[Auto-Resolver] Errore critico nel thread in background:", err);
@@ -324,4 +327,124 @@ async function resolveVarietyIds(db: Database) {
   }
 
   console.log('[Auto-Resolver] Scansione varietà completata.');
+}
+
+/**
+ * Migra i riferimenti agli ID delle forme corretti (Dialga/Palkia Origin, Kyurem, Oricorio, Lycanroc Midnight)
+ * e rimuove gli ID obsoleti dalla tabella pokemons.
+ */
+async function migrateWrongFormIds(db: Database) {
+  const migrationName = 'fix_wrong_form_ids_v1';
+  const row = await db.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM schema_migrations WHERE name = ?',
+    migrationName
+  );
+  if (row && row.count > 0) return;
+
+  const idRemap: Record<number, number> = {
+    10022: 10023, // Kyurem (White)
+    10023: 10022, // Kyurem (Black)
+    10026: 10126, // Lycanroc (Midnight)
+    10121: 10123, // Oricorio (Pom-Pom)
+    10122: 10124, // Oricorio (Pa'u)
+    10123: 10125, // Oricorio (Sensu)
+    10227: 10245, // Dialga (Origin)
+    10228: 10246, // Palkia (Origin)
+  };
+  const oldIds = Object.keys(idRemap).map(Number);
+  const obsoleteIds = [10026, 10121, 10122, 10227, 10228];
+
+  await db.run('BEGIN TRANSACTION;');
+  try {
+    const placeholders = oldIds.map(() => '?').join(',');
+    const entries = await db.all<any[]>(
+      `SELECT * FROM pokedex_entries WHERE pokemonId IN (${placeholders})`,
+      ...oldIds
+    );
+
+    if (entries.length > 0) {
+      await db.run(
+        `DELETE FROM pokedex_entries WHERE pokemonId IN (${placeholders})`,
+        ...oldIds
+      );
+      const upsertStmt = await db.prepare(`
+        INSERT INTO pokedex_entries (userId, pokemonId, regular, shadow, purified, perfect, lucky, xxs, xxl, shiny, mega, gigamax)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(userId, pokemonId) DO UPDATE SET
+          regular = MAX(regular, excluded.regular),
+          shadow = MAX(shadow, excluded.shadow),
+          purified = MAX(purified, excluded.purified),
+          perfect = MAX(perfect, excluded.perfect),
+          lucky = MAX(lucky, excluded.lucky),
+          xxs = MAX(xxs, excluded.xxs),
+          xxl = MAX(xxl, excluded.xxl),
+          shiny = MAX(shiny, excluded.shiny),
+          mega = MAX(mega, excluded.mega),
+          gigamax = MAX(gigamax, excluded.gigamax);
+      `);
+      for (const e of entries) {
+        const newId = idRemap[e.pokemonId] ?? e.pokemonId;
+        await upsertStmt.run(
+          e.userId, newId, e.regular, e.shadow, e.purified,
+          e.perfect, e.lucky, e.xxs, e.xxl, e.shiny, e.mega, e.gigamax
+        );
+      }
+      await upsertStmt.finalize();
+    }
+
+    // Aggiorna eventuali raid che puntavano ai vecchi ID
+    const raids = await db.all<any[]>(
+      `SELECT id, pokemonId FROM raids WHERE pokemonId IN (${placeholders})`,
+      ...oldIds
+    );
+    for (const r of raids) {
+      await db.run('UPDATE raids SET pokemonId = ? WHERE id = ?', idRemap[r.pokemonId], r.id);
+    }
+
+    // Aggiorna eventuali JSON in quests (rewards) ed eggs (contents)
+    const remapJsonList = (jsonStr: string): string | null => {
+      try {
+        const arr = JSON.parse(jsonStr);
+        if (!Array.isArray(arr)) return null;
+        let changed = false;
+        for (const item of arr) {
+          if (item && typeof item.pokemonId === 'number' && idRemap[item.pokemonId] !== undefined) {
+            item.pokemonId = idRemap[item.pokemonId];
+            changed = true;
+          }
+        }
+        return changed ? JSON.stringify(arr) : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const quests = await db.all<any[]>('SELECT id, rewards FROM quests');
+    for (const q of quests) {
+      const updated = remapJsonList(q.rewards);
+      if (updated) await db.run('UPDATE quests SET rewards = ? WHERE id = ?', updated, q.id);
+    }
+
+    const eggs = await db.all<any[]>('SELECT id, contents FROM eggs');
+    for (const eg of eggs) {
+      const updated = remapJsonList(eg.contents);
+      if (updated) await db.run('UPDATE eggs SET contents = ? WHERE id = ?', updated, eg.id);
+    }
+
+    // Rimuove gli ID obsoleti non più presenti in pokemon.json
+    const obsPlaceholders = obsoleteIds.map(() => '?').join(',');
+    await db.run(`DELETE FROM pokemons WHERE id IN (${obsPlaceholders})`, ...obsoleteIds);
+
+    await db.run(
+      'INSERT INTO schema_migrations (name, executedAt) VALUES (?, ?);',
+      migrationName,
+      Date.now()
+    );
+    await db.run('COMMIT;');
+    console.log(`[Database Migration] Migrazione ${migrationName} completata con successo!`);
+  } catch (err) {
+    await db.run('ROLLBACK;');
+    console.error(`[Database Migration] Errore durante ${migrationName}:`, err);
+    throw err;
+  }
 }
