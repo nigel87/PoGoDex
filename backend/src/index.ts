@@ -1423,64 +1423,403 @@ async function startServer() {
       }
     });
 
+    async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 20000): Promise<globalThis.Response> {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, {
+          ...options,
+          headers: {
+            'User-Agent': 'PoGODex-Backend/1.0 (+https://github.com/PoGODex)',
+            ...(options.headers || {})
+          },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function decodeHtmlEntities(str: string): string {
+      return str
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&rsquo;/g, '’')
+        .replace(/&lsquo;/g, '‘')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+        .trim();
+    }
+
+    async function performReleasedPokemonAutoSync(): Promise<{
+      unreleasedCapable: string[];
+      newlyReleased: string[];
+      newlyAddedPokemon: string[];
+      source: string;
+    }> {
+      console.log('[Auto-Sync-Released] Avvio sincronizzazione Pokémon rilasciati e specie mancanti...');
+      const db = await getDb();
+
+      let unreleasedDexIds: Set<number> | null = null;
+      let knownReleasedDexIds = new Set<number>();
+      const unreleasedSubForms = new Set<string>();
+      let source = '';
+
+      // 1. Fonte primaria: Bulbapedia MediaWiki API (List_of_Pokémon_by_availability_in_Pokémon_GO)
+      try {
+        const bulbaUrl = 'https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=List_of_Pok%C3%A9mon_by_availability_in_Pok%C3%A9mon_GO&prop=wikitext&format=json';
+        const response = await fetchWithTimeout(bulbaUrl, {}, 25000);
+        if (!response.ok) {
+          throw new Error(`Bulbapedia returned status ${response.status}`);
+        }
+        const json = await response.json() as any;
+        const wikitext: string = json?.parse?.wikitext?.['*'] || '';
+        const unrelStart = wikitext.indexOf('===Unreleased Pokémon===');
+        if (unrelStart === -1) {
+          throw new Error('Sezione ===Unreleased Pokémon=== non trovata su Bulbapedia');
+        }
+        const nextHeadingIdx = wikitext.indexOf('\n===', unrelStart + 10);
+        const unrelSection = nextHeadingIdx !== -1 ? wikitext.slice(unrelStart, nextHeadingIdx) : wikitext.slice(unrelStart);
+
+        // Estrae le tabelle wiki {| ... |} dalla sezione Unreleased
+        const tables = unrelSection.match(/\{\|[\s\S]*?\|\}/g) || [];
+        const speciesTable = tables[0];
+        if (!speciesTable) {
+          throw new Error('Nessuna tabella trovata nella sezione Unreleased di Bulbapedia');
+        }
+
+        // Tabella 1: specie interamente non ancora rilasciate
+        const parsedUnreleased = new Set<number>();
+        const templateRegex = /\{\{(?:MSP\/GO|MS)\|0*(\d+)[A-Za-z]*\|/g;
+        let match;
+        while ((match = templateRegex.exec(speciesTable)) !== null) {
+          const dexId = parseInt(match[1], 10);
+          if (!isNaN(dexId) && dexId > 0) {
+            parsedUnreleased.add(dexId);
+          }
+        }
+
+        if (parsedUnreleased.size < 5 || parsedUnreleased.size > 500) {
+          throw new Error(`Conteggio specie non rilasciate anomalo da Bulbapedia: ${parsedUnreleased.size}`);
+        }
+
+        unreleasedDexIds = parsedUnreleased;
+        source = 'Bulbapedia';
+
+        // Tabella 2 (se presente): forme specifiche non ancora rilasciate (es. Vivillon Fancy / Pokeball)
+        const formsTable = tables[1];
+        if (formsTable) {
+          if (/0666Fan\b/i.test(formsTable)) {
+            unreleasedSubForms.add('Vivillon (Fancy)');
+          }
+          if (/0666Pok\b/i.test(formsTable)) {
+            unreleasedSubForms.add('Vivillon (Pokeball)');
+          }
+        }
+
+        // Raccogli anche eventuali Dex ID rilasciati dalla sezione cronologica (per auto-inserimento specie future > 1025)
+        const releasedSection = wikitext.slice(0, unrelStart);
+        const relRegex = /\{\{(?:MSP\/GO|MS)\|0*(\d+)[A-Za-z]*\|/g;
+        while ((match = relRegex.exec(releasedSection)) !== null) {
+          const dexId = parseInt(match[1], 10);
+          if (!isNaN(dexId) && dexId > 0 && !parsedUnreleased.has(dexId)) {
+            knownReleasedDexIds.add(dexId);
+          }
+        }
+
+        console.log(`[Auto-Sync-Released] Bulbapedia elaborato: ${parsedUnreleased.size} specie non rilasciate, ${unreleasedSubForms.size} forme speciali non rilasciate.`);
+      } catch (bulbaErr) {
+        console.warn('[Auto-Sync-Released] Bulbapedia non disponibile o errore parsing, passo al fallback Fandom:', bulbaErr);
+      }
+
+      // 2. Fallback automatico: Pokémon GO Fandom Wiki MediaWiki API (List_of_Pokémon)
+      if (!unreleasedDexIds) {
+        const fandomUrl = 'https://pokemongo.fandom.com/api.php?action=parse&page=List_of_Pok%C3%A9mon&prop=wikitext&format=json';
+        const response = await fetchWithTimeout(fandomUrl, {}, 25000);
+        if (!response.ok) {
+          throw new Error(`Fandom Wiki returned status ${response.status}`);
+        }
+        const json = await response.json() as any;
+        const wikitext: string = json?.parse?.wikitext?.['*'] || '';
+
+        const parsedUnreleased = new Set<number>();
+        const parsedReleased = new Set<number>();
+        const pRegex = /\{\{P\|([^}]+)\}\}/g;
+        let match;
+        while ((match = pRegex.exec(wikitext)) !== null) {
+          const parts = match[1].split('|');
+          const dexId = parseInt(parts[1], 10);
+          if (isNaN(dexId) || dexId <= 0) continue;
+          if (parts.some(p => p.startsWith('mega=') || p.startsWith('gmax=') || p.startsWith('form='))) continue;
+          const isUnavailable = parts.some(p => p.trim() === 'a=n' || p.trim() === 'available=no');
+          if (isUnavailable) {
+            parsedUnreleased.add(dexId);
+          } else {
+            parsedReleased.add(dexId);
+          }
+        }
+
+        if (parsedReleased.size < 800) {
+          throw new Error(`Dati Fandom Wiki incompleti: solo ${parsedReleased.size} specie rilasciate rilevate.`);
+        }
+
+        unreleasedDexIds = parsedUnreleased;
+        knownReleasedDexIds = parsedReleased;
+        source = 'Fandom Wiki';
+
+        // Preserva eventuali forme speciali non rilasciate (es. Vivillon) già presenti in config quando si usa il fallback
+        try {
+          const prevRow = await db.get<{ value: string }>('SELECT value FROM app_config WHERE key = ?', 'UNRELEASED_SPECIES');
+          if (prevRow?.value) {
+            const prevList = JSON.parse(prevRow.value) as string[];
+            for (const item of prevList) {
+              if (item === 'Vivillon (Fancy)' || item === 'Vivillon (Pokeball)') {
+                unreleasedSubForms.add(item);
+              }
+            }
+          }
+        } catch (_) {}
+
+        console.log(`[Auto-Sync-Released] Fandom Wiki elaborato: ${parsedReleased.size} rilasciati, ${parsedUnreleased.size} non rilasciati.`);
+      }
+
+      // 3. Auto-inserimento specie mancanti nel database `pokemons` + backfill statistiche base
+      const existingBaseRows = await db.all<{ id: number; name: string; attack: number | null }[]>(
+        'SELECT id, name, attack FROM pokemons WHERE parentId IS NULL ORDER BY id ASC'
+      );
+      const existingById = new Map<number, { id: number; name: string; attack: number | null }>();
+      for (const row of existingBaseRows) {
+        existingById.set(row.id, row);
+      }
+
+      const newlyAddedPokemon: string[] = [];
+      let pgoApiByDex = new Map<number, any>();
+
+      try {
+        const pgoResp = await fetchWithTimeout('https://pokemon-go-api.github.io/pokemon-go-api/api/pokedex.json', {}, 25000);
+        if (pgoResp.ok) {
+          const pgoList = await pgoResp.json() as any[];
+          for (const entry of pgoList) {
+            if (entry && typeof entry.dexNr === 'number' && !pgoApiByDex.has(entry.dexNr)) {
+              pgoApiByDex.set(entry.dexNr, entry);
+            }
+          }
+
+          // Inserisci eventuali nuove specie presenti in pokemon-go-api ma assenti dal DB locale
+          const missingFromDb: any[] = [];
+          for (const [dexNr, entry] of pgoApiByDex.entries()) {
+            if (!existingById.has(dexNr)) {
+              missingFromDb.push(entry);
+            }
+          }
+
+          if (missingFromDb.length > 0) {
+            const insertStmt = await db.prepare(`
+              INSERT OR IGNORE INTO pokemons (id, name, type1, type2, generation, spriteUrl, parentId, attack, defense, stamina)
+              VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+            `);
+            for (const entry of missingFromDb) {
+              const dexNr = entry.dexNr;
+              const name = entry.names?.English || `Pokemon #${dexNr}`;
+              const type1 = entry.primaryType?.names?.English || 'Normal';
+              const type2 = entry.secondaryType?.names?.English || null;
+              const generation = typeof entry.generation === 'number' ? entry.generation : (dexNr > 1025 ? 10 : 9);
+              const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexNr}.png`;
+              const attack = entry.stats?.attack ?? null;
+              const defense = entry.stats?.defense ?? null;
+              const stamina = entry.stats?.stamina ?? null;
+
+              await insertStmt.run(dexNr, name, type1, type2, generation, spriteUrl, attack, defense, stamina);
+              existingById.set(dexNr, { id: dexNr, name, attack });
+              newlyAddedPokemon.push(`#${dexNr} ${name}`);
+            }
+            await insertStmt.finalize();
+            console.log(`[Auto-Sync-Released] Inserite ${newlyAddedPokemon.length} nuove specie nel catalogo DB: ${newlyAddedPokemon.join(', ')}`);
+          }
+
+          // Backfill statistiche base mancanti (attack/defense/stamina) per Pokémon esistenti
+          const rowsMissingStats = existingBaseRows.filter(r => r.attack === null);
+          if (rowsMissingStats.length > 0) {
+            const updateStatsStmt = await db.prepare('UPDATE pokemons SET attack = ?, defense = ?, stamina = ? WHERE id = ?');
+            let updatedStatsCount = 0;
+            for (const row of rowsMissingStats) {
+              const entry = pgoApiByDex.get(row.id);
+              if (entry?.stats?.attack != null && entry?.stats?.defense != null && entry?.stats?.stamina != null) {
+                await updateStatsStmt.run(entry.stats.attack, entry.stats.defense, entry.stats.stamina, row.id);
+                updatedStatsCount++;
+              }
+            }
+            await updateStatsStmt.finalize();
+            if (updatedStatsCount > 0) {
+              console.log(`[Auto-Sync-Released] Aggiornate statistiche base mancanti per ${updatedStatsCount} Pokémon.`);
+            }
+          }
+        }
+      } catch (pgoErr) {
+        console.warn('[Auto-Sync-Released] Impossibile contattare pokemon-go-api per il check specie mancanti (continuo comunque):', pgoErr);
+      }
+
+      // Controlla se Bulbapedia/Fandom segnala nuovi Dex ID rilasciati ancora assenti nel DB e in pokemon-go-api -> fallback PokeAPI
+      const stillMissingReleased = Array.from(knownReleasedDexIds).filter(dexId => !existingById.has(dexId));
+      for (const dexId of stillMissingReleased.slice(0, 20)) {
+        try {
+          const pokeResp = await fetchWithTimeout(`https://pokeapi.co/api/v2/pokemon/${dexId}`, {}, 10000);
+          if (!pokeResp.ok) continue;
+          const pokeData = await pokeResp.json() as any;
+          const rawName: string = pokeData.name || `pokemon-${dexId}`;
+          const name = rawName
+            .split('-')
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+          const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+          const type1 = pokeData.types?.[0]?.type?.name ? capitalize(pokeData.types[0].type.name) : 'Normal';
+          const type2 = pokeData.types?.[1]?.type?.name ? capitalize(pokeData.types[1].type.name) : null;
+          const generation = dexId > 1025 ? 10 : 9;
+          const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`;
+
+          await db.run(
+            `INSERT OR IGNORE INTO pokemons (id, name, type1, type2, generation, spriteUrl, parentId)
+             VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+            dexId, name, type1, type2, generation, spriteUrl
+          );
+          existingById.set(dexId, { id: dexId, name, attack: null });
+          newlyAddedPokemon.push(`#${dexId} ${name}`);
+        } catch (pokeErr) {
+          console.warn(`[Auto-Sync-Released] Impossibile recuperare da PokeAPI la specie mancante #${dexId}:`, pokeErr);
+        }
+      }
+
+      // 4. Costruisci la nuova lista UNRELEASED_SPECIES mappando per ID numerico (zero errori di spelling)
+      const unreleasedSet = new Set<string>();
+      for (const dexId of unreleasedDexIds) {
+        const dbPokemon = existingById.get(dexId);
+        if (dbPokemon) {
+          unreleasedSet.add(dbPokemon.name);
+        }
+      }
+      for (const subForm of unreleasedSubForms) {
+        unreleasedSet.add(subForm);
+      }
+
+      const unreleasedCapable = Array.from(unreleasedSet).sort();
+
+      // Calcola quali Pokémon sono diventati rilasciati rispetto alla configurazione precedente
+      let previousUnreleased: string[] = [];
+      try {
+        const prevRow = await db.get<{ value: string }>('SELECT value FROM app_config WHERE key = ?', 'UNRELEASED_SPECIES');
+        if (prevRow?.value) {
+          previousUnreleased = JSON.parse(prevRow.value) as string[];
+        }
+      } catch (_) {}
+
+      const newlyReleased = previousUnreleased.filter(name => !unreleasedSet.has(name));
+
+      await db.run(
+        'INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)',
+        'UNRELEASED_SPECIES',
+        JSON.stringify(unreleasedCapable)
+      );
+
+      console.log(
+        `[Auto-Sync-Released] Pokémon rilasciati sincronizzati da ${source}. Non rilasciati: ${unreleasedCapable.length}. ` +
+        `Appena sbloccati: ${newlyReleased.length}${newlyReleased.length > 0 ? ' (' + newlyReleased.join(', ') + ')' : ''}. ` +
+        `Nuove specie inserite: ${newlyAddedPokemon.length}.`
+      );
+
+      return { unreleasedCapable, newlyReleased, newlyAddedPokemon, source };
+    }
+
     async function performShinyAutoSync(): Promise<string[]> {
-      function cleanStringForMatch(str: string): string {
-        return str
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/’/g, "'")
-          .replace(/♀/g, 'f')
-          .replace(/♂/g, 'm')
-          .replace(/[^a-z0-9]/g, '');
+      console.log('[Auto-Sync-Shiny] Avvio sincronizzazione Shiny automatica...');
+      const db = await getDb();
+
+      let releasedShinyIds: Set<number> | null = null;
+      let source = '';
+
+      // 1. Fonte primaria: Bulbapedia MediaWiki API (List_of_Shiny_Pokémon_in_Pokémon_GO)
+      try {
+        const bulbaShinyUrl = 'https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=List_of_Shiny_Pok%C3%A9mon_in_Pok%C3%A9mon_GO&prop=wikitext&format=json';
+        const response = await fetchWithTimeout(bulbaShinyUrl, {}, 25000);
+        if (!response.ok) {
+          throw new Error(`Bulbapedia Shiny returned status ${response.status}`);
+        }
+        const json = await response.json() as any;
+        const rawWikitext: string = json?.parse?.wikitext?.['*'] || '';
+        // Rimuove i commenti HTML (su Bulbapedia gli shiny non ancora rilasciati sono commentati con <!-- ... -->)
+        const cleanWikitext = rawWikitext.replace(/<!--[\s\S]*?-->/g, '');
+
+        const parsedIds = new Set<number>();
+        let match;
+        const lopRegex = /\{\{lop\/shiny\/GO\|0*(\d+)\|/g;
+        while ((match = lopRegex.exec(cleanWikitext)) !== null) {
+          const id = parseInt(match[1], 10);
+          if (!isNaN(id) && id > 0) parsedIds.add(id);
+        }
+        const mspRegex = /\{\{MSP\/GO\|[^}]*\|0*(\d+)[^|]*\s+s\|/g;
+        while ((match = mspRegex.exec(cleanWikitext)) !== null) {
+          const id = parseInt(match[1], 10);
+          if (!isNaN(id) && id > 0) parsedIds.add(id);
+        }
+
+        if (parsedIds.size < 500) {
+          throw new Error(`Conteggio shiny anomalo da Bulbapedia: ${parsedIds.size}`);
+        }
+
+        releasedShinyIds = parsedIds;
+        source = 'Bulbapedia';
+      } catch (bulbaErr) {
+        console.warn('[Auto-Sync-Shiny] Bulbapedia non disponibile, passo al fallback PoGoAPI:', bulbaErr);
       }
 
-      console.log('[Auto-Sync] Avvio sincronizzazione Shiny automatica. Contatto pogoapi.net...');
-      const response = await fetch('https://pogoapi.net/api/v1/shiny_pokemon.json');
-      if (!response.ok) {
-        throw new Error(`PoGoAPI returned status ${response.status}`);
+      // 2. Fallback automatico: PoGoAPI (pogoapi.net)
+      if (!releasedShinyIds) {
+        const response = await fetchWithTimeout('https://pogoapi.net/api/v1/shiny_pokemon.json', {}, 20000);
+        if (!response.ok) {
+          throw new Error(`PoGoAPI returned status ${response.status}`);
+        }
+        const shinyData = (await response.json()) as Record<string, { id?: number; name: string; [key: string]: any }>;
+        const parsedIds = new Set<number>();
+        for (const [key, val] of Object.entries(shinyData)) {
+          const id = typeof val?.id === 'number' ? val.id : parseInt(key, 10);
+          if (!isNaN(id) && id > 0) parsedIds.add(id);
+        }
+        if (parsedIds.size < 500) {
+          throw new Error(`Conteggio shiny anomalo da PoGoAPI: ${parsedIds.size}`);
+        }
+        releasedShinyIds = parsedIds;
+        source = 'PoGoAPI';
       }
-      const shinyData = (await response.json()) as Record<string, { name: string; [key: string]: any }>;
 
-      const releasedShinyNames = new Set<string>(
-        Object.values(shinyData).map((p: any) => p.name.trim())
+      // Legge tutte le specie base direttamente dal DB (include eventuali nuove specie auto-inserite)
+      const basePokemons = await db.all<{ id: number; name: string }[]>(
+        'SELECT id, name FROM pokemons WHERE parentId IS NULL ORDER BY id ASC'
       );
-      const cleanedReleasedShinyNames = new Set<string>(
-        Array.from(releasedShinyNames).map(name => cleanStringForMatch(name))
-      );
-
-      const seedPath = path.join(__dirname, 'pokemon.json');
-      if (!fs.existsSync(seedPath)) {
-        throw new Error('File pokemon.json non trovato');
-      }
-      const pokemonData = JSON.parse(fs.readFileSync(seedPath, 'utf-8')) as any[];
 
       const shinyUnreleasedSet = new Set<string>();
-      for (const p of pokemonData) {
-        const baseName = p.name.split(' (')[0];
-        const cleanedBaseName = cleanStringForMatch(baseName);
-
-        if (!cleanedReleasedShinyNames.has(cleanedBaseName)) {
-          shinyUnreleasedSet.add(baseName);
+      for (const p of basePokemons) {
+        if (!releasedShinyIds.has(p.id)) {
+          shinyUnreleasedSet.add(p.name);
         }
       }
 
       const shinyUnreleasedCapable = Array.from(shinyUnreleasedSet).sort();
 
-      const db = await getDb();
       await db.run(
         'INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)',
         'SHINY_UNRELEASED_SPECIES',
         JSON.stringify(shinyUnreleasedCapable)
       );
 
-      console.log(`[Auto-Sync] Shiny cromatici sincronizzati con successo nel database. Trovati ${shinyUnreleasedCapable.length} shiny non rilasciati.`);
+      console.log(`[Auto-Sync-Shiny] Shiny cromatici sincronizzati da ${source} (${releasedShinyIds.size} rilasciati, ${shinyUnreleasedCapable.length} non ancora rilasciati).`);
       return shinyUnreleasedCapable;
     }
 
     async function performRaidAutoSync(): Promise<void> {
       console.log('[Auto-Sync-Raids] Avvio sincronizzazione Raid automatica. Contatto pokemon-go-api...');
-      const response = await fetch('https://pokemon-go-api.github.io/pokemon-go-api/api/raidboss.json');
+      const response = await fetchWithTimeout('https://pokemon-go-api.github.io/pokemon-go-api/api/raidboss.json', {}, 20000);
       if (!response.ok) {
         throw new Error(`Pokemon GO API returned status ${response.status}`);
       }
@@ -1607,7 +1946,7 @@ async function startServer() {
 
     async function performEggAutoSync(): Promise<void> {
       console.log('[Auto-Sync-Eggs] Avvio sincronizzazione Uova automatica. Contatto leekduck.com...');
-      const response = await fetch('https://leekduck.com/eggs/');
+      const response = await fetchWithTimeout('https://leekduck.com/eggs/', {}, 20000);
       if (!response.ok) {
         throw new Error(`Leek Duck returned status ${response.status}`);
       }
@@ -1880,12 +2219,12 @@ async function startServer() {
         t = t.replace(/^Earn (\d+)\s+Candies?\s+walking\s+with\s+your\s+buddy$/i, 'Guadagna $1 caramelle camminando con il tuo compagno');
       }
 
-      // 11. Walk
-      if (/^Walk (\d+(?:\.\d+)?)\s*km$/i.test(t)) {
-        t = t.replace(/^Walk (\d+(?:\.\d+)?)\s*km$/i, 'Cammina per $1 km');
+      // 11. Walk / Explore
+      if (/^(?:Walk|Explore) (\d+(?:\.\d+)?)\s*km$/i.test(t)) {
+        t = t.replace(/^(?:Walk|Explore) (\d+(?:\.\d+)?)\s*km$/i, 'Esplora $1 km');
       }
 
-      // 12. Raids
+      // 12. Raids & Max Battles
       if (/^Win a Level (\d+)\s+or\s+higher\s+Raid$/i.test(t)) {
         t = t.replace(/^Win a Level (\d+)\s+or\s+higher\s+Raid$/i, 'Vinci un raid di livello $1 o superiore');
       }
@@ -1897,6 +2236,12 @@ async function startServer() {
       }
       else if (/^Win a Raid$/i.test(t)) {
         t = 'Vinci un raid';
+      }
+      else if (/^Win a Max Battle$/i.test(t)) {
+        t = 'Vinci una Lotta Dynamax';
+      }
+      else if (/^Win (\d+)\s+Max Battles$/i.test(t)) {
+        t = t.replace(/^Win (\d+)\s+Max Battles$/i, 'Vinci $1 Lotte Dynamax');
       }
 
       // 13. Team Rocket
@@ -1950,14 +2295,13 @@ Input list:
 ${JSON.stringify(chunk)}`;
 
       let lastError: any = null;
-      let delay = 2000;
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      let delay = 1500;
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          const response = await fetch(url, {
+          const response = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
               contents: [{
@@ -1969,7 +2313,13 @@ ${JSON.stringify(chunk)}`;
                 responseMimeType: 'application/json'
               }
             })
-          });
+          }, 10000);
+
+          if (response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
+            const fatalErr: any = new Error(`Gemini API non-retryable status ${response.status}: ${response.statusText}`);
+            fatalErr.fatal = true;
+            throw fatalErr;
+          }
 
           if (response.status === 429 || response.status === 503) {
             console.warn(`[Quest-Translation] Attempt ${attempt} failed with status ${response.status}. Retrying in ${delay}ms...`);
@@ -2005,8 +2355,11 @@ ${JSON.stringify(chunk)}`;
           }
         } catch (err: any) {
           lastError = err;
+          if (err?.fatal) {
+            throw err;
+          }
           console.warn(`[Quest-Translation] Attempt ${attempt} failed with error: ${err.message || err}.`);
-          if (attempt < 3) {
+          if (attempt < 2) {
             console.log(`[Quest-Translation] Waiting ${delay}ms before next attempt...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             delay *= 2;
@@ -2026,36 +2379,39 @@ ${JSON.stringify(chunk)}`;
       console.log(`[Quest-Translation] Richiesta traduzione multilingua per ${missingQuests.length} nuove missioni in batch...`);
       const chunkSize = 5;
       const result: Record<string, Record<string, string>> = {};
+      let geminiDisabled = false;
 
       for (let i = 0; i < missingQuests.length; i += chunkSize) {
         const chunk = missingQuests.slice(i, i + chunkSize);
+        if (geminiDisabled) {
+          Object.assign(result, translateQuestsLocalFallback(chunk));
+          continue;
+        }
         console.log(`[Quest-Translation] Traduzione batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(missingQuests.length / chunkSize)} (${chunk.length} ricerche)...`);
         try {
           const chunkResult = await translateNewQuestsChunk(chunk, apiKey);
           Object.assign(result, chunkResult);
-        } catch (err) {
-          console.warn(`[Quest-Translation] Errore nel batch ${Math.floor(i / chunkSize) + 1}. Fallback locale per questo batch.`, err);
+        } catch (err: any) {
+          console.warn(`[Quest-Translation] Errore nel batch ${Math.floor(i / chunkSize) + 1}. Fallback locale per questo batch.`, err?.message || err);
+          if (err?.fatal) {
+            geminiDisabled = true;
+          }
           const fallbackResult = translateQuestsLocalFallback(chunk);
           Object.assign(result, fallbackResult);
         }
-        if (i + chunkSize < missingQuests.length) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!geminiDisabled && i + chunkSize < missingQuests.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       return result;
     }
 
-    async function performQuestAutoSync(): Promise<void> {
-      console.log('[Auto-Sync-Quests] Avvio sincronizzazione Ricerche automatica. Contatto leekduck.com...');
-      const response = await fetch('https://leekduck.com/research/');
-      if (!response.ok) {
-        throw new Error(`Leek Duck returned status ${response.status}`);
-      }
-      const html = await response.text();
+    async function performQuestAutoSync(): Promise<{ count: number; source: string }> {
+      console.log('[Auto-Sync-Quests] Avvio sincronizzazione Ricerche automatica...');
 
       // Funzione helper per normalizzare i nomi
       function normalizeQuestRewardName(name: string): string {
-        name = name.trim();
+        name = decodeHtmlEntities(name).trim();
         if (name.startsWith('Galarian ')) {
           return name.replace('Galarian ', '') + ' (Galarian)';
         }
@@ -2071,6 +2427,18 @@ ${JSON.stringify(chunk)}`;
         if (name.includes('Origin Forme') || name.includes('Origin Form')) {
           return name.replace(' Origin Forme', '').replace(' Origin Form', '') + ' (Origin)';
         }
+        // Rimuove pattern Spinda (es. "Spinda 4" / "Spinda 5" -> "Spinda")
+        if (/^Spinda\b/i.test(name)) {
+          return 'Spinda';
+        }
+        // Rimuove costumi comuni (es. "Charmander wearing Friede's goggles" -> "Charmander")
+        if (name.includes(' wearing ')) {
+          name = name.split(' wearing ')[0].trim();
+        }
+        // Rimuove prefissi costume (es. "Captain's Cap Pikachu" -> "Pikachu")
+        if (name.includes('Pikachu')) {
+          return 'Pikachu';
+        }
         return name;
       }
 
@@ -2082,70 +2450,139 @@ ${JSON.stringify(chunk)}`;
         pokemonNameMap.set(p.name.toLowerCase().trim(), p.id);
       }
 
-      // Suddividi l'HTML in base ai blocchi di categoria per filtrare gli eventi scaduti
-      const parts = html.split(/<div class="task-category/);
       const parsedQuests: Array<{
         name: string;
         rewards: string; // JSON string
         displayOrder: number;
       }> = [];
       let count = 0;
+      let source = '';
 
-      for (let i = 1; i < parts.length; i++) {
-        const part = parts[i];
+      // 1. Fonte primaria: Leek Duck HTML
+      try {
+        console.log('[Auto-Sync-Quests] Contatto leekduck.com/research/...');
+        const response = await fetchWithTimeout('https://leekduck.com/research/', {}, 20000);
+        if (!response.ok) {
+          throw new Error(`Leek Duck returned status ${response.status}`);
+        }
+        const html = await response.text();
 
-        // Estrai il tag di apertura per verificare se l'evento è scaduto
-        const tagMatch = part.match(/^([^>]+)>/);
-        if (!tagMatch) continue;
-        const tagContent = tagMatch[1];
+        // Suddividi l'HTML in base ai blocchi di categoria per filtrare gli eventi scaduti
+        const parts = html.split(/<div class="task-category/);
 
-        const eventEndMatch = tagContent.match(/data-event-end="([^"]+)"/);
-        if (eventEndMatch) {
-          const eventEndDateStr = eventEndMatch[1];
-          const eventEndDate = new Date(eventEndDateStr);
-          if (eventEndDate.getTime() < Date.now()) {
-            console.log(`[Auto-Sync-Quests] Salto categoria evento scaduta: data fine ${eventEndDateStr}`);
-            continue;
+        for (let i = 1; i < parts.length; i++) {
+          const part = parts[i];
+
+          // Estrai il tag di apertura per verificare se l'evento è scaduto
+          const tagMatch = part.match(/^([^>]+)>/);
+          if (!tagMatch) continue;
+          const tagContent = tagMatch[1];
+
+          const eventEndMatch = tagContent.match(/data-event-end="([^"]+)"/);
+          if (eventEndMatch) {
+            const eventEndDateStr = eventEndMatch[1];
+            const eventEndDate = new Date(eventEndDateStr);
+            if (!isNaN(eventEndDate.getTime()) && eventEndDate.getTime() < Date.now()) {
+              console.log(`[Auto-Sync-Quests] Salto categoria evento scaduta: data fine ${eventEndDateStr}`);
+              continue;
+            }
+          }
+
+          const taskParts = part.split(/<li class="task-item[^"]*">/);
+          for (let j = 1; j < taskParts.length; j++) {
+            const taskHtml = taskParts[j];
+
+            // Estrai nome missione in modo resiliente (gestisce tag annidati come <span> e entità HTML)
+            const taskTextMatch = taskHtml.match(/<span class="task-text"[^>]*>([\s\S]*?)<\/span>/);
+            if (!taskTextMatch) continue;
+            const taskName = decodeHtmlEntities(taskTextMatch[1].replace(/<[^>]+>/g, '')).trim();
+            if (!taskName) continue;
+
+            // Estrai incontri Pokémon
+            const rewardRegex = /<li class="reward"[^>]*data-reward-type="encounter"[\s\S]*?<\/li>/g;
+            let rewardMatch;
+            const rewards: Array<{ pokemonId: number; minCp: number; maxCp: number }> = [];
+
+            while ((rewardMatch = rewardRegex.exec(taskHtml)) !== null) {
+              const rewardHtml = rewardMatch[0];
+
+              const rewardLabelMatch = rewardHtml.match(/<span class="reward-label"[^>]*>([\s\S]*?)<\/span>/);
+              if (!rewardLabelMatch) continue;
+              const leekDuckPokemonName = decodeHtmlEntities(rewardLabelMatch[1].replace(/<[^>]+>/g, '')).trim();
+              const normalizedName = normalizeQuestRewardName(leekDuckPokemonName);
+
+              const maxCpMatch = rewardHtml.match(/max-cp">[^<]*<div>Max CP<\/div>\s*(\d+)\s*/);
+              const minCpMatch = rewardHtml.match(/min-cp">[^<]*<div>Min CP<\/div>\s*(\d+)\s*/);
+
+              const maxCp = maxCpMatch ? parseInt(maxCpMatch[1], 10) : 0;
+              const minCp = minCpMatch ? parseInt(minCpMatch[1], 10) : 0;
+
+              const pokemonId = pokemonNameMap.get(normalizedName.toLowerCase());
+              if (pokemonId) {
+                rewards.push({
+                  pokemonId,
+                  minCp,
+                  maxCp
+                });
+              } else {
+                console.warn(`[Auto-Sync-Quests] Impossibile mappare "${leekDuckPokemonName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+              }
+            }
+
+            if (rewards.length > 0) {
+              count++;
+              parsedQuests.push({
+                name: taskName,
+                rewards: JSON.stringify(rewards),
+                displayOrder: count
+              });
+            }
           }
         }
 
-        const taskParts = part.split(/<li class="task-item">/);
-        for (let j = 1; j < taskParts.length; j++) {
-          const taskHtml = taskParts[j];
+        if (parsedQuests.length > 0) {
+          source = 'Leek Duck';
+        } else {
+          console.warn('[Auto-Sync-Quests] Parsing HTML Leek Duck ha restituito 0 missioni. Passo al fallback ScrapedDuck JSON...');
+        }
+      } catch (leekErr) {
+        console.warn('[Auto-Sync-Quests] Errore Leek Duck diretto, passo al fallback ScrapedDuck JSON:', leekErr);
+      }
 
-          // Estrai nome missione
-          const taskTextMatch = taskHtml.match(/<span class="task-text">([^<]+)<\/span>/);
-          if (!taskTextMatch) continue;
-          const taskName = taskTextMatch[1].trim();
+      // 2. Fallback automatico: ScrapedDuck JSON (feed JSON strutturato di Leek Duck)
+      if (parsedQuests.length === 0) {
+        const sdUrl = 'https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/research.json';
+        console.log('[Auto-Sync-Quests] Contatto fallback ScrapedDuck JSON...');
+        const sdResp = await fetchWithTimeout(sdUrl, {}, 20000);
+        if (!sdResp.ok) {
+          throw new Error(`ScrapedDuck fallback returned status ${sdResp.status}`);
+        }
+        const sdData = await sdResp.json() as Array<{
+          text?: string;
+          rewards?: Array<{ name?: string; combatPower?: { min?: number; max?: number } }>;
+        }>;
 
-          // Estrai incontri Pokémon
-          const rewardRegex = /<li class="reward"[^>]*data-reward-type="encounter"[\s\S]*?<\/li>/g;
-          let rewardMatch;
+        if (!Array.isArray(sdData)) {
+          throw new Error('Risposta ScrapedDuck non valida');
+        }
+
+        for (const item of sdData) {
+          const taskName = decodeHtmlEntities((item.text || '').replace(/<[^>]+>/g, '')).trim();
+          if (!taskName || !Array.isArray(item.rewards)) continue;
+
           const rewards: Array<{ pokemonId: number; minCp: number; maxCp: number }> = [];
-
-          while ((rewardMatch = rewardRegex.exec(taskHtml)) !== null) {
-            const rewardHtml = rewardMatch[0];
-
-            const pokemonNameMatch = rewardHtml.match(/<span class="reward-label">\s*<span>([^<]+)<\/span>\s*<\/span>/);
-            if (!pokemonNameMatch) continue;
-            const leekDuckPokemonName = pokemonNameMatch[1].trim();
-            const normalizedName = normalizeQuestRewardName(leekDuckPokemonName);
-
-            const maxCpMatch = rewardHtml.match(/max-cp">[^<]*<div>Max CP<\/div>\s*(\d+)\s*/);
-            const minCpMatch = rewardHtml.match(/min-cp">[^<]*<div>Min CP<\/div>\s*(\d+)\s*/);
-
-            const maxCp = maxCpMatch ? parseInt(maxCpMatch[1], 10) : 0;
-            const minCp = minCpMatch ? parseInt(minCpMatch[1], 10) : 0;
-
+          for (const r of item.rewards) {
+            if (!r || !r.name) continue;
+            const normalizedName = normalizeQuestRewardName(r.name);
             const pokemonId = pokemonNameMap.get(normalizedName.toLowerCase());
             if (pokemonId) {
               rewards.push({
                 pokemonId,
-                minCp,
-                maxCp
+                minCp: r.combatPower?.min ?? 0,
+                maxCp: r.combatPower?.max ?? 0
               });
             } else {
-              console.warn(`[Auto-Sync-Quests] Impossibile mappare "${leekDuckPokemonName}" (normalizzato: "${normalizedName}") a un pokemonId.`);
+              console.warn(`[Auto-Sync-Quests] [ScrapedDuck] Impossibile mappare "${r.name}" (normalizzato: "${normalizedName}") a un pokemonId.`);
             }
           }
 
@@ -2158,47 +2595,14 @@ ${JSON.stringify(chunk)}`;
             });
           }
         }
+        source = 'ScrapedDuck JSON';
       }
 
       if (parsedQuests.length === 0) {
-        throw new Error('Nessuna ricerca sul campo trovata o errore nel parsing');
+        throw new Error('Nessuna ricerca sul campo trovata o errore nel parsing (sia Leek Duck che ScrapedDuck)');
       }
 
-      // Aggiornamento dizionario delle traduzioni quests.json
-      const translationsDir = path.join(__dirname, '../data/translations');
-      const translationsFile = path.join(translationsDir, 'quests.json');
-      
-      let translationDict: Record<string, Record<string, string>> = {};
-      try {
-        if (fs.existsSync(translationsFile)) {
-          translationDict = JSON.parse(fs.readFileSync(translationsFile, 'utf-8'));
-        }
-      } catch (e) {
-        console.error('[Auto-Sync-Quests] Errore nella lettura di quests.json:', e);
-      }
-      
-      const rawNames = parsedQuests.map(q => q.name);
-      const missingQuests = rawNames.filter(name => {
-        const trans = translationDict[name];
-        if (!trans) return true;
-        // Se tedesco o giapponese sono rimasti uguali alla chiave inglese (quindi fallback locale), riprova a tradurli.
-        return trans.de === name || trans.ja === name;
-      });
-      
-      if (missingQuests.length > 0) {
-        console.log(`[Auto-Sync-Quests] Trovate ${missingQuests.length} nuove ricerche non presenti nel dizionario. Avvio traduzione...`);
-        try {
-          const newTranslations = await translateNewQuests(missingQuests);
-          translationDict = { ...translationDict, ...newTranslations };
-          fs.writeFileSync(translationsFile, JSON.stringify(translationDict, null, 2), 'utf-8');
-          console.log(`[Auto-Sync-Quests] Dizionario quests.json aggiornato con successo.`);
-        } catch (transErr) {
-          console.error('[Auto-Sync-Quests] Errore durante la traduzione incrementale:', transErr);
-        }
-      } else {
-        console.log('[Auto-Sync-Quests] Tutte le ricerche sincronizzate sono già presenti nel dizionario delle traduzioni.');
-      }
-
+      // Aggiornamento immediato del database quests (senza attendere eventuali chiamate lente a Gemini)
       await db.run('BEGIN TRANSACTION;');
       try {
         await db.run('DELETE FROM quests;');
@@ -2210,23 +2614,104 @@ ${JSON.stringify(chunk)}`;
         }
         await insertStmt.finalize();
         await db.run('COMMIT;');
-        console.log(`[Auto-Sync-Quests] Ricerche auto-sincronizzate con successo. Inserite ${parsedQuests.length} missioni.`);
+        console.log(`[Auto-Sync-Quests] Ricerche auto-sincronizzate con successo da ${source}. Inserite ${parsedQuests.length} missioni.`);
       } catch (err) {
         await db.run('ROLLBACK;');
         throw err;
       }
+
+      // Aggiornamento dizionario delle traduzioni quests.json (fallback italiano istantaneo + arricchimento Gemini in background)
+      const translationsDir = path.join(__dirname, '../data/translations');
+      const translationsFile = path.join(translationsDir, 'quests.json');
+
+      let translationDict: Record<string, Record<string, string>> = {};
+      try {
+        if (fs.existsSync(translationsFile)) {
+          translationDict = JSON.parse(fs.readFileSync(translationsFile, 'utf-8'));
+        }
+      } catch (e) {
+        console.error('[Auto-Sync-Quests] Errore nella lettura di quests.json:', e);
+      }
+
+      const rawNames = Array.from(new Set(parsedQuests.map(q => q.name)));
+      const completelyMissing = rawNames.filter(name => !translationDict[name]);
+      if (completelyMissing.length > 0) {
+        const localFallback = translateQuestsLocalFallback(completelyMissing);
+        translationDict = { ...translationDict, ...localFallback };
+        try {
+          fs.writeFileSync(translationsFile, JSON.stringify(translationDict, null, 2), 'utf-8');
+          console.log(`[Auto-Sync-Quests] Salvate traduzioni locali istantanee per ${completelyMissing.length} nuove missioni.`);
+        } catch (writeErr) {
+          console.error('[Auto-Sync-Quests] Errore nel salvataggio locale di quests.json:', writeErr);
+        }
+      }
+
+      const needsAiTranslation = rawNames.filter(name => {
+        const trans = translationDict[name];
+        if (!trans) return true;
+        return trans.de === name || trans.ja === name;
+      });
+
+      if (needsAiTranslation.length > 0 && process.env.GEMINI_API_KEY) {
+        console.log(`[Auto-Sync-Quests] Avvio traduzione multilingua in background per ${needsAiTranslation.length} missioni...`);
+        translateNewQuests(needsAiTranslation)
+          .then(newTranslations => {
+            try {
+              const latestDict = fs.existsSync(translationsFile)
+                ? JSON.parse(fs.readFileSync(translationsFile, 'utf-8'))
+                : {};
+              const merged = { ...latestDict, ...newTranslations };
+              fs.writeFileSync(translationsFile, JSON.stringify(merged, null, 2), 'utf-8');
+              console.log(`[Auto-Sync-Quests] Dizionario quests.json arricchito in background.`);
+            } catch (bgWriteErr) {
+              console.error('[Auto-Sync-Quests] Errore nel salvataggio traduzioni background:', bgWriteErr);
+            }
+          })
+          .catch(transErr => {
+            console.warn('[Auto-Sync-Quests] Arricchimento traduzioni in background fallito (traduzioni locali già attive):', transErr);
+          });
+      }
+
+      return { count: parsedQuests.length, source };
+    }
+
+    // Guard anti-sovrapposizione per evitare transazioni SQLite concorrenti tra startup worker e click manuale
+    const syncInFlight = new Map<string, Promise<any>>();
+    function runSingleFlight<T>(key: string, fn: () => Promise<T>): Promise<T> {
+      const existing = syncInFlight.get(key);
+      if (existing) {
+        return existing as Promise<T>;
+      }
+      const p = fn().finally(() => {
+        syncInFlight.delete(key);
+      });
+      syncInFlight.set(key, p);
+      return p;
     }
 
     // =================================================================
-    // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny da PoGoAPI (Protetto da requireAdmin)
+    // 8.9. POST /api/admin/sync-released - Sincronizza automaticamente i Pokémon rilasciati e le specie mancanti (Protetto da requireAdmin)
+    // =================================================================
+    app.post('/api/admin/sync-released', requireAdmin, async (req, res) => {
+      try {
+        const result = await runSingleFlight('released', performReleasedPokemonAutoSync);
+        res.json({ success: true, ...result });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica dei Pokémon rilasciati:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione dei Pokémon rilasciati: ' + String(err) });
+      }
+    });
+
+    // =================================================================
+    // 9. POST /api/admin/sync-shinies - Sincronizza automaticamente gli shiny (Bulbapedia + fallback PoGoAPI) (Protetto da requireAdmin)
     // =================================================================
     app.post('/api/admin/sync-shinies', requireAdmin, async (req, res) => {
       try {
-        const shinyUnreleasedCapable = await performShinyAutoSync();
+        const shinyUnreleasedCapable = await runSingleFlight('shinies', performShinyAutoSync);
         res.json({ success: true, shinyUnreleasedCapable });
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica degli shiny:', err);
-        res.status(500).json({ error: 'Errore durante la sincronizzazione automatica con PoGoAPI: ' + String(err) });
+        res.status(500).json({ error: 'Errore durante la sincronizzazione automatica degli shiny: ' + String(err) });
       }
     });
 
@@ -2235,7 +2720,7 @@ ${JSON.stringify(chunk)}`;
     // =================================================================
     app.post('/api/admin/sync-raids', requireAdmin, async (req, res) => {
       try {
-        await performRaidAutoSync();
+        await runSingleFlight('raids', performRaidAutoSync);
         res.json({ success: true });
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica dei raid:', err);
@@ -2244,12 +2729,12 @@ ${JSON.stringify(chunk)}`;
     });
 
     // =================================================================
-    // 9.2. POST /api/admin/sync-quests - Sincronizza automaticamente le ricerche da Leek Duck (Protetto da requireAdmin)
+    // 9.2. POST /api/admin/sync-quests - Sincronizza automaticamente le ricerche da Leek Duck / ScrapedDuck (Protetto da requireAdmin)
     // =================================================================
     app.post('/api/admin/sync-quests', requireAdmin, async (req, res) => {
       try {
-        await performQuestAutoSync();
-        res.json({ success: true });
+        const result = await runSingleFlight('quests', performQuestAutoSync);
+        res.json({ success: true, ...result });
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica delle ricerche:', err);
         res.status(500).json({ error: 'Errore durante la sincronizzazione delle ricerche: ' + String(err) });
@@ -2261,7 +2746,7 @@ ${JSON.stringify(chunk)}`;
     // =================================================================
     app.post('/api/admin/sync-eggs', requireAdmin, async (req, res) => {
       try {
-        await performEggAutoSync();
+        await runSingleFlight('eggs', performEggAutoSync);
         res.json({ success: true });
       } catch (err) {
         console.error('Errore nella sincronizzazione automatica delle uova:', err);
@@ -2278,59 +2763,40 @@ ${JSON.stringify(chunk)}`;
       res.sendFile(path.join(frontendPath, 'index.html'));
     });
 
+    async function runAllAutoSyncs(workerLabel: string) {
+      const steps: Array<{ key: string; name: string; fn: () => Promise<any> }> = [
+        { key: 'released', name: 'Pokémon Rilasciati & Catalogo', fn: performReleasedPokemonAutoSync },
+        { key: 'shinies', name: 'Shiny', fn: performShinyAutoSync },
+        { key: 'raids', name: 'Raid', fn: performRaidAutoSync },
+        { key: 'quests', name: 'Ricerche', fn: performQuestAutoSync },
+        { key: 'eggs', name: 'Uova', fn: performEggAutoSync }
+      ];
+
+      for (const step of steps) {
+        try {
+          console.log(`[${workerLabel}] Avvio sincronizzazione ${step.name}...`);
+          await runSingleFlight(step.key, step.fn);
+          console.log(`[${workerLabel}] Sincronizzazione ${step.name} completata con successo.`);
+        } catch (err) {
+          console.error(`[${workerLabel}] Errore durante la sincronizzazione ${step.name} (le altre proseguono):`, err);
+        }
+      }
+    }
+
     // Avvia l'ascolto
     app.listen(port, host, () => {
       console.log(`================================================================`);
       console.log(`   [Node OK] Server REST in ascolto su http://${host}:${port}!`);
       console.log(`================================================================`);
 
-      // 10. Esegui la sincronizzazione automatica degli shiny e dei raid all'avvio in background
-      setTimeout(async () => {
-        try {
-          console.log('[Startup Background Worker] Avvio sincronizzazione Shiny programmata...');
-          await performShinyAutoSync();
-          console.log('[Startup Background Worker] Sincronizzazione Shiny iniziale completata con successo.');
-        } catch (err) {
-          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Shiny all\'avvio:', err);
-        }
-
-        try {
-          console.log('[Startup Background Worker] Avvio sincronizzazione Raid programmata...');
-          await performRaidAutoSync();
-          console.log('[Startup Background Worker] Sincronizzazione Raid iniziale completata con successo.');
-        } catch (err) {
-          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Raid all\'avvio:', err);
-        }
-
-        try {
-          console.log('[Startup Background Worker] Avvio sincronizzazione Ricerche programmata...');
-          await performQuestAutoSync();
-          console.log('[Startup Background Worker] Sincronizzazione Ricerche iniziale completata con successo.');
-        } catch (err) {
-          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Ricerche all\'avvio:', err);
-        }
-
-        try {
-          console.log('[Startup Background Worker] Avvio sincronizzazione Uova programmata...');
-          await performEggAutoSync();
-          console.log('[Startup Background Worker] Sincronizzazione Uova iniziale completata con successo.');
-        } catch (err) {
-          console.error('[Startup Background Worker] Impossibile eseguire la sincronizzazione automatica Uova all\'avvio:', err);
-        }
+      // 10. Esegui tutte le sincronizzazioni automatiche all'avvio in background (ciascuna isolata)
+      setTimeout(() => {
+        runAllAutoSyncs('Startup Background Worker');
       }, 5000); // Ritardo di 5 secondi per far avviare il server liberamente
 
-      // 11. Esegui la sincronizzazione automatica ogni 24 ore
-      setInterval(async () => {
-        try {
-          console.log('[Periodic Background Worker] Avvio sincronizzazione Shiny, Raid, Ricerche e Uova giornaliera...');
-          await performShinyAutoSync();
-          await performRaidAutoSync();
-          await performQuestAutoSync();
-          await performEggAutoSync();
-          console.log('[Periodic Background Worker] Sincronizzazione Shiny, Raid, Ricerche e Uova giornaliera completata con successo.');
-        } catch (err) {
-          console.error('[Periodic Background Worker] Impossibile eseguire la sincronizzazione automatica periodica:', err);
-        }
+      // 11. Esegui tutte le sincronizzazioni automatiche ogni 24 ore (ciascuna isolata)
+      setInterval(() => {
+        runAllAutoSyncs('Periodic Background Worker');
       }, 24 * 60 * 60 * 1000); // 24 ore
     });
 

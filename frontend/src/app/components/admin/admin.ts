@@ -324,6 +324,68 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     return displayName;
   }
 
+  runSyncReleasedWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon Rilasciati & Catalogo' : 'Released Pokémon & Catalog Sync');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Avvio worker di sincronizzazione Pokémon rilasciati...', 100);
+      await addLog('[INFO] Contatto Bulbapedia API (fallback Fandom Wiki) e pokemon-go-api...', 350);
+      await addLog('[INFO] Controllo nuove specie mancanti e stato di rilascio...', 450);
+
+      const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-released`
+        : '/api/admin/sync-released';
+
+      this.http.post<any>(syncApiUrl, {}).subscribe({
+        next: async (res) => {
+          const unrelCount = res.unreleasedCapable?.length || 0;
+          const newlyReleased: string[] = res.newlyReleased || [];
+          const newlyAdded: string[] = res.newlyAddedPokemon || [];
+          const source = res.source || 'Bulbapedia';
+
+          await addLog(`[SUCCESS] Dati disponibilità scaricati da ${source}!`, 200);
+          await addLog(`[INFO] Specie ancora non rilasciate in Pokémon GO: ${unrelCount}.`, 300);
+          if (newlyReleased.length > 0) {
+            await addLog(`[SUCCESS] Nuovi Pokémon appena sbloccati (${newlyReleased.length}): ${newlyReleased.join(', ')}`, 300);
+          } else {
+            await addLog(`[INFO] Nessun nuovo Pokémon sbloccato rispetto all'ultimo controllo.`, 300);
+          }
+          if (newlyAdded.length > 0) {
+            await addLog(`[SUCCESS] Nuove specie aggiunte al catalogo DB (${newlyAdded.length}): ${newlyAdded.join(', ')}`, 300);
+          }
+          await addLog(`[SUCCESS] Database aggiornato ed allineato con successo!`, 400);
+
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Pokémon rilasciati aggiornati con successo!' : 'Released Pokémon updated successfully!');
+          this.loadCatalogAndConfig();
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Sincronizzazione Pokémon rilasciati fallita.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 350);
+
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante la sincronizzazione dei rilasciati.' : 'Error during released Pokémon sync.', 'error');
+        }
+      });
+    })();
+  }
+
   runSyncShiniesWithConsole() {
     this.showSyncConsole.set(true);
     this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon Shiny' : 'Shiny Pokémon Synchronization');
@@ -345,8 +407,8 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
 
     (async () => {
       await addLog('[INFO] Avvio worker di sincronizzazione...', 100);
-      await addLog('[INFO] Connessione a pogoapi.net in corso...', 400);
-      await addLog('[INFO] Download del database shiny_pokemon.json...', 600);
+      await addLog('[INFO] Connessione a Bulbapedia API (fallback PoGoAPI) in corso...', 400);
+      await addLog('[INFO] Download lista Shiny rilasciati...', 500);
 
       const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
         ? `http://${window.location.hostname}:8085/api/admin/sync-shinies`
@@ -366,7 +428,7 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loadCatalogAndConfig();
         },
         error: async (err) => {
-          await addLog(`[ERROR] Connessione a pogoapi.net fallita o errore del server.`, 200);
+          await addLog(`[ERROR] Sincronizzazione shiny fallita.`, 200);
           await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 400);
           
           this.syncConsoleStatus.set('error');
