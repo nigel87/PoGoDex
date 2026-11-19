@@ -838,12 +838,13 @@ async function startServer() {
         const userRow = await db.get<{ lastUpdated: number }>('SELECT lastUpdated FROM users WHERE id = ?', parsedUserId);
         const lastUpdated = userRow?.lastUpdated || 0;
 
-        // Recupera il conteggio dei Pokémon per invalidare la cache se il catalogo cambia
-        const pkCountRow = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM pokemons');
-        const pkCount = pkCountRow?.count || 0;
+        // Recupera il conteggio e la somma degli ID dei Pokémon per invalidare la cache se il catalogo cambia
+        const pkStatsRow = await db.get<{ count: number; idSum: number }>('SELECT COUNT(*) as count, COALESCE(SUM(id), 0) as idSum FROM pokemons');
+        const pkCount = pkStatsRow?.count || 0;
+        const pkIdSum = pkStatsRow?.idSum || 0;
 
         // Genera l'ETag dinamico per il Pokédex di questo utente
-        const etag = `W/"user_${parsedUserId}_${lastUpdated}_${pkCount}"`;
+        const etag = `W/"user_${parsedUserId}_${lastUpdated}_${pkCount}_${pkIdSum}"`;
 
         // Verifica se l'ETag corrisponde a quello del client
         const clientEtag = req.headers['if-none-match'];
