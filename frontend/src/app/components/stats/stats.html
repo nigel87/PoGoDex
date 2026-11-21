@@ -206,6 +206,37 @@
               <p class="label">{{ 'stats.gigamax' | translate }}</p>
             </div>
           </div>
+
+          <!-- Costumes Dex (Normal & Shiny — visible only when Show Costumes setting is enabled) -->
+          <div class="glass-card gauge-card" *ngIf="settingsService.showCostumes() && costumeStats().total > 0">
+            <h3>🎭 {{ 'stats.costumes' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart costume-theme" [style.--pct]="costumeRegularPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ costumeRegularPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ costumeStats().regularCaught }} / {{ costumeStats().total }}</p>
+              <p class="label">{{ 'stats.costumes' | translate }}</p>
+            </div>
+          </div>
+
+          <div class="glass-card gauge-card" *ngIf="settingsService.showCostumes() && costumeStats().shinyTotal > 0">
+            <h3>✨ {{ 'stats.costumes_shiny' | translate }}</h3>
+            <div class="gauge-wrapper">
+              <div class="donut-chart costume-shiny-theme" [style.--pct]="costumeShinyPct() + '%'">
+                <div class="donut-inner">
+                  <span class="pct-val">{{ costumeShinyPct() }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="gauge-details">
+              <p class="captured-count">{{ costumeStats().shinyCaught }} / {{ costumeStats().shinyTotal }}</p>
+              <p class="label">{{ 'stats.costumes_shiny' | translate }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </main>

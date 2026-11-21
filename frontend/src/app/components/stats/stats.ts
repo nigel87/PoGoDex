@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { PokedexService, PokedexStats, PokedexDTO } from '../../services/pokedex.service';
+import { PokedexService, PokedexStats, PokedexDTO, CostumeDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { SHADOW_CAPABLE_SPECIES, MEGA_CAPABLE_SPECIES, GIGAMAX_CAPABLE_SPECIES, UNRELEASED_SPECIES, MODAL_FORMS_SPECIES } from '../../services/pokemon-config';
@@ -21,6 +21,7 @@ import { HeaderComponent } from '../header/header';
 export class StatsComponent implements OnInit, OnDestroy {
   version = APP_VERSION;
   pokemonList = signal<PokedexDTO[]>([]);
+  costumesList = signal<CostumeDTO[]>([]);
 
   canMega(name: string): boolean {
     const baseName = name.split(' (')[0];
@@ -142,7 +143,7 @@ export class StatsComponent implements OnInit, OnDestroy {
     for (const p of this.filteredPokemon()) {
       if (this.canMega(p.name)) {
         const baseName = p.name.split(' (')[0];
-        const isDouble = baseName === 'Charizard' || baseName === 'Mewtwo';
+        const isDouble = !!p.megaVarietyId2 || baseName === 'Charizard' || baseName === 'Mewtwo' || baseName === 'Raichu';
         count += isDouble ? 2 : 1;
       }
     }
@@ -185,6 +186,47 @@ export class StatsComponent implements OnInit, OnDestroy {
   shinyPct = computed(() => this.computedStats().total > 0 ? Math.round((this.computedStats().shinyCaught / this.computedStats().total) * 100) : 0);
   megaPct = computed(() => this.megaCapableTotal() > 0 ? Math.round((this.computedStats().megaCaught / this.megaCapableTotal()) * 100) : 0);
   gigamaxPct = computed(() => this.gigamaxCapableTotal() > 0 ? Math.round((this.computedStats().gigamaxCaught / this.gigamaxCapableTotal()) * 100) : 0);
+
+  // Statistiche Costumi Eventi (filtrate per regione attiva)
+  filteredCostumes = computed(() => {
+    const costumes = this.costumesList();
+    const region = this.selectedRegion();
+    if (region === 'all') return costumes;
+
+    const pokemonById = new Map<number, PokedexDTO>();
+    for (const p of this.pokemonList()) {
+      if (p.id < 10000) pokemonById.set(p.id, p);
+    }
+    return costumes.filter(c => {
+      const p = pokemonById.get(c.pokemonId);
+      return p ? this.getPokemonRegion(p) === region : false;
+    });
+  });
+
+  costumeStats = computed(() => {
+    const list = this.filteredCostumes();
+    let regularCaught = 0;
+    let shinyTotal = 0;
+    let shinyCaught = 0;
+    for (const c of list) {
+      if (c.regular) regularCaught++;
+      if (c.shinyReleased) {
+        shinyTotal++;
+        if (c.shiny) shinyCaught++;
+      }
+    }
+    return { total: list.length, regularCaught, shinyTotal, shinyCaught };
+  });
+
+  costumeRegularPct = computed(() => {
+    const s = this.costumeStats();
+    return s.total > 0 ? Math.round((s.regularCaught / s.total) * 100) : 0;
+  });
+
+  costumeShinyPct = computed(() => {
+    const s = this.costumeStats();
+    return s.shinyTotal > 0 ? Math.round((s.shinyCaught / s.shinyTotal) * 100) : 0;
+  });
 
   username = '';
   private sub = new Subscription();
@@ -292,6 +334,15 @@ export class StatsComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Errore nel caricamento del Pokédex per l\'elaborazione statistiche:', err);
         this.isLoading.set(false);
+      }
+    });
+
+    this.pokedexService.getCostumes(userId).subscribe({
+      next: (costumes) => {
+        this.costumesList.set(costumes);
+      },
+      error: (err) => {
+        console.error('Errore nel caricamento dei costumi per le statistiche:', err);
       }
     });
   }

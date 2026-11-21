@@ -116,7 +116,7 @@
         <div class="form-filters-row">
           <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Forma Speciale:' : 'Special Form:' }}</span>
           <div class="form-pills-scroll">
-            @for (form of specialForms; track form.value) {
+            @for (form of visibleSpecialForms(); track form.value) {
               <button 
                 class="form-filter-pill"
                 [class.active]="selectedFormFilter() === form.value"
@@ -203,6 +203,11 @@
                     }
                   </div>
                   <div class="size-badges">
+                    @if (settingsService.showCostumes() && (settingsService.layout() === 'compact' || selectedFormFilter() === 'costume') && getCostumesForPokemon(base).length > 0) {
+                      <span class="size-badge costume-count-badge" [class.completed]="areAllCostumesCaught(base)">
+                        🎭 {{ getCostumeProgress(base).caught }}/{{ getCostumeProgress(base).total }}
+                      </span>
+                    }
                     @if (getFormRegion(p) !== 'Base') {
                       <span class="size-badge form-badge">{{ getFormRegion(p) }}</span>
                     }
@@ -264,6 +269,19 @@
                         class="modal-trigger-btn"
                         (click)="activeModalPokemon.set(base); $event.stopPropagation()">
                         <span>✨ {{ getModalButtonLabel(base.name) }}</span>
+                      </button>
+                    </div>
+                  }
+
+                  <!-- Costume Modal Trigger Button (solo se impostazione Costumi attiva) -->
+                  @if (settingsService.showCostumes() && settingsService.layout() === 'detailed' && getCostumesForPokemon(base).length > 0) {
+                    <div class="modal-trigger-row">
+                      <button
+                        type="button"
+                        class="modal-trigger-btn costume-trigger-btn"
+                        [class.completed]="areAllCostumesCaught(base)"
+                        (click)="openCostumeModal(base); $event.stopPropagation()">
+                        <span>🎭 {{ 'pokedex.costumes.btn' | translate }} ({{ getCostumeProgress(base).caught }}/{{ getCostumeProgress(base).total }})</span>
                       </button>
                     </div>
                   }
@@ -579,6 +597,22 @@
                       </div>
                     </div>
                   }
+
+                  <!-- Costume Modal Trigger Button inside compact drawer -->
+                  @if (settingsService.showCostumes() && getCostumesForPokemon(bp).length > 0) {
+                    <div class="drawer-regional-switcher">
+                      <span class="drawer-section-label">{{ 'pokedex.costumes.modal_title' | translate }}:</span>
+                      <div class="drawer-region-pills">
+                        <button
+                          type="button"
+                          class="modal-trigger-btn costume-trigger-btn width-100"
+                          [class.completed]="areAllCostumesCaught(bp)"
+                          (click)="closeBottomSheet(); openCostumeModal(bp); $event.stopPropagation()">
+                          <span>🎭 {{ 'pokedex.costumes.btn' | translate }} ({{ getCostumeProgress(bp).caught }}/{{ getCostumeProgress(bp).total }})</span>
+                        </button>
+                      </div>
+                    </div>
+                  }
                 </div>
 
                 <!-- Capture Checklist Grid -->
@@ -832,5 +866,137 @@
         </div>
       </div>
     }
+
+    <!-- Native Modal Dialog per i Pokémon in Costume -->
+    <dialog
+      #costumeDialog
+      class="costume-dialog"
+      closedby="any"
+      aria-labelledby="costume-dialog-title"
+      (close)="onCostumeDialogClose()">
+      @if (activeCostumePokemon(); as cp) {
+        <div class="costume-dialog-inner">
+          <div class="modal-header costume-modal-header">
+            <div class="header-title-group">
+              <span class="modal-dex-id">{{ formatId(cp) }}</span>
+              <div>
+                <h3 id="costume-dialog-title">{{ cp.name }} — {{ 'pokedex.costumes.modal_title' | translate }}</h3>
+                <div class="costume-modal-stats">
+                  <span class="costume-stat-pill reg">
+                    {{ 'pokedex.btn.regular' | translate }}: <strong>{{ activePokemonCostumeStats().regularCaught }}/{{ activePokemonCostumeStats().total }}</strong>
+                  </span>
+                  <span class="costume-stat-pill shy">
+                    ✨ {{ 'pokedex.btn.shiny' | translate }}: <strong>{{ activePokemonCostumeStats().shinyCaught }}/{{ activePokemonCostumeStats().shinyTotal }}</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="close-modal-btn"
+              autofocus
+              [attr.aria-label]="'pokedex.costumes.close' | translate"
+              (click)="closeCostumeModal()">×</button>
+          </div>
+
+          <!-- Toolbar: Search, Missing Filter, Shiny Preview -->
+          <div class="costume-modal-toolbar">
+            @if (activePokemonCostumeStats().total > 6) {
+              <input
+                type="search"
+                class="costume-search-input"
+                [placeholder]="'pokedex.costumes.search_placeholder' | translate"
+                [ngModel]="costumeSearchQuery()"
+                (ngModelChange)="costumeSearchQuery.set($event)">
+            }
+
+            <div class="costume-toolbar-actions">
+              <div class="costume-filter-group">
+                <button
+                  type="button"
+                  class="costume-pill-btn"
+                  [class.active]="costumeStatusFilter() === 'all'"
+                  (click)="costumeStatusFilter.set('all')">
+                  {{ 'pokedex.costumes.filter_all' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="costume-pill-btn"
+                  [class.active]="costumeStatusFilter() === 'missing'"
+                  (click)="costumeStatusFilter.set('missing')">
+                  {{ 'pokedex.costumes.filter_missing' | translate }}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                class="costume-pill-btn shiny-preview-btn"
+                [class.active]="costumeShinyPreview()"
+                (click)="costumeShinyPreview.set(!costumeShinyPreview())">
+                ✨ {{ 'pokedex.costumes.preview_shiny' | translate }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Scrollable Costumes Grid -->
+          <div class="modal-body-scroll costume-modal-body">
+            @if (activePokemonCostumes().length === 0) {
+              <div class="costume-empty-state">
+                {{ 'pokedex.costumes.empty' | translate }}
+              </div>
+            } @else {
+              <div class="forms-grid costumes-grid">
+                @for (c of activePokemonCostumes(); track c.id) {
+                  <div
+                    class="form-grid-card costume-grid-card"
+                    [class.costume-caught]="c.regular"
+                    [class.costume-shiny-caught]="c.shiny">
+                    @if (c.regionalFormName) {
+                      <span class="costume-regional-tag">{{ c.regionalFormName }}</span>
+                    }
+                    <div class="form-art-wrapper costume-art-wrapper">
+                      <img
+                        [src]="getCostumeSpriteUrl(c)"
+                        [alt]="c.speciesName + ' ' + c.costumeName"
+                        class="form-sprite costume-sprite"
+                        loading="lazy"
+                        decoding="async"
+                        (error)="onCostumeImageError($event, c)">
+                    </div>
+                    <span class="form-pill-name costume-pill-name" [title]="c.costumeName">{{ c.costumeName }}</span>
+                    <div class="caught-actions-grid mini costume-actions-row">
+                      <!-- Normal Costume -->
+                      <button
+                        type="button"
+                        class="action-btn regular-btn"
+                        [class.active]="c.regular"
+                        [disabled]="isReadOnly()"
+                        (click)="toggleCostume(c, 'regular')"
+                        [title]="'pokedex.btn.regular.title' | translate">
+                        <span class="ball-icon"></span>
+                        {{ 'pokedex.btn.regular' | translate }}
+                      </button>
+
+                      <!-- Shiny Costume -->
+                      <button
+                        type="button"
+                        class="action-btn shiny-btn"
+                        [class.active]="c.shiny"
+                        [class.unavailable]="!c.shinyReleased"
+                        [disabled]="isReadOnly() || !c.shinyReleased"
+                        (click)="toggleCostume(c, 'shiny')"
+                        [title]="(!c.shinyReleased ? 'pokedex.btn.shiny.unavailable' : 'pokedex.btn.shiny.title') | translate">
+                        <span class="shiny-icon">{{ !c.shinyReleased ? '🔒' : '✨' }}</span>
+                        {{ (!c.shinyReleased ? 'pokedex.btn.shiny.unavailable_label' : 'pokedex.btn.shiny') | translate }}
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </dialog>
   }
 </div>

@@ -22,6 +22,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   groupRegionals = signal<boolean>(true);
   includeUnreleased = signal<boolean>(true);
   simplifyExport = signal<boolean>(true);
+  showCostumes = signal<boolean>(false);
+  supportsNativeSwitch = typeof HTMLInputElement !== 'undefined' && 'switch' in HTMLInputElement.prototype;
   username = '';
   
   // Google Auth & Privacy states
@@ -60,6 +62,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.groupRegionals.set(this.settingsService.groupRegionals());
     this.includeUnreleased.set(this.settingsService.includeUnreleased());
     this.simplifyExport.set(this.settingsService.simplifyExport());
+    this.showCostumes.set(this.settingsService.showCostumes());
 
     this.sub.add(
       this.route.params.subscribe(params => {
@@ -241,6 +244,11 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const newVal = !this.simplifyExport();
     this.simplifyExport.set(newVal);
     this.settingsService.setSimplifyExport(newVal);
+  }
+
+  onShowCostumesChange(checked: boolean) {
+    this.showCostumes.set(checked);
+    this.settingsService.setShowCostumes(checked);
   }
 
   // Verifica se un bottone è selezionato per una determinata categoria

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, signal, computed, effect, 
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { PokedexService, PokedexDTO } from '../../services/pokedex.service';
+import { PokedexService, PokedexDTO, CostumeDTO } from '../../services/pokedex.service';
 import { UserService, User } from '../../services/user.service';
 import { SettingsService } from '../../services/settings.service';
 import { APP_VERSION } from '../../version';
@@ -112,6 +112,7 @@ const GIGAMAX_ID_MAP: { [key: number]: number } = {
 export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   // Lista originale e stati utente
   pokemonList = signal<PokedexDTO[]>([]);
+  costumesList = signal<CostumeDTO[]>([]);
   usersList = signal<User[]>([]);
   activeUser = signal<User | null>(null);
   isReadOnly = signal<boolean>(false);
@@ -120,6 +121,63 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   isLoading = signal<boolean>(true);
   activeModalPokemon = signal<PokedexDTO | null>(null);
   version = APP_VERSION;
+
+  // Stati Modale Costumi (native <dialog>)
+  costumeDialog = viewChild<ElementRef<HTMLDialogElement>>('costumeDialog');
+  activeCostumePokemon = signal<PokedexDTO | null>(null);
+  costumeSearchQuery = signal<string>('');
+  costumeStatusFilter = signal<'all' | 'missing'>('all');
+  costumeShinyPreview = signal<boolean>(false);
+  private costumeDialogFallbackBound = false;
+
+  costumesByPokemonId = computed(() => {
+    const map = new Map<number, CostumeDTO[]>();
+    for (const c of this.costumesList()) {
+      const arr = map.get(c.pokemonId);
+      if (arr) arr.push(c);
+      else map.set(c.pokemonId, [c]);
+    }
+    return map;
+  });
+
+  activePokemonCostumes = computed(() => {
+    const bp = this.activeCostumePokemon();
+    if (!bp) return [];
+    const baseId = this.getBaseId(bp);
+    const list = this.costumesByPokemonId().get(baseId) || [];
+    const q = this.costumeSearchQuery().toLowerCase().trim();
+    const filter = this.costumeStatusFilter();
+
+    return list.filter(c => {
+      if (q) {
+        const hay = `${c.costumeName} ${c.regionalFormName || ''} ${c.speciesName}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (filter === 'missing') {
+        const missingReg = !c.regular;
+        const missingShiny = c.shinyReleased && !c.shiny;
+        return missingReg || missingShiny;
+      }
+      return true;
+    });
+  });
+
+  activePokemonCostumeStats = computed(() => {
+    const bp = this.activeCostumePokemon();
+    if (!bp) return { total: 0, regularCaught: 0, shinyTotal: 0, shinyCaught: 0 };
+    const list = this.costumesByPokemonId().get(this.getBaseId(bp)) || [];
+    let regularCaught = 0;
+    let shinyTotal = 0;
+    let shinyCaught = 0;
+    for (const c of list) {
+      if (c.regular) regularCaught++;
+      if (c.shinyReleased) {
+        shinyTotal++;
+        if (c.shiny) shinyCaught++;
+      }
+    }
+    return { total: list.length, regularCaught, shinyTotal, shinyCaught };
+  });
 
 
   // Stati modale creazione giocatore
@@ -232,6 +290,13 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     { value: 'gigamax' }
   ];
 
+  visibleSpecialForms = computed(() => {
+    if (this.settingsService.showCostumes()) {
+      return [...this.specialForms, { value: 'costume' }];
+    }
+    return this.specialForms;
+  });
+
   // Mappa reattiva per tracciare la forma regional selezionata per ogni card (base ID -> forma ID)
   selectedFormMap = signal<{ [key: number]: number }>({});
 
@@ -286,6 +351,11 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     }
     if (category === 'gigamax' && !this.canGigamax(p.name)) {
       return 2;
+    }
+    if (category === 'costume') {
+      const costumes = this.getCostumesForPokemon(p);
+      if (costumes.length === 0) return 2;
+      return this.areAllCostumesCaught(p) ? 4 : 3;
     }
 
     // perfect, lucky, xxl, xxs sono disponibili per tutti i pokemon rilasciati
@@ -430,6 +500,11 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     const state = this.getCardState(p, category);
     if (state < 3) return; // Non disponibile o non rilasciato in PoGO
 
+    if (category === 'costume') {
+      this.openCostumeModal(p);
+      return;
+    }
+
     // Altrimenti toggliamo la cattura di quella specifica categoria!
     if (category === 'mega') {
       const override = (p as any).megaFormOverride;
@@ -469,7 +544,11 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
 
   hasTwoMegas(name: string): boolean {
     const baseName = name.split(' (')[0];
-    return baseName === 'Charizard' || baseName === 'Mewtwo';
+    if (baseName === 'Charizard' || baseName === 'Mewtwo' || baseName === 'Raichu') {
+      return true;
+    }
+    const basePoke = this.pokemonList().find(x => x.id < 10000 && x.name.split(' (')[0] === baseName);
+    return !!(basePoke?.megaVarietyId2);
   }
 
   isMegaActive(pokemon: PokedexDTO, formType: 'x' | 'y' | 'standard'): boolean {
@@ -591,7 +670,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   splitDualMegas(filtered: PokedexDTO[]): any[] {
     const result: any[] = [];
     for (const p of filtered) {
-      if (p.id === 6 || p.id === 150) {
+      if (p.id < 10000 && this.hasTwoMegas(p.name)) {
         result.push({ ...p, megaFormOverride: 'x' });
         result.push({ ...p, megaFormOverride: 'y' });
       } else {
@@ -620,9 +699,13 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       this.selectedFormFilter();
       this.selectedRegion();
       this.settingsService.groupRegionals();
+      this.settingsService.showCostumes();
       
       setTimeout(() => {
         this.limit.set(50);
+        if (!this.settingsService.showCostumes() && this.selectedFormFilter() === 'costume') {
+          this.selectedFormFilter.set('all');
+        }
       });
     });
   }
@@ -762,6 +845,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
           case 'shiny': isCaught = p.shiny; break;
           case 'mega': isCaught = p.mega > 0; break;
           case 'gigamax': isCaught = p.gigamax; break;
+          case 'costume': isCaught = this.areAllCostumesCaught(p); break;
         }
       }
 
@@ -788,6 +872,9 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
           break;
         case 'shiny':
           matchesForm = !this.isShinyUnreleased(p.name);
+          break;
+        case 'costume':
+          matchesForm = p.id < 10000 && this.getCostumesForPokemon(p).length > 0;
           break;
       }
     }
@@ -1153,6 +1240,15 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
         }
       }
     });
+
+    this.pokedexService.getCostumes(userId).subscribe({
+      next: (costumes) => {
+        this.costumesList.set(costumes);
+      },
+      error: (err) => {
+        console.error('Errore nel recupero dei costumi dell\'utente:', err);
+      }
+    });
   }
 
   // Cambia il profilo giocatore attivo (reindirizzando alla nuova rotta)
@@ -1287,5 +1383,128 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     return '#' + baseId.toString().padStart(3, '0');
+  }
+
+  // --- Gestione Pokémon in Costume ---
+  getCostumesForPokemon(p: PokedexDTO): CostumeDTO[] {
+    const baseId = this.getBaseId(p);
+    return this.costumesByPokemonId().get(baseId) || [];
+  }
+
+  getCostumeProgress(p: PokedexDTO): { caught: number; total: number; shinyCaught: number; shinyTotal: number } {
+    const list = this.getCostumesForPokemon(p);
+    let caught = 0;
+    let shinyCaught = 0;
+    let shinyTotal = 0;
+    for (const c of list) {
+      if (c.regular) caught++;
+      if (c.shinyReleased) {
+        shinyTotal++;
+        if (c.shiny) shinyCaught++;
+      }
+    }
+    return { caught, total: list.length, shinyCaught, shinyTotal };
+  }
+
+  areAllCostumesCaught(p: PokedexDTO): boolean {
+    const list = this.getCostumesForPokemon(p);
+    if (list.length === 0) return false;
+    return list.every(c => c.regular);
+  }
+
+  openCostumeModal(p: PokedexDTO) {
+    const baseId = this.getBaseId(p);
+    const basePoke = p.id < 10000 ? p : (this.pokemonList().find(x => x.id === baseId) || p);
+    this.activeCostumePokemon.set(basePoke);
+    this.costumeSearchQuery.set('');
+    this.costumeStatusFilter.set('all');
+    this.costumeShinyPreview.set(false);
+
+    setTimeout(() => {
+      const dialog = this.costumeDialog()?.nativeElement;
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+        this.bindCostumeDialogLightDismissFallback(dialog);
+      }
+    });
+  }
+
+  closeCostumeModal() {
+    const dialog = this.costumeDialog()?.nativeElement;
+    if (dialog && dialog.open) {
+      dialog.close();
+    } else {
+      this.activeCostumePokemon.set(null);
+    }
+  }
+
+  onCostumeDialogClose() {
+    const dialog = this.costumeDialog()?.nativeElement;
+    if (dialog) {
+      dialog.returnValue = '';
+    }
+    this.activeCostumePokemon.set(null);
+  }
+
+  private bindCostumeDialogLightDismissFallback(dialog: HTMLDialogElement) {
+    if (this.costumeDialogFallbackBound || typeof HTMLDialogElement === 'undefined') return;
+    if ('closedBy' in HTMLDialogElement.prototype) {
+      this.costumeDialogFallbackBound = true;
+      return;
+    }
+    this.costumeDialogFallbackBound = true;
+    const isOutside = (e: PointerEvent) => {
+      const r = dialog.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    let pressedOutside = false;
+    dialog.addEventListener('pointerdown', (e) => {
+      pressedOutside = isOutside(e);
+    });
+    dialog.addEventListener('pointerup', (e) => {
+      if (pressedOutside && isOutside(e)) {
+        dialog.close();
+      }
+    });
+  }
+
+  toggleCostume(costume: CostumeDTO, field: 'regular' | 'shiny') {
+    if (this.isReadOnly()) return;
+    if (field === 'shiny' && !costume.shinyReleased) return;
+    const user = this.activeUser();
+    if (!user) return;
+
+    const updated: CostumeDTO = {
+      ...costume,
+      [field]: !costume[field]
+    };
+
+    this.pokedexService.updateCostumeEntry(user.id, updated).subscribe({
+      next: (res) => {
+        this.costumesList.update(list =>
+          list.map(c => c.id === costume.id ? res : c)
+        );
+      },
+      error: (err) => {
+        console.error('Errore aggiornamento costume:', err);
+      }
+    });
+  }
+
+  getCostumeSpriteUrl(c: CostumeDTO): string {
+    if (this.costumeShinyPreview() && c.shinyReleased && c.shinySpriteUrl) {
+      return c.shinySpriteUrl;
+    }
+    return c.spriteUrl;
+  }
+
+  onCostumeImageError(event: Event, c: CostumeDTO) {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.dataset['fallbackApplied']) return;
+    img.dataset['fallbackApplied'] = 'true';
+    const isShiny = this.costumeShinyPreview() && c.shinyReleased;
+    img.src = isShiny
+      ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${c.pokemonId}.png`
+      : `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${c.pokemonId}.png`;
   }
 }

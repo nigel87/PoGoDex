@@ -135,7 +135,18 @@ export class I18nService {
       'form.xxs': 'XXS',
       'form.mega': 'Mega',
       'form.gigamax': 'Gigamax',
+      'form.costume': '🎭 Costumi',
       'form.origin': 'Origine',
+
+      // Costumes modal & cards
+      'pokedex.costumes.btn': 'Costumi',
+      'pokedex.costumes.modal_title': 'Costumi Eventi',
+      'pokedex.costumes.search_placeholder': 'Cerca costume...',
+      'pokedex.costumes.preview_shiny': 'Anteprima Shiny',
+      'pokedex.costumes.filter_all': 'Tutti',
+      'pokedex.costumes.filter_missing': 'Mancanti',
+      'pokedex.costumes.empty': 'Nessun costume corrisponde ai filtri.',
+      'pokedex.costumes.close': 'Chiudi',
 
       // Caught Status filters
       'status.all': 'Tutti i Pokémon',
@@ -157,6 +168,8 @@ export class I18nService {
       'stats.shiny': 'Cromatici (Shiny)',
       'stats.mega': 'Mega Evoluzioni',
       'stats.gigamax': 'Forme Gigamax',
+      'stats.costumes': 'Costumi Eventi',
+      'stats.costumes_shiny': 'Costumi Shiny',
       'stats.overall_title': 'Totale Specie',
 
       // Export Screen
@@ -203,6 +216,8 @@ export class I18nService {
       'settings.include_unreleased.desc': 'Se attivo (stile Pokémon GO), i Pokémon non ancora rilasciati (es. Phione, Arceus) faranno parte del totale regionale e delle statistiche, impedendo il completamento al 100% della regione fino al rilascio effettivo. Se disattivato, verranno considerati solo i Pokémon disponibili in-game.',
       'settings.simplify_export.title': 'Semplificazione Evolutiva Esportazione',
       'settings.simplify_export.desc': 'Se attivo, nel box di esportazione dei Pokémon mancanti viene visualizzato solo il Pokémon base (es. se mancano Bulbasaur, Ivysaur e Venusaur, mostra solo Bulbasaur poiché le evoluzioni si possono ottenere evolvendo il base). Inoltre, nasconde le evoluzioni mancanti se possiedi già un loro antenato.',
+      'settings.show_costumes.title': 'Mostra Pokémon in Costume',
+      'settings.show_costumes.desc': 'Se attivo, aggiunge al Pokédex e alle Statistiche tutti i costumi evento rilasciati in Pokémon GO, permettendoti di registrare ogni costume sia in versione Normale che Shiny.',
       'settings.regional_buttons.title': 'Qualità da registrare per le Forme Regionali:',
       'settings.regional_buttons.desc': 'Seleziona quali pulsanti di cattura abilitare sulle schede dei Pokémon regionali quando sono raggruppate.',
       'settings.tracking_card.title': 'Configurazione Qualità Pokémon',
@@ -388,7 +403,18 @@ export class I18nService {
       'form.xxs': 'XXS',
       'form.mega': 'Mega',
       'form.gigamax': 'Gigamax',
+      'form.costume': '🎭 Costumes',
       'form.origin': 'Origin',
+
+      // Costumes modal & cards
+      'pokedex.costumes.btn': 'Costumes',
+      'pokedex.costumes.modal_title': 'Event Costumes',
+      'pokedex.costumes.search_placeholder': 'Search costume...',
+      'pokedex.costumes.preview_shiny': 'Shiny Preview',
+      'pokedex.costumes.filter_all': 'All',
+      'pokedex.costumes.filter_missing': 'Missing',
+      'pokedex.costumes.empty': 'No costumes match these filters.',
+      'pokedex.costumes.close': 'Close',
 
       // Caught Status filters
       'status.all': 'All Pokémon',
@@ -410,6 +436,8 @@ export class I18nService {
       'stats.shiny': 'Shiny',
       'stats.mega': 'Mega Evolutions',
       'stats.gigamax': 'Gigamax Forms',
+      'stats.costumes': 'Event Costumes',
+      'stats.costumes_shiny': 'Shiny Costumes',
       'stats.overall_title': 'Total Species',
 
       // Export Screen
@@ -456,6 +484,8 @@ export class I18nService {
       'settings.include_unreleased.desc': 'If active (like Pokémon GO), unreleased Pokémon (e.g. Phione, Arceus) are included in regional totals and statistics, blocking 100% completion of the region until actually released. If disabled, only available in-game Pokémon are considered.',
       'settings.simplify_export.title': 'Evolutionary Export Simplification',
       'settings.simplify_export.desc': 'If active, the export box for missing species displays only the base Pokémon of an evolutionary line (e.g. if Bulbasaur, Ivysaur, and Venusaur are all missing, only Bulbasaur is shown since evolutions can be obtained by evolving it). It also hides missing evolutions if you already own any of their ancestors.',
+      'settings.show_costumes.title': 'Show Costumed Pokémon',
+      'settings.show_costumes.desc': 'If active, adds all released Pokémon GO event costumes to the Pokédex and Stats, allowing you to track both Normal and Shiny variants for every costume.',
       'settings.regional_buttons.title': 'Buttons to display for Regional Forms:',
       'settings.regional_buttons.desc': 'Select which action buttons to enable on regional Pokémon cards when grouped.',
       'settings.tracking_card.title': 'Pokémon Quality Tracking',

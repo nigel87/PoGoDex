@@ -2,7 +2,7 @@ import { Database } from 'sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
-import { Pokemon } from './types';
+import { Pokemon, PokemonCostume } from './types';
 
 /**
  * Gestisce il popolamento iniziale del database SQLite se vuoto.
@@ -154,6 +154,9 @@ export async function runSeeder(db: Database) {
     // Migra eventuali riferimenti a ID di forme errati e rimuove gli ID obsoleti
     await migrateWrongFormIds(db);
 
+    // Sincronizza il catalogo dei Pokémon in costume da costumes.json
+    await seedCostumesCatalog(db);
+
     // Avvia l'auto-risolutore in background (senza bloccare l'avvio del server)
     resolveVarietyIds(db).catch(err => {
       console.error("[Auto-Resolver] Errore critico nel thread in background:", err);
@@ -162,6 +165,63 @@ export async function runSeeder(db: Database) {
     await db.run('ROLLBACK;');
     console.error("Errore durante la sincronizzazione dei Pokémon:", e);
     throw e;
+  }
+}
+
+/**
+ * Sincronizza il catalogo dei costumi rilasciati da costumes.json nel database SQLite.
+ * Preserva eventuali costumi già aggiunti da auto-sync futuri e tutte le spunte utente.
+ */
+async function seedCostumesCatalog(db: Database) {
+  const costumesPath = path.join(__dirname, 'costumes.json');
+  if (!fs.existsSync(costumesPath)) {
+    console.warn(`[Seeder] File costumes.json non trovato in: ${costumesPath}. Skip seeding costumi.`);
+    return;
+  }
+
+  try {
+    const costumesData = JSON.parse(fs.readFileSync(costumesPath, 'utf-8')) as PokemonCostume[];
+    await db.run('BEGIN TRANSACTION;');
+
+    const stmt = await db.prepare(`
+      INSERT INTO pokemon_costumes (
+        id, pokemonId, speciesName, costumeName, costumeKey,
+        spriteUrl, shinySpriteUrl, shinyReleased, regionalFormName, sortOrder
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        pokemonId = excluded.pokemonId,
+        speciesName = excluded.speciesName,
+        costumeName = excluded.costumeName,
+        costumeKey = COALESCE(excluded.costumeKey, pokemon_costumes.costumeKey),
+        spriteUrl = excluded.spriteUrl,
+        shinySpriteUrl = excluded.shinySpriteUrl,
+        shinyReleased = MAX(pokemon_costumes.shinyReleased, excluded.shinyReleased),
+        regionalFormName = excluded.regionalFormName,
+        sortOrder = excluded.sortOrder;
+    `);
+
+    for (const c of costumesData) {
+      await stmt.run(
+        c.id,
+        c.pokemonId,
+        c.speciesName,
+        c.costumeName,
+        c.costumeKey || null,
+        c.spriteUrl,
+        c.shinySpriteUrl || null,
+        c.shinyReleased ? 1 : 0,
+        c.regionalFormName || null,
+        c.sortOrder || 0
+      );
+    }
+
+    await stmt.finalize();
+    await db.run('COMMIT;');
+    console.log(`[Seeder] Catalogo costumi sincronizzato con successo. Totale costumi seed: ${costumesData.length}`);
+  } catch (err) {
+    try { await db.run('ROLLBACK;'); } catch (_) {}
+    console.error('[Seeder] Errore durante la sincronizzazione dei costumi:', err);
   }
 }
 
@@ -258,8 +318,9 @@ async function resolveVarietyIds(db: Database) {
 
     if (!canMega && !canGiga) continue;
 
-    // Controlliamo se c'è bisogno di risolvere
-    const needsMegaResolve = canMega && (p.megaVarietyId === null || (baseName === 'Charizard' || baseName === 'Mewtwo' ? p.megaVarietyId2 === null : false));
+    // Controlliamo se c'è bisogno di risolvere (supporta anche Raichu o future specie con Mega X/Y)
+    const needsDualMega = baseName === 'Charizard' || baseName === 'Mewtwo' || baseName === 'Raichu';
+    const needsMegaResolve = canMega && (p.megaVarietyId === null || (needsDualMega ? p.megaVarietyId2 === null : false));
     const needsGigaResolve = canGiga && p.gigamaxVarietyId === null;
 
     if (!needsMegaResolve && !needsGigaResolve) continue;
@@ -275,6 +336,10 @@ async function resolveVarietyIds(db: Database) {
       let gigamaxVarietyId: number | null = p.gigamaxVarietyId;
 
       if (speciesData && speciesData.varieties) {
+        const hasMegaXY = speciesData.varieties.some((v: any) =>
+          v.pokemon?.name === `${clean}-mega-x` || v.pokemon?.name === `${clean}-mega-y`
+        );
+
         for (const v of speciesData.varieties) {
           const varName = v.pokemon.name;
           const varUrl = v.pokemon.url;
@@ -285,7 +350,7 @@ async function resolveVarietyIds(db: Database) {
           const varietyId = parseInt(match[1], 10);
 
           if (canMega) {
-            if (baseName === 'Charizard' || baseName === 'Mewtwo') {
+            if (hasMegaXY) {
               if (varName === `${clean}-mega-x`) {
                 megaVarietyId = varietyId;
               } else if (varName === `${clean}-mega-y`) {

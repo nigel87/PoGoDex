@@ -12,6 +12,7 @@ export class SettingsService {
   private readonly LEGENDARY_BUTTONS_KEY = 'pogodex_legendary_buttons';
   private readonly INCLUDE_UNRELEASED_KEY = 'pogodex_include_unreleased';
   private readonly SIMPLIFY_EXPORT_KEY = 'pogodex_simplify_export';
+  private readonly SHOW_COSTUMES_KEY = 'pogodex_show_costumes';
   private readonly LAYOUT_KEY = 'pogodex_layout_view';
 
   // Segnale reattivo per l'impostazione "Raggruppa Forme Regionali" (attiva di default)
@@ -34,6 +35,9 @@ export class SettingsService {
 
   // Segnale reattivo per la semplificazione dell'esportazione (Rule 2 - attiva di default)
   simplifyExport = signal<boolean>(true);
+
+  // Segnale reattivo per mostrare e registrare i Pokémon in costume (disattivato di default)
+  showCostumes = signal<boolean>(false);
 
   // Segnale reattivo per il layout della griglia ('detailed' o 'compact')
   layout = signal<'detailed' | 'compact'>('detailed');
@@ -112,6 +116,13 @@ export class SettingsService {
       this.simplifyExport.set(true); // Default attivo
     }
 
+    const savedCostumes = localStorage.getItem(this.SHOW_COSTUMES_KEY);
+    if (savedCostumes !== null) {
+      this.showCostumes.set(savedCostumes === 'true');
+    } else {
+      this.showCostumes.set(false); // Default disattivato
+    }
+
     const savedLayout = localStorage.getItem(this.LAYOUT_KEY);
     if (savedLayout === 'compact') {
       this.layout.set('compact');
@@ -161,6 +172,12 @@ export class SettingsService {
   setSimplifyExport(value: boolean) {
     this.simplifyExport.set(value);
     localStorage.setItem(this.SIMPLIFY_EXPORT_KEY, value.toString());
+  }
+
+  // Cambia la visualizzazione dei Pokémon in costume nel Pokédex
+  setShowCostumes(value: boolean) {
+    this.showCostumes.set(value);
+    localStorage.setItem(this.SHOW_COSTUMES_KEY, value.toString());
   }
 
   // Cambia il layout della griglia

@@ -25,6 +25,9 @@
         <button (click)="runSyncReleasedWithConsole()" class="admin-btn released-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span>{{ i18n.currentLang() === 'it' ? '🌍 Rilasciati' : '🌍 Released' }}</span>
         </button>
+        <button (click)="runSyncMegasWithConsole()" class="admin-btn mega-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>🧬 Mega</span>
+        </button>
         <button (click)="runSyncShiniesWithConsole()" class="admin-btn sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span>🔄 Shiny</span>
         </button>
@@ -36,6 +39,9 @@
         </button>
         <button (click)="runSyncEggsWithConsole()" class="admin-btn egg-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           <span>{{ i18n.currentLang() === 'it' ? '🥚 Uova' : '🥚 Eggs' }}</span>
+        </button>
+        <button (click)="runSyncCostumesWithConsole()" class="admin-btn costume-sync-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
+          <span>{{ i18n.currentLang() === 'it' ? '🎭 Costumi' : '🎭 Costumes' }}</span>
         </button>
         <button (click)="saveConfig()" class="admin-btn save-btn" [disabled]="isLoading() || isSaving() || showSyncConsole()">
           @if (!isSaving()) {

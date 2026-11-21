@@ -177,6 +177,55 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
+/* Native HTML switch control with accessible focus & non-Safari fallback */
+input[type="checkbox"][switch].native-switch-input {
+  accent-color: var(--pogo-blue, #1b7cfc);
+  margin: 0;
+  cursor: pointer;
+  transform: scale(1.25);
+}
+
+input[type="checkbox"][switch].native-switch-input:focus-visible {
+  outline: 3px solid var(--pogo-blue, #1b7cfc);
+  outline-offset: 4px;
+}
+
+input[type="checkbox"][switch].native-switch-input.native-switch-fallback {
+  appearance: none;
+  -webkit-appearance: none;
+  transform: none;
+  width: 52px;
+  height: 30px;
+  border-radius: 99px;
+  background: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-color);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type="checkbox"][switch].native-switch-input.native-switch-fallback::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+input[type="checkbox"][switch].native-switch-input.native-switch-fallback:checked {
+  background: var(--pogo-gradient);
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(27, 124, 252, 0.3);
+}
+
+input[type="checkbox"][switch].native-switch-input.native-switch-fallback:checked::before {
+  transform: translateX(22px);
+}
+
 /* Disabled Card (Placeholder Cards) */
 .disabled-card {
   opacity: 0.45;

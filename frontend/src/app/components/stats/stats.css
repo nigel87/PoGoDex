@@ -185,6 +185,14 @@
   --gauge-color: #d90429;
 }
 
+.donut-chart.costume-theme {
+  --gauge-color: #ec4899;
+}
+
+.donut-chart.costume-shiny-theme {
+  --gauge-color: #f59e0b;
+}
+
 /* Gauge details */
 .gauge-details {
   display: flex;

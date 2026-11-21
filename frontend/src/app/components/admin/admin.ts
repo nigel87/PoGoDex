@@ -386,6 +386,67 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
     })();
   }
 
+  runSyncMegasWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Mega Evoluzioni' : 'Mega Evolutions Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Avvio worker di sincronizzazione Mega Evoluzioni...', 100);
+      await addLog('[INFO] Contatto Bulbapedia API (fallback Fandom Wiki) e PokeAPI...', 350);
+
+      const syncApiUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-megas`
+        : '/api/admin/sync-megas';
+
+      this.http.post<any>(syncApiUrl, {}).subscribe({
+        next: async (res) => {
+          const total = res.megaCapable?.length || 0;
+          const newlyAdded: string[] = res.newlyAddedMegas || [];
+          const resolved: string[] = res.resolvedVarieties || [];
+          const source = res.source || 'Bulbapedia';
+
+          await addLog(`[SUCCESS] Dati Mega scaricati da ${source}!`, 200);
+          await addLog(`[INFO] Specie con Mega/Archeorisveglio attive in Pokémon GO: ${total}.`, 300);
+          if (newlyAdded.length > 0) {
+            await addLog(`[SUCCESS] Nuove Mega aggiunte (${newlyAdded.length}): ${newlyAdded.join(', ')}`, 300);
+          } else {
+            await addLog(`[INFO] Nessuna nuova Mega rispetto all'ultimo controllo.`, 300);
+          }
+          if (resolved.length > 0) {
+            await addLog(`[SUCCESS] Varietà PokeAPI risolte (${resolved.length}): ${resolved.join(', ')}`, 300);
+          }
+          await addLog(`[SUCCESS] Database aggiornato ed allineato con successo!`, 400);
+
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Mega Evoluzioni aggiornate con successo!' : 'Mega Evolutions updated successfully!');
+          this.loadCatalogAndConfig();
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Sincronizzazione Mega Evoluzioni fallita.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 350);
+
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante la sincronizzazione Mega.' : 'Error during Mega sync.', 'error');
+        }
+      });
+    })();
+  }
+
   runSyncShiniesWithConsole() {
     this.showSyncConsole.set(true);
     this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon Shiny' : 'Shiny Pokémon Synchronization');
@@ -580,6 +641,66 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
           
           this.syncConsoleStatus.set('error');
           this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento delle uova.' : 'Error during egg sync.', 'error');
+        }
+      });
+    })();
+  }
+
+  runSyncCostumesWithConsole() {
+    this.showSyncConsole.set(true);
+    this.syncConsoleTitle.set(this.i18n.currentLang() === 'it' ? 'Sincronizzazione Pokémon in Costume' : 'Costumed Pokémon Synchronization');
+    this.syncConsoleLogs.set([]);
+    this.syncConsoleStatus.set('running');
+
+    const addLog = (msg: string, delay: number) => {
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          this.syncConsoleLogs.update(logs => [...logs, msg]);
+          setTimeout(() => {
+            const el = document.querySelector('.terminal-body');
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          resolve();
+        }, delay);
+      });
+    };
+
+    (async () => {
+      await addLog('[INFO] Avvio worker di sincronizzazione Pokémon in Costume...', 100);
+      await addLog('[INFO] Contatto Bulbapedia Event_Pokémon_(GO) e WatWowMap UIcons/Masterfile...', 350);
+
+      const syncCostumesUrl = window.location.port === '4205' || window.location.port === '4200'
+        ? `http://${window.location.hostname}:8085/api/admin/sync-costumes`
+        : '/api/admin/sync-costumes';
+
+      this.http.post<any>(syncCostumesUrl, {}).subscribe({
+        next: async (res) => {
+          const total = res.totalCostumes || 0;
+          const newlyAdded: string[] = res.newlyAdded || [];
+          const newlyShiny: string[] = res.newlyShiny || [];
+          const source = res.source || 'Bulbapedia';
+
+          await addLog(`[SUCCESS] Dati costumi scaricati da ${source}!`, 200);
+          await addLog(`[INFO] Totale Pokémon in costume rilasciati nel catalogo: ${total}.`, 300);
+          if (newlyAdded.length > 0) {
+            await addLog(`[SUCCESS] Nuovi costumi aggiunti (${newlyAdded.length}): ${newlyAdded.join(', ')}`, 300);
+          } else {
+            await addLog(`[INFO] Nessun nuovo costume rispetto all'ultimo controllo.`, 300);
+          }
+          if (newlyShiny.length > 0) {
+            await addLog(`[SUCCESS] Nuovi costumi Shiny sbloccati (${newlyShiny.length}): ${newlyShiny.join(', ')}`, 300);
+          }
+          await addLog(`[SUCCESS] Catalogo costumi SQLite aggiornato con successo!`, 400);
+
+          this.syncConsoleStatus.set('success');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Costumi aggiornati con successo!' : 'Costumes updated successfully!');
+        },
+        error: async (err) => {
+          await addLog(`[ERROR] Sincronizzazione costumi fallita.`, 200);
+          await addLog(`[ERROR] Dettaglio: ${err.error?.error || err.message}`, 350);
+
+          this.syncConsoleStatus.set('error');
+          this.showToast(this.i18n.currentLang() === 'it' ? 'Errore durante l\'aggiornamento dei costumi.' : 'Error during costumes sync.', 'error');
         }
       });
     })();

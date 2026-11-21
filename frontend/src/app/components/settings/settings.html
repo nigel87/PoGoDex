@@ -65,6 +65,28 @@
           </div>
         </div>
 
+        <div class="setting-item">
+          <div class="item-info">
+            <label for="show-costumes-switch" class="item-title" style="cursor: pointer;">
+              🎭 {{ 'settings.show_costumes.title' | translate }}
+            </label>
+            <span class="item-desc">{{ 'settings.show_costumes.desc' | translate }}</span>
+          </div>
+
+          <!-- Native Accessible Switch with graceful fallback -->
+          <div class="toggle-switch-wrapper">
+            <input
+              id="show-costumes-switch"
+              type="checkbox"
+              switch
+              class="native-switch-input"
+              [class.native-switch-fallback]="!supportsNativeSwitch"
+              [attr.role]="supportsNativeSwitch ? null : 'switch'"
+              [checked]="showCostumes()"
+              (change)="onShowCostumesChange($any($event.target).checked)">
+          </div>
+        </div>
+
       </div>
 
       <!-- Card 2: Pokémon Quality Tracking Configuration (NEW) -->

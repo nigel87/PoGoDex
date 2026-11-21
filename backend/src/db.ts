@@ -160,6 +160,40 @@ async function initializeTables(database: Database) {
     );
   `);
 
+  // Tabella PokemonCostumes (catalogo costumi rilasciati in Pokémon GO)
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS pokemon_costumes (
+      id TEXT PRIMARY KEY,
+      pokemonId INTEGER NOT NULL,
+      speciesName TEXT NOT NULL,
+      costumeName TEXT NOT NULL,
+      costumeKey TEXT DEFAULT NULL,
+      spriteUrl TEXT NOT NULL,
+      shinySpriteUrl TEXT DEFAULT NULL,
+      shinyReleased INTEGER DEFAULT 1,
+      regionalFormName TEXT DEFAULT NULL,
+      sortOrder INTEGER DEFAULT 0,
+      FOREIGN KEY (pokemonId) REFERENCES pokemons (id) ON DELETE CASCADE
+    );
+  `);
+
+  await database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_pokemon_costumes_pokemonId ON pokemon_costumes(pokemonId);
+  `);
+
+  // Tabella UserCostumeEntries (registrazione normale e shiny per ogni costume)
+  await database.exec(`
+    CREATE TABLE IF NOT EXISTS user_costume_entries (
+      userId INTEGER NOT NULL,
+      costumeId TEXT NOT NULL,
+      regular INTEGER DEFAULT 0,
+      shiny INTEGER DEFAULT 0,
+      PRIMARY KEY (userId, costumeId),
+      FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE,
+      FOREIGN KEY (costumeId) REFERENCES pokemon_costumes (id) ON DELETE CASCADE
+    );
+  `);
+
   // Esegue migrazioni di dati in modo automatico se non ancora eseguite
   try {
     const migrationName = 'migrate_custom_form_ids_v1';

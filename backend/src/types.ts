@@ -82,3 +82,21 @@ export interface PokedexStats {
   megaCaught: number;
   gigamaxCaught: number;
 }
+
+export interface PokemonCostume {
+  id: string;
+  pokemonId: number;
+  speciesName: string;
+  costumeName: string;
+  costumeKey?: string | null;
+  spriteUrl: string;
+  shinySpriteUrl?: string | null;
+  shinyReleased: boolean;
+  regionalFormName?: string | null;
+  sortOrder: number;
+}
+
+export interface CostumeDTO extends PokemonCostume {
+  regular: boolean;
+  shiny: boolean;
+}

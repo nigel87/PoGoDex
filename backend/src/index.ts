@@ -4,7 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { getDb } from './db';
 import { runSeeder } from './seed';
-import { PokedexDTO, User } from './types';
+import { PokedexDTO, CostumeDTO, User } from './types';
+import { performCostumeAutoSync } from './costume-sync';
 import { signJwt, verifyJwt, verifyGoogleToken, requireAdmin, isLocalRequest, AuthenticatedRequest, hashPassword, verifyPassword } from './auth';
 
 // Carica variabili d'ambiente da .env
@@ -1224,6 +1225,169 @@ async function startServer() {
     });
 
     // =================================================================
+    // 6.1. GET /api/costumes - Catalogo costumi con stato cattura (normale & shiny)
+    // =================================================================
+    app.get('/api/costumes', async (req, res) => {
+      const { userId } = req.query;
+      if (!userId) {
+        return res.status(400).json({ error: 'userId è richiesto' });
+      }
+
+      const parsedUserId = parseInt(userId as string, 10);
+
+      try {
+        if (!(await checkReadPermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Questo Pokédex è privato.' });
+        }
+
+        const userRow = await db.get<{ lastUpdated: number }>('SELECT lastUpdated FROM users WHERE id = ?', parsedUserId);
+        const lastUpdated = userRow?.lastUpdated || 0;
+
+        const statsRow = await db.get<{ count: number; shinyCount: number }>(
+          'SELECT COUNT(*) as count, COALESCE(SUM(shinyReleased), 0) as shinyCount FROM pokemon_costumes'
+        );
+        const cCount = statsRow?.count || 0;
+        const cShinyCount = statsRow?.shinyCount || 0;
+
+        const etag = `W/"costumes_${parsedUserId}_${lastUpdated}_${cCount}_${cShinyCount}"`;
+        if (req.headers['if-none-match'] === etag) {
+          return res.status(304).end();
+        }
+        res.setHeader('ETag', etag);
+
+        const costumes = await db.all<any[]>('SELECT * FROM pokemon_costumes ORDER BY pokemonId ASC, sortOrder ASC');
+        const entries = await db.all<any[]>('SELECT * FROM user_costume_entries WHERE userId = ?', parsedUserId);
+
+        const entriesMap = new Map<string, any>();
+        for (const e of entries) {
+          entriesMap.set(e.costumeId, e);
+        }
+
+        const dtos: CostumeDTO[] = costumes.map(c => {
+          const entry = entriesMap.get(c.id);
+          return {
+            id: c.id,
+            pokemonId: c.pokemonId,
+            speciesName: c.speciesName,
+            costumeName: c.costumeName,
+            costumeKey: c.costumeKey || null,
+            spriteUrl: c.spriteUrl,
+            shinySpriteUrl: c.shinySpriteUrl || null,
+            shinyReleased: !!c.shinyReleased,
+            regionalFormName: c.regionalFormName || null,
+            sortOrder: c.sortOrder || 0,
+            regular: entry ? !!entry.regular : false,
+            shiny: entry ? !!entry.shiny : false,
+          };
+        });
+
+        res.json(dtos);
+      } catch (err) {
+        console.error('Errore nel recupero dei costumi:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 6.2. POST /api/costumes/batch - Salvataggio massivo spunte costumi
+    // =================================================================
+    app.post('/api/costumes/batch', async (req, res) => {
+      const { userId, updates } = req.body;
+      if (!userId || !Array.isArray(updates)) {
+        return res.status(400).json({ error: 'userId e updates sono richiesti' });
+      }
+      if (updates.length === 0) {
+        return res.json({ success: true, count: 0 });
+      }
+
+      try {
+        const parsedUserId = parseInt(String(userId), 10);
+        if (!(await checkWritePermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo Pokédex' });
+        }
+
+        await db.run('BEGIN TRANSACTION');
+        for (const dto of updates) {
+          if (!dto || !dto.id) continue;
+          await db.run(
+            `
+            INSERT OR REPLACE INTO user_costume_entries (userId, costumeId, regular, shiny)
+            VALUES (?, ?, ?, ?);
+            `,
+            parsedUserId,
+            dto.id,
+            dto.regular ? 1 : 0,
+            dto.shiny ? 1 : 0
+          );
+        }
+        await db.run('COMMIT');
+
+        await touchUserLastUpdated(parsedUserId);
+        res.json({ success: true, count: updates.length });
+      } catch (err) {
+        try { await db.run('ROLLBACK'); } catch (_) {}
+        log('ERROR', 'Errore durante la transazione batch costumi', { err: String(err), userId });
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
+    // 6.3. PUT /api/costumes/:costumeId - Aggiorna stato di un singolo costume
+    // =================================================================
+    app.put('/api/costumes/:costumeId', async (req, res) => {
+      const { costumeId } = req.params;
+      const { userId } = req.query;
+      const { regular, shiny } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: 'userId è richiesto' });
+      }
+
+      try {
+        const parsedUserId = parseInt(userId as string, 10);
+        if (!(await checkWritePermission(req, parsedUserId))) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo Pokédex' });
+        }
+
+        const costume = await db.get<any>('SELECT * FROM pokemon_costumes WHERE id = ?', costumeId);
+        if (!costume) {
+          return res.status(404).json({ error: 'Costume non trovato' });
+        }
+
+        await db.run(
+          `
+          INSERT OR REPLACE INTO user_costume_entries (userId, costumeId, regular, shiny)
+          VALUES (?, ?, ?, ?);
+          `,
+          parsedUserId,
+          costumeId,
+          regular ? 1 : 0,
+          shiny ? 1 : 0
+        );
+
+        await touchUserLastUpdated(parsedUserId);
+
+        res.json({
+          id: costume.id,
+          pokemonId: costume.pokemonId,
+          speciesName: costume.speciesName,
+          costumeName: costume.costumeName,
+          costumeKey: costume.costumeKey || null,
+          spriteUrl: costume.spriteUrl,
+          shinySpriteUrl: costume.shinySpriteUrl || null,
+          shinyReleased: !!costume.shinyReleased,
+          regionalFormName: costume.regionalFormName || null,
+          sortOrder: costume.sortOrder || 0,
+          regular: !!regular,
+          shiny: !!shiny,
+        });
+      } catch (err) {
+        console.error('Errore nell\'aggiornamento del costume:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    });
+
+    // =================================================================
     // GET /api/auth/config - Recupera configurazione OAuth
     // =================================================================
     app.get('/api/auth/config', (req, res) => {
@@ -1731,6 +1895,222 @@ async function startServer() {
       );
 
       return { unreleasedCapable, newlyReleased, newlyAddedPokemon, source };
+    }
+
+    async function performMegaAutoSync(): Promise<{
+      megaCapable: string[];
+      newlyAddedMegas: string[];
+      resolvedVarieties: string[];
+      source: string;
+    }> {
+      console.log('[Auto-Sync-Mega] Avvio sincronizzazione Mega Evoluzioni automatica...');
+      const db = await getDb();
+
+      let releasedMegaDexIds: Set<number> | null = null;
+      const dualMegaDexIds = new Set<number>();
+      let source = '';
+
+      // 1. Fonte primaria: Bulbapedia MediaWiki API (===Mega Evolution and Primal Reversion===, solo tabella 1)
+      try {
+        const bulbaUrl = 'https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=List_of_Pok%C3%A9mon_by_availability_in_Pok%C3%A9mon_GO&prop=wikitext&format=json';
+        const response = await fetchWithTimeout(bulbaUrl, {}, 25000);
+        if (!response.ok) {
+          throw new Error(`Bulbapedia returned status ${response.status}`);
+        }
+        const json = await response.json() as any;
+        const wikitext: string = json?.parse?.wikitext?.['*'] || '';
+        const megaStart = wikitext.indexOf('===Mega Evolution and Primal Reversion===');
+        if (megaStart === -1) {
+          throw new Error('Sezione ===Mega Evolution and Primal Reversion=== non trovata su Bulbapedia');
+        }
+        const megaEnd = wikitext.indexOf('\n===', megaStart + 10);
+        const megaSection = megaEnd !== -1 ? wikitext.slice(megaStart, megaEnd) : wikitext.slice(megaStart);
+
+        const tables = megaSection.match(/\{\|[\s\S]*?\|\}/g) || [];
+        const releasedTable = tables[0];
+        if (!releasedTable) {
+          throw new Error('Tabella Mega rilasciate non trovata su Bulbapedia');
+        }
+
+        const parsedIds = new Set<number>();
+        const rows = releasedTable.split(/\n\|-/);
+        const now = Date.now();
+
+        for (const row of rows.slice(1)) {
+          const lines = row.trim().split('\n');
+          const dateLine = lines.find(l => l.startsWith('|') && !l.includes('{{'));
+          if (dateLine) {
+            const dateStr = dateLine.replace(/^\|/, '').trim();
+            const parsedDate = new Date(dateStr);
+            // Salta righe con data di rilascio futura annunciata ma non ancora attiva
+            if (!isNaN(parsedDate.getTime()) && parsedDate.getTime() > now) {
+              continue;
+            }
+          }
+
+          const templateRegex = /\{\{(?:MSP\/GO|MS)\|0*(\d+)([A-Za-z0-9]*)\|/g;
+          let match;
+          while ((match = templateRegex.exec(row)) !== null) {
+            const dexId = parseInt(match[1], 10);
+            const suffix = match[2] || '';
+            if (!isNaN(dexId) && dexId > 0) {
+              parsedIds.add(dexId);
+              if (suffix.toUpperCase().includes('MX') || suffix.toUpperCase().includes('MY')) {
+                dualMegaDexIds.add(dexId);
+              }
+            }
+          }
+        }
+
+        if (parsedIds.size < 30) {
+          throw new Error(`Conteggio Mega Evoluzioni anomalo da Bulbapedia: ${parsedIds.size}`);
+        }
+
+        releasedMegaDexIds = parsedIds;
+        source = 'Bulbapedia';
+        console.log(`[Auto-Sync-Mega] Bulbapedia elaborato: ${parsedIds.size} specie con Mega/Archeorisveglio rilasciato.`);
+      } catch (bulbaErr) {
+        console.warn('[Auto-Sync-Mega] Bulbapedia non disponibile, passo al fallback Fandom:', bulbaErr);
+      }
+
+      // 2. Fallback automatico: Pokémon GO Fandom Wiki (mega=t senza a=n) + Primal (382 Kyogre, 383 Groudon)
+      if (!releasedMegaDexIds) {
+        const fandomUrl = 'https://pokemongo.fandom.com/api.php?action=parse&page=List_of_Pok%C3%A9mon&prop=wikitext&format=json';
+        const response = await fetchWithTimeout(fandomUrl, {}, 25000);
+        if (!response.ok) {
+          throw new Error(`Fandom Wiki returned status ${response.status}`);
+        }
+        const json = await response.json() as any;
+        const wikitext: string = json?.parse?.wikitext?.['*'] || '';
+
+        const parsedIds = new Set<number>([382, 383]); // Kyogre e Groudon Archeorisveglio
+        const pRegex = /\{\{P\|([^}]+)\}\}/g;
+        let match;
+        while ((match = pRegex.exec(wikitext)) !== null) {
+          const parts = match[1].split('|');
+          if (!parts.some(p => p.startsWith('mega='))) continue;
+          const dexId = parseInt(parts[1], 10);
+          if (isNaN(dexId) || dexId <= 0) continue;
+          const isUnavailable = parts.some(p => p.trim() === 'a=n' || p.trim() === 'available=no');
+          if (!isUnavailable) {
+            parsedIds.add(dexId);
+          }
+        }
+
+        if (parsedIds.size < 30) {
+          throw new Error(`Conteggio Mega Evoluzioni anomalo da Fandom: ${parsedIds.size}`);
+        }
+
+        releasedMegaDexIds = parsedIds;
+        dualMegaDexIds.add(6);   // Charizard
+        dualMegaDexIds.add(26);  // Raichu
+        dualMegaDexIds.add(150); // Mewtwo
+        source = 'Fandom Wiki';
+        console.log(`[Auto-Sync-Mega] Fandom Wiki elaborato: ${parsedIds.size} specie Mega.`);
+      }
+
+      // 3. Mappa gli ID al nome specie base nel DB
+      const basePokemons = await db.all<{
+        id: number;
+        name: string;
+        megaVarietyId: number | null;
+        megaVarietyId2: number | null;
+      }[]>('SELECT id, name, megaVarietyId, megaVarietyId2 FROM pokemons WHERE parentId IS NULL ORDER BY id ASC');
+
+      const byId = new Map(basePokemons.map(p => [p.id, p]));
+      const megaSet = new Set<string>();
+      for (const dexId of releasedMegaDexIds) {
+        const p = byId.get(dexId);
+        if (p) {
+          megaSet.add(p.name);
+        }
+      }
+
+      const megaCapable = Array.from(megaSet).sort();
+
+      // Calcola le nuove Mega aggiunte rispetto alla configurazione precedente
+      let previousMegas: string[] = [];
+      try {
+        const prevRow = await db.get<{ value: string }>('SELECT value FROM app_config WHERE key = ?', 'MEGA_CAPABLE_SPECIES');
+        if (prevRow?.value) {
+          previousMegas = JSON.parse(prevRow.value) as string[];
+        }
+      } catch (_) {}
+      const prevSet = new Set(previousMegas);
+      const newlyAddedMegas = megaCapable.filter(name => !prevSet.has(name));
+
+      await db.run(
+        'INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)',
+        'MEGA_CAPABLE_SPECIES',
+        JSON.stringify(megaCapable)
+      );
+
+      // 4. Risolvi automaticamente da PokeAPI gli ID varietà Mega mancanti (megaVarietyId / megaVarietyId2)
+      const resolvedVarieties: string[] = [];
+      for (const dexId of releasedMegaDexIds) {
+        const p = byId.get(dexId);
+        if (!p) continue;
+        const needsDual = dualMegaDexIds.has(dexId);
+        const missingPrimary = p.megaVarietyId === null;
+        const missingSecondary = needsDual && p.megaVarietyId2 === null;
+        if (!missingPrimary && !missingSecondary) continue;
+
+        try {
+          const clean = p.name.toLowerCase()
+            .replace(/['’]/g, '')
+            .replace(/\./g, '')
+            .replace(/♀/g, '-f')
+            .replace(/♂/g, '-m')
+            .replace(/é/g, 'e')
+            .replace(/\s+/g, '-');
+          const pokeResp = await fetchWithTimeout(`https://pokeapi.co/api/v2/pokemon-species/${p.id}`, {}, 12000);
+          if (!pokeResp.ok) continue;
+          const speciesData = await pokeResp.json() as any;
+          const varieties = Array.isArray(speciesData?.varieties) ? speciesData.varieties : [];
+
+          let megaVarietyId = p.megaVarietyId;
+          let megaVarietyId2 = p.megaVarietyId2;
+          const hasMegaXY = varieties.some((v: any) =>
+            v.pokemon?.name === `${clean}-mega-x` || v.pokemon?.name === `${clean}-mega-y`
+          );
+
+          for (const v of varieties) {
+            const varName: string = v.pokemon?.name || '';
+            const varUrl: string = v.pokemon?.url || '';
+            const idMatch = varUrl.match(/\/pokemon\/(\d+)\//);
+            if (!idMatch) continue;
+            const varietyId = parseInt(idMatch[1], 10);
+
+            if (hasMegaXY) {
+              if (varName === `${clean}-mega-x`) megaVarietyId = varietyId;
+              else if (varName === `${clean}-mega-y`) megaVarietyId2 = varietyId;
+            } else if (varName === `${clean}-mega` || varName === `${clean}-primal`) {
+              megaVarietyId = varietyId;
+            }
+          }
+
+          if (megaVarietyId !== p.megaVarietyId || megaVarietyId2 !== p.megaVarietyId2) {
+            await db.run(
+              'UPDATE pokemons SET megaVarietyId = ?, megaVarietyId2 = ? WHERE id = ?',
+              megaVarietyId,
+              megaVarietyId2,
+              p.id
+            );
+            resolvedVarieties.push(`#${p.id} ${p.name} (${megaVarietyId}${megaVarietyId2 ? '/' + megaVarietyId2 : ''})`);
+          }
+          await new Promise(resolve => setTimeout(resolve, 250));
+        } catch (err) {
+          console.warn(`[Auto-Sync-Mega] Impossibile risolvere varietà PokeAPI per #${p.id} ${p.name}:`, err);
+        }
+      }
+
+      console.log(
+        `[Auto-Sync-Mega] Mega Evoluzioni sincronizzate da ${source}: ${megaCapable.length} totali, ` +
+        `${newlyAddedMegas.length} nuove${newlyAddedMegas.length > 0 ? ' (' + newlyAddedMegas.join(', ') + ')' : ''}, ` +
+        `${resolvedVarieties.length} varietà PokeAPI risolte.`
+      );
+
+      return { megaCapable, newlyAddedMegas, resolvedVarieties, source };
     }
 
     async function performShinyAutoSync(): Promise<string[]> {
@@ -2755,6 +3135,32 @@ ${JSON.stringify(chunk)}`;
       }
     });
 
+    // =================================================================
+    // 9.4. POST /api/admin/sync-megas - Sincronizza automaticamente le Mega Evoluzioni (Protetto da requireAdmin)
+    // =================================================================
+    app.post('/api/admin/sync-megas', requireAdmin, async (req, res) => {
+      try {
+        const result = await runSingleFlight('megas', performMegaAutoSync);
+        res.json({ success: true, ...result });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica delle Mega Evoluzioni:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione delle Mega Evoluzioni: ' + String(err) });
+      }
+    });
+
+    // =================================================================
+    // 9.5. POST /api/admin/sync-costumes - Sincronizza automaticamente i Pokémon in Costume (Protetto da requireAdmin)
+    // =================================================================
+    app.post('/api/admin/sync-costumes', requireAdmin, async (req, res) => {
+      try {
+        const result = await runSingleFlight('costumes', () => performCostumeAutoSync(db, fetchWithTimeout));
+        res.json({ success: true, ...result });
+      } catch (err) {
+        console.error('Errore nella sincronizzazione automatica dei costumi:', err);
+        res.status(500).json({ error: 'Errore durante la sincronizzazione dei costumi: ' + String(err) });
+      }
+    });
+
     // Serve static files of the Angular frontend
     const frontendPath = path.join(__dirname, '../../frontend/dist/frontend/browser');
     app.use(express.static(frontendPath));
@@ -2767,7 +3173,9 @@ ${JSON.stringify(chunk)}`;
     async function runAllAutoSyncs(workerLabel: string) {
       const steps: Array<{ key: string; name: string; fn: () => Promise<any> }> = [
         { key: 'released', name: 'Pokémon Rilasciati & Catalogo', fn: performReleasedPokemonAutoSync },
+        { key: 'megas', name: 'Mega Evoluzioni', fn: performMegaAutoSync },
         { key: 'shinies', name: 'Shiny', fn: performShinyAutoSync },
+        { key: 'costumes', name: 'Costumi Eventi', fn: () => performCostumeAutoSync(db, fetchWithTimeout) },
         { key: 'raids', name: 'Raid', fn: performRaidAutoSync },
         { key: 'quests', name: 'Ricerche', fn: performQuestAutoSync },
         { key: 'eggs', name: 'Uova', fn: performEggAutoSync }

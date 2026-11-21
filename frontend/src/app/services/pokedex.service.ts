@@ -32,6 +32,21 @@ export interface PokedexDTO {
   parentId?: number | null;
 }
 
+export interface CostumeDTO {
+  id: string;
+  pokemonId: number;
+  speciesName: string;
+  costumeName: string;
+  costumeKey?: string | null;
+  spriteUrl: string;
+  shinySpriteUrl?: string | null;
+  shinyReleased: boolean;
+  regionalFormName?: string | null;
+  sortOrder: number;
+  regular: boolean;
+  shiny: boolean;
+}
+
 export interface PokedexStats {
   total: number;
   regularCaught: number;
@@ -108,6 +123,11 @@ export class PokedexService {
   private debounceTimer: any = null;
   private activeUserId: number | null = null;
 
+  // Buffer queue and debounce timers for Costume updates
+  private costumeUpdateQueue = new Map<string, CostumeDTO>();
+  private costumeDebounceTimer: any = null;
+  private activeCostumeUserId: number | null = null;
+
   constructor(private http: HttpClient) {
     // Flush any pending queue items immediately if the browser tab is closed/refreshed
     if (typeof window !== 'undefined') {
@@ -115,6 +135,9 @@ export class PokedexService {
         if (this.updateQueue.size > 0 && this.activeUserId !== null) {
           console.log('[PokedexService] Chiusura della pagina rilevata. Salvataggio immediato delle spunte pendenti...');
           this.flushQueue(this.activeUserId);
+        }
+        if (this.costumeUpdateQueue.size > 0 && this.activeCostumeUserId !== null) {
+          this.flushCostumeQueue(this.activeCostumeUserId);
         }
       });
     }
@@ -293,5 +316,67 @@ export class PokedexService {
       ? `http://${window.location.hostname}:8085/api/raids`
       : '/api/raids';
     return this.http.get<Raid[]>(url);
+  }
+
+  /**
+   * Recupera tutti i Pokémon in costume rilasciati con stato di cattura (normale & shiny) per l'utente.
+   */
+  getCostumes(userId: number): Observable<CostumeDTO[]> {
+    const url = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/costumes`
+      : '/api/costumes';
+    return this.http.get<CostumeDTO[]>(url, {
+      params: { userId: userId.toString() }
+    });
+  }
+
+  /**
+   * Accoda l'aggiornamento di un costume con debounce per salvare in batch sul DB.
+   */
+  updateCostumeEntry(userId: number, dto: CostumeDTO): Observable<CostumeDTO> {
+    this.activeCostumeUserId = userId;
+    this.costumeUpdateQueue.set(dto.id, dto);
+
+    if (this.costumeDebounceTimer) {
+      clearTimeout(this.costumeDebounceTimer);
+    }
+
+    this.costumeDebounceTimer = setTimeout(() => {
+      this.flushCostumeQueue(userId);
+    }, 1000);
+
+    return of(dto);
+  }
+
+  /**
+   * Invia tutte le modifiche ai costumi accumulate in blocco al server.
+   */
+  flushCostumeQueue(userId: number) {
+    if (this.costumeUpdateQueue.size === 0) return;
+
+    const updates = Array.from(this.costumeUpdateQueue.values()).map(c => ({
+      id: c.id,
+      regular: c.regular,
+      shiny: c.shiny
+    }));
+    this.costumeUpdateQueue.clear();
+
+    if (this.costumeDebounceTimer) {
+      clearTimeout(this.costumeDebounceTimer);
+      this.costumeDebounceTimer = null;
+    }
+
+    const batchUrl = window.location.port === '4205' || window.location.port === '4200'
+      ? `http://${window.location.hostname}:8085/api/costumes/batch`
+      : '/api/costumes/batch';
+
+    this.http.post<any>(batchUrl, { userId, updates }).subscribe({
+      next: () => {
+        console.log(`[PokedexService] Batch di ${updates.length} costumi salvato con successo!`);
+      },
+      error: (err) => {
+        console.error('[PokedexService] Errore nel salvataggio batch dei costumi:', err);
+      }
+    });
   }
 }

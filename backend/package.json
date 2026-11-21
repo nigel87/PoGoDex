@@ -1,11 +1,11 @@
 {
   "name": "pogodex-backend",
-  "version": "0.6.23",
+  "version": "0.7.0",
   "description": "Lightweight Node.js + TypeScript + SQLite backend for PoGODex",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
-    "build": "tsc && cp src/pokemon.json dist/pokemon.json",
+    "build": "tsc && cp src/pokemon.json dist/pokemon.json && cp src/costumes.json dist/costumes.json",
     "start": "node dist/index.js"
   },
   "dependencies": {
