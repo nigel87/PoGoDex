@@ -102,6 +102,21 @@ const GIGAMAX_ID_MAP: { [key: number]: number } = {
 };
 
 
+export interface DexProgressCount {
+  caught: number;            // Registered count within available pool
+  caughtTotal: number;       // Registered count within full dex pool
+  availableTotal: number;    // Eligible & released in Pokémon GO
+  dexTotal: number;          // Full Pokédex total for this scope
+  availablePct: number;      // 0..100
+  dexPct: number;            // 0..100
+  availableCeilingPct: number; // availableTotal / dexTotal * 100 (for dual-track bar)
+  missingAvailable: number;  // Math.max(0, availableTotal - caught)
+  hasDualTotal: boolean;     // dexTotal > availableTotal
+  costumeShinyCaught?: number;
+  costumeShinyTotal?: number;
+  costumeShinyPct?: number;
+}
+
 @Component({
   selector: 'app-pokedex-list',
   standalone: true,
@@ -227,6 +242,9 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   selectedType = signal<string>('all'); // 'all', 'fire', 'water', ecc.
   selectedFormFilter = signal<string>('all'); // 'all', 'shadow', 'purified', 'perfect', 'lucky', 'xxs', 'xxl', 'shiny'
   selectedRegion = signal<string>('all'); // 'all', 'kanto', 'johto', etc.
+  // Toggle stile Pokémon GO: di default false (es. Ninetales di Alola resta nel Pokédex di Kanto come forma regionale;
+  // se attivo, selezionando Alola/Galar/Hisui/Paldea include anche le relative forme regionali nei risultati e nei conteggi).
+  includeRegionalFormsInRegion = signal<boolean>(false);
 
   onSearchQueryChange(value: string) {
     if (value.startsWith('+')) {
@@ -590,69 +608,468 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  // Filtro dinamico reattivo con supporto al raggruppamento delle forme regionali
-  filteredList = computed(() => {
+  // Verifica se una voce è una variante regionale estera (Alola, Galar, Hisui, Paldea)
+  isRegionalVariant(p: PokedexDTO): boolean {
+    if (p.id < 10000) return false;
+    const lower = p.name.toLowerCase();
+    return (
+      lower.includes('(alolan)') ||
+      lower.includes('(galarian)') ||
+      lower.includes('(hisuian)') ||
+      lower.includes('(paldean)')
+    );
+  }
+
+  // Indice pre-calcolato per conteggi rapidissimi (specie base, forme regionali, forme non regionali)
+  speciesIndex = computed(() => {
     const list = this.pokemonList();
+    const baseList: PokedexDTO[] = [];
+    const baseById = new Map<number, PokedexDTO>();
+    const formsByBaseId = new Map<number, PokedexDTO[]>();
+    const nonRegionalFormsByBaseId = new Map<number, PokedexDTO[]>();
+    const regionalVariants: PokedexDTO[] = [];
+    const regionalVariantCountByRegion: Record<string, number> = { all: 0 };
+
+    for (const p of list) {
+      if (p.id < 10000) {
+        baseList.push(p);
+        baseById.set(p.id, p);
+      }
+    }
+
+    for (const p of list) {
+      if (p.id >= 10000) {
+        const parentId = p.parentId || this.getBaseId(p);
+        const arr = formsByBaseId.get(parentId);
+        if (arr) arr.push(p);
+        else formsByBaseId.set(parentId, [p]);
+
+        if (this.isRegionalVariant(p)) {
+          regionalVariants.push(p);
+          const reg = this.getPokemonRegion(p);
+          regionalVariantCountByRegion[reg] = (regionalVariantCountByRegion[reg] || 0) + 1;
+          regionalVariantCountByRegion['all']++;
+        } else {
+          const nonRegArr = nonRegionalFormsByBaseId.get(parentId);
+          if (nonRegArr) nonRegArr.push(p);
+          else nonRegionalFormsByBaseId.set(parentId, [p]);
+        }
+      }
+    }
+
+    return {
+      baseList,
+      baseById,
+      formsByBaseId,
+      nonRegionalFormsByBaseId,
+      regionalVariants,
+      regionalVariantCountByRegion
+    };
+  });
+
+  // Quante forme regionali extra aggiunge il toggle nella regione corrente (es. +18 in Alola, +19 in Galar, +53 in Tutte)
+  activeRegionExtraVariantsCount = computed(() => {
+    const region = this.selectedRegion();
+    const idx = this.speciesIndex();
+    return idx.regionalVariantCountByRegion[region] || 0;
+  });
+
+  // Helper per verificare se un singolo Pokémon è catturato in una data categoria
+  private isSingleEntryCaughtForCategory(p: PokedexDTO, category: string): boolean {
+    switch (category) {
+      case 'shiny': return p.shiny;
+      case 'shadow': return p.shadow;
+      case 'purified': return p.purified;
+      case 'perfect': return p.perfect;
+      case 'lucky': return p.lucky;
+      case 'xxl': return p.xxl;
+      case 'xxs': return p.xxs;
+      case 'mega': return p.mega > 0;
+      case 'gigamax': return p.gigamax;
+      case 'costume': return this.areAllCostumesCaught(p);
+      case 'all':
+      case 'regular':
+      default:
+        return p.regular;
+    }
+  }
+
+  // Verifica se una specie (base + eventuali forme nel pool) è registrata in una categoria
+  private isSpeciesGroupCaught(primary: PokedexDTO, relatedForms: PokedexDTO[], category: string): boolean {
+    if (this.isSingleEntryCaughtForCategory(primary, category)) return true;
+    for (const f of relatedForms) {
+      if (this.isSingleEntryCaughtForCategory(f, category)) return true;
+    }
+    return false;
+  }
+
+  // Verifica se un Pokémon corrisponde al filtro Tipo
+  private matchesTypeFilter(p: PokedexDTO, type: string, extraForms?: PokedexDTO[]): boolean {
+    if (type === 'all') return true;
+    if (p.type1.toLowerCase() === type || (p.type2 !== null && p.type2.toLowerCase() === type)) {
+      return true;
+    }
+    if (extraForms) {
+      for (const f of extraForms) {
+        if (f.type1.toLowerCase() === type || (f.type2 !== null && f.type2.toLowerCase() === type)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Calcola il conteggio registrati / disponibili / totale Pokédex per una combinazione di filtri
+  private computeProgress(
+    region: string,
+    formFilter: string,
+    type: string,
+    includeRegionals: boolean,
+    searchCtx?: { cleanQuery: string; parsedIds: Set<number> | null; showFamily: boolean; familyRoots: Set<string> | null }
+  ): DexProgressCount {
+    const idx = this.speciesIndex();
+
+    const matchesSearch = (p: PokedexDTO, extraForms?: PokedexDTO[]): boolean => {
+      if (!searchCtx || !searchCtx.cleanQuery) return true;
+      const checkOne = (item: PokedexDTO) => {
+        if (searchCtx.showFamily && searchCtx.familyRoots) {
+          return searchCtx.familyRoots.has(this.getRootAncestor(item.name));
+        }
+        return this.matchesSearchQuery(item, searchCtx.cleanQuery, searchCtx.parsedIds);
+      };
+      if (checkOne(p)) return true;
+      if (extraForms) {
+        for (const f of extraForms) {
+          if (checkOne(f)) return true;
+        }
+      }
+      return false;
+    };
+
+    // Caso speciale: Costumi Eventi (conta i singoli costumi e gli shiny costumi nello scope attivo)
+    if (formFilter === 'costume') {
+      const costumes = this.costumesList();
+      let regularCaught = 0;
+      let totalCostumes = 0;
+      let shinyCaught = 0;
+      let shinyTotal = 0;
+
+      for (const c of costumes) {
+        const base = idx.baseById.get(c.pokemonId);
+        if (!base) continue;
+        if (region !== 'all' && this.getPokemonRegion(base) !== region) continue;
+        if (!this.matchesTypeFilter(base, type)) continue;
+        if (!matchesSearch(base)) continue;
+
+        totalCostumes++;
+        if (c.regular) regularCaught++;
+        if (c.shinyReleased) {
+          shinyTotal++;
+          if (c.shiny) shinyCaught++;
+        }
+      }
+
+      const availablePct = totalCostumes > 0 ? Math.round((regularCaught / totalCostumes) * 100) : 0;
+      const costumeShinyPct = shinyTotal > 0 ? Math.round((shinyCaught / shinyTotal) * 100) : 0;
+
+      return {
+        caught: regularCaught,
+        caughtTotal: regularCaught,
+        availableTotal: totalCostumes,
+        dexTotal: totalCostumes,
+        availablePct,
+        dexPct: availablePct,
+        availableCeilingPct: 100,
+        missingAvailable: Math.max(0, totalCostumes - regularCaught),
+        hasDualTotal: false,
+        costumeShinyCaught: shinyCaught,
+        costumeShinyTotal: shinyTotal,
+        costumeShinyPct
+      };
+    }
+
+    // Mega & Gigamax si applicano solo alle specie base (id < 10000)
+    const isBaseOnlyForm = formFilter === 'mega' || formFilter === 'gigamax';
+    const candidates: Array<{ entry: PokedexDTO; relatedForms: PokedexDTO[]; isVariant: boolean }> = [];
+
+    for (const base of idx.baseList) {
+      if (region !== 'all' && this.getPokemonRegion(base) !== region) continue;
+      // In modalità pura Pokémon GO (includeRegionals = false):
+      // una specie conta come registrata se catturata in forma base o in una qualsiasi sua forma (es. Ninetales Alola registra #038 in Kanto).
+      // In modalità includeRegionals = true:
+      // le forme regionali (Alola/Galar/Hisui/Paldea) vengono contate separatamente nelle rispettive regioni, quindi per la specie base
+      // aggreghiamo solo eventuali forme non regionali (es. Unown, Deoxys, Vivillon).
+      const related = includeRegionals
+        ? (idx.nonRegionalFormsByBaseId.get(base.id) || [])
+        : (idx.formsByBaseId.get(base.id) || []);
+
+      const typeCheckForms = includeRegionals
+        ? (idx.nonRegionalFormsByBaseId.get(base.id) || [])
+        : (idx.nonRegionalFormsByBaseId.get(base.id) || []);
+
+      if (!this.matchesTypeFilter(base, type, typeCheckForms)) continue;
+      if (!matchesSearch(base, related)) continue;
+
+      candidates.push({ entry: base, relatedForms: related, isVariant: false });
+    }
+
+    if (includeRegionals && !isBaseOnlyForm) {
+      for (const variant of idx.regionalVariants) {
+        if (region !== 'all' && this.getPokemonRegion(variant) !== region) continue;
+        if (!this.matchesTypeFilter(variant, type)) continue;
+        if (!matchesSearch(variant)) continue;
+        candidates.push({ entry: variant, relatedForms: [], isVariant: true });
+      }
+    }
+
+    let caughtAvailable = 0;
+    let caughtTotal = 0;
+    let availableTotal = 0;
+    let dexTotal = 0;
+
+    for (const { entry, relatedForms } of candidates) {
+      const released = this.isReleased(entry.name);
+
+      if (formFilter === 'mega') {
+        if (!this.canMega(entry.name)) continue;
+        const slots = this.hasTwoMegas(entry.name) ? 2 : 1;
+        const caughtSlots = this.hasTwoMegas(entry.name)
+          ? (((entry.mega & 1) > 0 ? 1 : 0) + ((entry.mega & 2) > 0 ? 1 : 0))
+          : (entry.mega > 0 ? 1 : 0);
+        dexTotal += slots;
+        caughtTotal += caughtSlots;
+        if (released) {
+          availableTotal += slots;
+          caughtAvailable += caughtSlots;
+        }
+        continue;
+      }
+
+      if (formFilter === 'gigamax') {
+        if (!this.canGigamax(entry.name)) continue;
+        const isCaught = entry.gigamax;
+        dexTotal++;
+        if (isCaught) caughtTotal++;
+        if (released) {
+          availableTotal++;
+          if (isCaught) caughtAvailable++;
+        }
+        continue;
+      }
+
+      if (formFilter === 'shadow' || formFilter === 'purified') {
+        if (!this.canShadow(entry.name)) continue;
+        const isCaught = this.isSpeciesGroupCaught(entry, relatedForms, formFilter);
+        dexTotal++;
+        if (isCaught) caughtTotal++;
+        if (released) {
+          availableTotal++;
+          if (isCaught) caughtAvailable++;
+        }
+        continue;
+      }
+
+      const isCaught = this.isSpeciesGroupCaught(entry, relatedForms, formFilter);
+
+      // Per all/regular, shiny, perfect, lucky, xxl, xxs:
+      // dexTotal = totale completo del Pokédex nello scope (es. 151 Kanto, 72 Kalos, 120 Paldea)
+      // availableTotal = effettivamente rilasciati e idonei in Pokémon GO
+      dexTotal++;
+      if (isCaught) caughtTotal++;
+
+      let isAvailable = released;
+      if (isAvailable && formFilter === 'shiny' && this.isShinyUnreleased(entry.name)) {
+        isAvailable = false;
+      }
+      if (isAvailable && formFilter === 'lucky' && this.settingsService.isMythical(entry.name)) {
+        isAvailable = false;
+      }
+
+      if (isAvailable) {
+        availableTotal++;
+        if (isCaught) caughtAvailable++;
+      }
+    }
+
+    const availablePct = availableTotal > 0 ? Math.min(100, Math.round((caughtAvailable / availableTotal) * 100)) : 0;
+    const dexPct = dexTotal > 0 ? Math.min(100, Math.round((caughtTotal / dexTotal) * 100)) : 0;
+    const availableCeilingPct = dexTotal > 0 ? Math.min(100, Math.round((availableTotal / dexTotal) * 1000) / 10) : 100;
+
+    return {
+      caught: caughtAvailable,
+      caughtTotal,
+      availableTotal,
+      dexTotal,
+      availablePct,
+      dexPct,
+      availableCeilingPct,
+      missingAvailable: Math.max(0, availableTotal - caughtAvailable),
+      hasDualTotal: dexTotal > availableTotal
+    };
+  }
+
+  // Contesto di ricerca memorizzato per riutilizzo sia nella griglia che nei contatori
+  private parsedSearchContext = computed(() => {
     const rawQuery = this.searchQuery().toLowerCase().trim();
     const showFamily = this.showEvolutionFamily() && rawQuery.length > 0;
-    
     let cleanQuery = rawQuery;
     if (rawQuery.startsWith('+')) {
       cleanQuery = rawQuery.substring(1).trim();
     }
-    
     const parsedIds = this.parsePokedexQuery(cleanQuery);
-    
-    // Se "Mostra Famiglia" è attivo, calcoliamo i root ancestors dei match diretti
     let familyRoots: Set<string> | null = null;
     if (showFamily && cleanQuery) {
       familyRoots = new Set<string>();
-      for (const p of list) {
+      for (const p of this.pokemonList()) {
         if (this.matchesSearchQuery(p, cleanQuery, parsedIds)) {
           familyRoots.add(this.getRootAncestor(p.name));
         }
       }
     }
+    return { cleanQuery, parsedIds, showFamily, familyRoots };
+  });
+
+  // Riepilogo principale sopra la griglia (reattivo a Regione, Forma Speciale, Tipo, Ricerca e Toggle Forme Regionali)
+  summaryProgress = computed<DexProgressCount>(() => {
+    return this.computeProgress(
+      this.selectedRegion(),
+      this.selectedFormFilter(),
+      this.selectedType(),
+      this.includeRegionalFormsInRegion(),
+      this.parsedSearchContext()
+    );
+  });
+
+  // Mini contatori per ogni pillola Regione (reattivi a Forma Speciale, Tipo e Toggle Forme Regionali)
+  regionProgressMap = computed<Record<string, DexProgressCount>>(() => {
+    const formFilter = this.selectedFormFilter();
+    const type = this.selectedType();
+    const includeRegionals = this.includeRegionalFormsInRegion();
+    const map: Record<string, DexProgressCount> = {};
+    for (const reg of this.pokemonRegions) {
+      map[reg.value] = this.computeProgress(reg.value, formFilter, type, includeRegionals);
+    }
+    return map;
+  });
+
+  // Mini contatori per ogni pillola Forma Speciale (reattivi a Regione, Tipo e Toggle Forme Regionali)
+  formProgressMap = computed<Record<string, DexProgressCount>>(() => {
+    const region = this.selectedRegion();
+    const type = this.selectedType();
+    const includeRegionals = this.includeRegionalFormsInRegion();
+    const map: Record<string, DexProgressCount> = {};
+    for (const form of this.visibleSpecialForms()) {
+      map[form.value] = this.computeProgress(region, form.value, type, includeRegionals);
+    }
+    return map;
+  });
+
+  // Filtro dinamico reattivo con supporto al raggruppamento delle forme regionali e modalità Pokédex regionale puro
+  filteredList = computed(() => {
+    const list = this.pokemonList();
+    const { cleanQuery, parsedIds, showFamily, familyRoots } = this.parsedSearchContext();
 
     const status = this.selectedStatus();
     const type = this.selectedType();
     const formFilter = this.selectedFormFilter();
     const region = this.selectedRegion();
     const isGrouped = this.settingsService.groupRegionals();
+    const includeRegionals = this.includeRegionalFormsInRegion();
+    const effectiveStatusForPreSplit = formFilter === 'mega' ? 'all' : status;
+
+    const finalizeMega = (items: PokedexDTO[]) => {
+      if (formFilter !== 'mega') return items;
+      const split = this.splitDualMegas(items);
+      if (status === 'caught') {
+        return split.filter(item =>
+          item.megaFormOverride
+            ? (item.megaFormOverride === 'x' ? (item.mega & 1) > 0 : (item.mega & 2) > 0)
+            : item.mega > 0
+        );
+      }
+      if (status === 'missing') {
+        return split.filter(item =>
+          item.megaFormOverride
+            ? (item.megaFormOverride === 'x' ? (item.mega & 1) === 0 : (item.mega & 2) === 0)
+            : item.mega === 0
+        );
+      }
+      return split;
+    };
 
     if (!isGrouped) {
-      // Logica classica quando il raggruppamento è disattivato (mostra tutto separato)
-      const baseFiltered = list.filter(p => this.matchesFilters(p, cleanQuery, parsedIds, showFamily, familyRoots, status, type, formFilter, region));
-      if (formFilter === 'mega') {
-        return this.splitDualMegas(baseFiltered);
-      }
-      return baseFiltered;
+      // Logica quando il raggruppamento è disattivato (mostra tutto separato)
+      const baseFiltered = list.filter(p => {
+        if (!includeRegionals && region !== 'all' && this.isRegionalVariant(p)) {
+          return false;
+        }
+        return this.matchesFilters(p, cleanQuery, parsedIds, showFamily, familyRoots, effectiveStatusForPreSplit, type, formFilter, region);
+      });
+      return finalizeMega(baseFiltered);
     }
 
     // Logica quando il raggruppamento è attivo:
-    // 1. Consideriamo solo i Pokémon base (id < 10000)
-    const basePokemons = list.filter(p => p.id < 10000);
+    const idx = this.speciesIndex();
+    const basePokemons = idx.baseList;
     const result: PokedexDTO[] = [];
 
     for (const base of basePokemons) {
-      // 2. Recuperiamo le forme regionali associate a questo Pokémon base tramite parentId (filtrando le non rilasciate se includeUnreleased è disattivato)
-      const regionals = list.filter(r => r.parentId === base.id && (this.settingsService.includeUnreleased() || this.isReleased(r.name)));
+      const regionals = (idx.formsByBaseId.get(base.id) || []).filter(
+        r => this.settingsService.includeUnreleased() || this.isReleased(r.name)
+      );
       const allForms = [base, ...regionals];
 
-      // 3. Troviamo quali forme di questa specie soddisfano i filtri correnti
-      const matchingForms = allForms.filter(f => this.matchesFilters(f, cleanQuery, parsedIds, showFamily, familyRoots, status, type, formFilter, region));
+      // Modalità Pokédex regionale puro stile Pokémon GO (includeRegionals === false e regione specifica selezionata)
+      if (!includeRegionals && region !== 'all') {
+        if (this.getPokemonRegion(base) !== region) {
+          continue;
+        }
 
-      if (matchingForms.length > 0) {
-        // Se almeno una forma soddisfa i filtri, la card del Pokémon base deve essere visibile!
+        const nonRegionals = (idx.nonRegionalFormsByBaseId.get(base.id) || []).filter(
+          r => this.settingsService.includeUnreleased() || this.isReleased(r.name)
+        );
+        const nativeForms = [base, ...nonRegionals];
+
+        // Verifica filtro base (rilascio, ricerca, tipo, forma speciale) sul Pokémon nativo della regione
+        const matchesCore = nativeForms.some(f =>
+          this.matchesFilters(f, cleanQuery, parsedIds, showFamily, familyRoots, 'all', type, formFilter, region)
+        );
+        if (!matchesCore) continue;
+
+        // Verifica status a livello di specie (come in Pokémon GO: se possiedi una forma regionale es. Ninetales Alola shiny,
+        // la specie #038 risulta registrata nel Pokédex Shiny di Kanto!)
+        if (effectiveStatusForPreSplit !== 'all') {
+          const speciesCaught = this.isSpeciesGroupCaught(base, regionals, formFilter);
+          if (effectiveStatusForPreSplit === 'caught' && !speciesCaught) continue;
+          if (effectiveStatusForPreSplit === 'missing' && speciesCaught) continue;
+        }
+
         result.push(base);
 
-        // EXTRA UX: Se la forma attualmente attiva non corrisponde ai nuovi filtri inseriti,
-        // cambiamo automaticamente la forma attiva sulla card in modo che l'utente veda subito il risultato corretto!
+        // Se stiamo filtrando per 'caught' e la forma base non è catturata ma una forma regionale sì,
+        // switchiamo automaticamente alla forma catturata per chiarezza visiva!
+        if (effectiveStatusForPreSplit === 'caught' && !this.isSingleEntryCaughtForCategory(base, formFilter)) {
+          const caughtForm = regionals.find(r => this.isSingleEntryCaughtForCategory(r, formFilter));
+          const currentSelectedId = this.selectedFormMap()[base.id] || base.id;
+          if (caughtForm && currentSelectedId === base.id) {
+            setTimeout(() => this.selectFormForCard(base.id, caughtForm.id));
+          }
+        }
+        continue;
+      }
+
+      // Modalità standard (Tutte le Regioni oppure Toggle "Includi Forme Regionali" attivo)
+      const matchingForms = allForms.filter(f =>
+        this.matchesFilters(f, cleanQuery, parsedIds, showFamily, familyRoots, effectiveStatusForPreSplit, type, formFilter, region)
+      );
+
+      if (matchingForms.length > 0) {
+        result.push(base);
+
         const currentSelectedId = this.selectedFormMap()[base.id] || base.id;
         const currentStillMatches = matchingForms.some(f => f.id === currentSelectedId);
 
         if (!currentStillMatches) {
-          // Switch automatico alla prima forma che corrisponde
           const targetForm = matchingForms[0];
           setTimeout(() => {
             this.selectFormForCard(base.id, targetForm.id);
@@ -661,10 +1078,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    if (formFilter === 'mega') {
-      return this.splitDualMegas(result);
-    }
-    return result;
+    return finalizeMega(result);
   });
 
   splitDualMegas(filtered: PokedexDTO[]): any[] {
@@ -698,6 +1112,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       this.selectedType();
       this.selectedFormFilter();
       this.selectedRegion();
+      this.includeRegionalFormsInRegion();
       this.settingsService.groupRegionals();
       this.settingsService.showCostumes();
       
@@ -706,6 +1121,15 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
         if (!this.settingsService.showCostumes() && this.selectedFormFilter() === 'costume') {
           this.selectedFormFilter.set('all');
         }
+      });
+    });
+
+    // Quando cambia la regione o il toggle forme regionali, ripristina le forme selezionate sulle card
+    effect(() => {
+      this.selectedRegion();
+      this.includeRegionalFormsInRegion();
+      setTimeout(() => {
+        this.selectedFormMap.set({});
       });
     });
   }
@@ -865,10 +1289,10 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
           matchesForm = this.canShadow(p.name);
           break;
         case 'mega':
-          matchesForm = this.canMega(p.name);
+          matchesForm = p.id < 10000 && this.canMega(p.name);
           break;
         case 'gigamax':
-          matchesForm = this.canGigamax(p.name);
+          matchesForm = p.id < 10000 && this.canGigamax(p.name);
           break;
         case 'shiny':
           matchesForm = !this.isShinyUnreleased(p.name);
@@ -882,8 +1306,19 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
     return matchesQuery && matchesType && matchesStatus && matchesForm;
   }
 
-  // Determina a quale regione appartiene il Pokémon in base a generation e nome
+  // Determina a quale regione appartiene il Pokémon in base a ID, generation e nome
   getPokemonRegion(p: PokedexDTO): string {
+    // Specie native di Hisui (#899 Wyrdeer – #905 Enamorus) come nel Pokédex di Pokémon GO
+    if (p.id >= 899 && p.id <= 905) {
+      return 'hisui';
+    }
+    if (p.id >= 10000) {
+      const lower = p.name.toLowerCase();
+      if (lower.includes('(alolan)')) return 'alola';
+      if (lower.includes('(galarian)')) return 'galar';
+      if (lower.includes('(hisuian)')) return 'hisui';
+      if (lower.includes('(paldean)')) return 'paldea';
+    }
     switch (p.generation) {
       case 1: return 'kanto';
       case 2: return 'johto';
@@ -892,8 +1327,7 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
       case 5: return 'unova';
       case 6: return 'kalos';
       case 7: return 'alola';
-      case 8:
-        return p.name.toLowerCase().includes('(hisuian)') ? 'hisui' : 'galar';
+      case 8: return 'galar';
       case 9: return 'paldea';
       default: return 'kanto';
     }
@@ -902,6 +1336,79 @@ export class PokedexList implements OnInit, OnDestroy, AfterViewInit {
   // Seleziona la regione attiva per filtrare l'elenco
   selectRegion(regionValue: string) {
     this.selectedRegion.set(regionValue);
+  }
+
+  // Attiva/disattiva l'inclusione delle forme regionali nelle rispettive regioni (es. Ninetales di Alola in Alola)
+  toggleIncludeRegionalForms(checked: boolean) {
+    this.includeRegionalFormsInRegion.set(checked);
+  }
+
+  // Determina se mostrare i bottoncini di cambio forma regionale sulla card (es. Base | Alola dentro Kanto in stile Pokémon GO)
+  canShowFormSwitcher(base: PokedexDTO): boolean {
+    const region = this.selectedRegion();
+    if (region === 'all') return true;
+    if (!this.includeRegionalFormsInRegion()) return true;
+    // Se il toggle forme regionali è attivo su una regione specifica, mostra lo switcher solo se la specie base appartiene a quella regione
+    // (es. Deoxys / Castform in Hoenn o forme native della regione)
+    return this.getPokemonRegion(base) === region;
+  }
+
+  // Shortcut cliccabile sul badge "mancanti" nella barra progressi
+  toggleMissingShortcut() {
+    if (this.selectedStatus() === 'missing') {
+      this.selectedStatus.set('all');
+    } else {
+      this.selectedStatus.set('missing');
+    }
+  }
+
+  // Restituisce il simbolo visivo per la categoria attiva nella barra progressi
+  getCategoryIcon(form: string): string {
+    switch (form) {
+      case 'shiny': return '✨';
+      case 'shadow': return '🔮';
+      case 'purified': return '💎';
+      case 'perfect': return '★★★';
+      case 'lucky': return '🍀';
+      case 'xxl': return 'XXL';
+      case 'xxs': return 'XXS';
+      case 'mega': return '🧬';
+      case 'gigamax': return '🌋';
+      case 'costume': return '🎭';
+      default: return 'pokeball';
+    }
+  }
+
+  // Tooltip informativo dettagliato per ogni pillola Regione (mostra entrambi i numeri quando differiscono)
+  getRegionPillTooltip(regionValue: string): string {
+    const p = this.regionProgressMap()[regionValue];
+    const regName = this.i18n.translate('region.' + regionValue);
+    if (!p) return regName;
+    if (this.selectedFormFilter() === 'costume') {
+      return `${regName}: ${p.caught}/${p.availableTotal} (${p.availablePct}%) · ✨ ${p.costumeShinyCaught ?? 0}/${p.costumeShinyTotal ?? 0}`;
+    }
+    if (p.hasDualTotal) {
+      const availLabel = this.i18n.translate('pokedex.progress.available');
+      const fullLabel = this.i18n.translate('pokedex.progress.full_dex');
+      return `${regName}: ${p.caught}/${p.availableTotal} ${availLabel} (${p.availablePct}%) · ${p.caughtTotal}/${p.dexTotal} ${fullLabel} (${p.dexPct}%)`;
+    }
+    return `${regName}: ${p.caught}/${p.availableTotal} (${p.availablePct}%)`;
+  }
+
+  // Tooltip informativo dettagliato per ogni pillola Forma Speciale
+  getFormPillTooltip(formValue: string): string {
+    const p = this.formProgressMap()[formValue];
+    const formName = this.i18n.translate('form.' + formValue);
+    if (!p) return formName;
+    if (formValue === 'costume') {
+      return `${formName}: ${p.caught}/${p.availableTotal} (${p.availablePct}%) · ✨ ${p.costumeShinyCaught ?? 0}/${p.costumeShinyTotal ?? 0}`;
+    }
+    if (p.hasDualTotal) {
+      const availLabel = this.i18n.translate('pokedex.progress.available');
+      const fullLabel = this.i18n.translate('pokedex.progress.full_dex');
+      return `${formName}: ${p.caught}/${p.availableTotal} ${availLabel} (${p.availablePct}%) · ${p.caughtTotal}/${p.dexTotal} ${fullLabel} (${p.dexPct}%)`;
+    }
+    return `${formName}: ${p.caught}/${p.availableTotal} (${p.availablePct}%)`;
   }
 
   // Tira fuori le forme regionali registrate per un Pokémon base (filtrando le non rilasciate se includeUnreleased è disattivato)

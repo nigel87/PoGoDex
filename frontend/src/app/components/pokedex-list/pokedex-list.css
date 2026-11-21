@@ -239,12 +239,15 @@
 }
 
 .form-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   border: 1px solid var(--border-color);
   background: light-dark(white, rgba(255, 255, 255, 0.02));
   color: var(--text-secondary);
-  padding: 0.4rem 1rem;
+  padding: 0.38rem 0.85rem;
   border-radius: 99px;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -263,22 +266,32 @@
 }
 
 .form-filter-pill.active.form-all { background: var(--pogo-blue); }
+.form-filter-pill.active.form-shiny { background: linear-gradient(135deg, #f59e0b 0%, #eab308 100%); color: #111827; box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35); }
 .form-filter-pill.active.form-shadow { background: var(--pogo-purple); }
 .form-filter-pill.active.form-purified { background: #00f5d4; color: #111827; }
 .form-filter-pill.active.form-perfect { background: var(--pogo-red); }
-.form-filter-pill.active.form-lucky { background: var(--pogo-gold); }
+.form-filter-pill.active.form-lucky { background: var(--pogo-gold); color: #111827; }
 .form-filter-pill.active.form-xxs { background: #3a86c8; }
 .form-filter-pill.active.form-xxl { background: #f77f00; }
+.form-filter-pill.active.form-mega { background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); box-shadow: 0 2px 10px rgba(168, 85, 247, 0.35); }
+.form-filter-pill.active.form-gigamax { background: linear-gradient(135deg, #ef4444 0%, #ec4899 100%); box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35); }
 
 /* Regions Filter Row */
 .regions-filter-row {
   display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.7rem;
   border-top: 1px solid var(--border-color);
   padding-top: 1rem;
-  margin-top: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.regions-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .region-pills-scroll {
@@ -287,7 +300,7 @@
   overflow-x: auto;
   padding-bottom: 0.2rem;
   scrollbar-width: none;
-  flex: 1;
+  width: 100%;
 }
 
 .region-pills-scroll::-webkit-scrollbar {
@@ -295,12 +308,15 @@
 }
 
 .region-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   border: 1px solid var(--border-color);
   background: light-dark(white, rgba(255, 255, 255, 0.02));
   color: var(--text-secondary);
-  padding: 0.4rem 1rem;
+  padding: 0.38rem 0.85rem;
   border-radius: 99px;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -2375,4 +2391,595 @@ dialog.costume-dialog::backdrop {
     padding: 0.9rem 1rem !important;
   }
 }
+
+/* =========================================================================
+   POKÉDEX REGISTRATION COUNTERS, PILL BADGES & REGIONAL FORMS TOGGLE
+   ========================================================================= */
+
+/* Mini Count Badges inside Region & Special Form Pills */
+.pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.08rem 0.42rem;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  background: light-dark(rgba(15, 23, 42, 0.07), rgba(255, 255, 255, 0.09));
+  color: var(--text-secondary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.pill-count.completed {
+  background: light-dark(rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.24));
+  color: light-dark(#047857, #6ee7b7);
+}
+
+.region-filter-pill.pill-completed:not(.active),
+.form-filter-pill.pill-completed:not(.active) {
+  border-color: light-dark(rgba(16, 185, 129, 0.35), rgba(52, 211, 153, 0.32));
+}
+
+.region-filter-pill.active .pill-count,
+.form-filter-pill.active .pill-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+
+.form-filter-pill.active.form-shiny .pill-count,
+.form-filter-pill.active.form-purified .pill-count,
+.form-filter-pill.active.form-lucky .pill-count {
+  background: rgba(17, 24, 39, 0.14);
+  color: #111827;
+}
+
+/* Compact Regional Forms Toggle inside Regions Row */
+.regional-forms-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0.7rem 0.28rem 0.45rem;
+  border-radius: 99px;
+  border: 1px solid var(--border-color);
+  background: light-dark(rgba(0, 0, 0, 0.025), rgba(255, 255, 255, 0.03));
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.regional-forms-toggle:hover {
+  border-color: var(--pogo-blue);
+}
+
+.regional-forms-toggle.active {
+  border-color: rgba(27, 124, 252, 0.45);
+  background: light-dark(rgba(27, 124, 252, 0.08), rgba(27, 124, 252, 0.16));
+  box-shadow: 0 0 0 2px rgba(27, 124, 252, 0.08);
+}
+
+.regional-toggle-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.regional-forms-toggle.active .regional-toggle-text {
+  color: var(--text-primary);
+}
+
+.regional-extra-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.06rem 0.38rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: light-dark(rgba(27, 124, 252, 0.12), rgba(56, 189, 248, 0.18));
+  color: light-dark(#1d4ed8, #7dd3fc);
+}
+
+.compact-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.compact-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.compact-switch .slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  background-color: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--border-color);
+  transition: 0.25s ease;
+  border-radius: 99px;
+}
+
+.compact-switch .slider::before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: light-dark(#ffffff, #cbd5e1);
+  border-radius: 50%;
+  transition: 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.compact-switch input:checked + .slider {
+  background: var(--pogo-gradient);
+  border-color: transparent;
+}
+
+.compact-switch input:checked + .slider::before {
+  transform: translateX(14px);
+  background-color: #ffffff;
+}
+
+/* Pokédex Progress Summary Bar Section */
+.dex-progress-section {
+  max-width: 1200px;
+  margin: 1.15rem auto 0 auto;
+  padding: 0 2rem;
+  width: 100%;
+}
+
+.dex-progress-card {
+  --dex-accent: var(--pogo-blue);
+  --dex-accent-gradient: var(--pogo-gradient);
+  --dex-accent-soft: light-dark(rgba(27, 124, 252, 0.1), rgba(27, 124, 252, 0.18));
+  --dex-accent-text: light-dark(#1d4ed8, #60a5fa);
+
+  padding: 1.05rem 1.35rem 1rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Category Accent Themes */
+.dex-progress-card.theme-shiny {
+  --dex-accent: #f59e0b;
+  --dex-accent-gradient: linear-gradient(90deg, #f59e0b 0%, #facc15 100%);
+  --dex-accent-soft: light-dark(rgba(245, 158, 11, 0.14), rgba(250, 204, 21, 0.16));
+  --dex-accent-text: light-dark(#b45309, #fde047);
+}
+
+.dex-progress-card.theme-shadow {
+  --dex-accent: #9c27b0;
+  --dex-accent-gradient: linear-gradient(90deg, #7e22ce 0%, #c084fc 100%);
+  --dex-accent-soft: light-dark(rgba(156, 39, 176, 0.12), rgba(192, 132, 252, 0.18));
+  --dex-accent-text: light-dark(#7e22ce, #d8b4fe);
+}
+
+.dex-progress-card.theme-purified {
+  --dex-accent: #06b6d4;
+  --dex-accent-gradient: linear-gradient(90deg, #06b6d4 0%, #2dd4bf 100%);
+  --dex-accent-soft: light-dark(rgba(6, 182, 212, 0.13), rgba(45, 212, 191, 0.18));
+  --dex-accent-text: light-dark(#0e7490, #5eead4);
+}
+
+.dex-progress-card.theme-perfect {
+  --dex-accent: #ff4757;
+  --dex-accent-gradient: linear-gradient(90deg, #ef4444 0%, #fb7185 100%);
+  --dex-accent-soft: light-dark(rgba(239, 68, 68, 0.12), rgba(251, 113, 133, 0.18));
+  --dex-accent-text: light-dark(#b91c1c, #fda4af);
+}
+
+.dex-progress-card.theme-lucky {
+  --dex-accent: #eab308;
+  --dex-accent-gradient: linear-gradient(90deg, #f59e0b 0%, #fde047 100%);
+  --dex-accent-soft: light-dark(rgba(234, 179, 8, 0.14), rgba(253, 224, 71, 0.16));
+  --dex-accent-text: light-dark(#a16207, #fef08a);
+}
+
+.dex-progress-card.theme-xxl {
+  --dex-accent: #f77f00;
+  --dex-accent-gradient: linear-gradient(90deg, #ea580c 0%, #fb923c 100%);
+  --dex-accent-soft: light-dark(rgba(247, 127, 0, 0.13), rgba(251, 146, 60, 0.18));
+  --dex-accent-text: light-dark(#c2410c, #fdba74);
+}
+
+.dex-progress-card.theme-xxs {
+  --dex-accent: #3a86c8;
+  --dex-accent-gradient: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+  --dex-accent-soft: light-dark(rgba(58, 134, 200, 0.13), rgba(56, 189, 248, 0.18));
+  --dex-accent-text: light-dark(#1d4ed8, #7dd3fc);
+}
+
+.dex-progress-card.theme-mega {
+  --dex-accent: #a855f7;
+  --dex-accent-gradient: linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%);
+  --dex-accent-soft: light-dark(rgba(168, 85, 247, 0.12), rgba(236, 72, 153, 0.18));
+  --dex-accent-text: light-dark(#7e22ce, #f0abfc);
+}
+
+.dex-progress-card.theme-gigamax {
+  --dex-accent: #ef4444;
+  --dex-accent-gradient: linear-gradient(90deg, #dc2626 0%, #ec4899 100%);
+  --dex-accent-soft: light-dark(rgba(239, 68, 68, 0.12), rgba(244, 63, 94, 0.18));
+  --dex-accent-text: light-dark(#be123c, #fda4af);
+}
+
+.dex-progress-card.theme-costume {
+  --dex-accent: #ec4899;
+  --dex-accent-gradient: linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%);
+  --dex-accent-soft: light-dark(rgba(236, 72, 153, 0.12), rgba(236, 72, 153, 0.18));
+  --dex-accent-text: light-dark(#be185d, #f9a8d4);
+}
+
+.dex-progress-card.is-completed {
+  border-color: light-dark(rgba(16, 185, 129, 0.45), rgba(52, 211, 153, 0.4));
+  box-shadow: 0 6px 24px light-dark(rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.16));
+}
+
+.dex-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dex-progress-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.dex-category-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--dex-accent-soft);
+  color: var(--dex-accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--dex-accent) 28%, transparent);
+}
+
+.dex-category-symbol {
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dex-context-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.dex-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  line-height: 1.2;
+}
+
+.dex-region-title {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.dex-title-dot {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.dex-category-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--dex-accent-text);
+}
+
+.dex-context-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.dex-context-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.dex-context-chip.type-chip {
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.dex-context-chip.regional-chip {
+  background: light-dark(rgba(27, 124, 252, 0.12), rgba(56, 189, 248, 0.18));
+  color: light-dark(#1d4ed8, #7dd3fc);
+}
+
+.dex-context-chip.search-chip {
+  background: light-dark(rgba(15, 23, 42, 0.07), rgba(255, 255, 255, 0.09));
+  color: var(--text-primary);
+}
+
+/* Right Metrics Cluster */
+.dex-progress-metrics {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dex-metric-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+}
+
+.dex-metric-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.dex-metric-block.primary .dex-caught-num {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.dex-metric-block.primary .dex-sep,
+.dex-metric-block.primary .dex-total-num {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.dex-metric-block.secondary .dex-caught-num {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dex-metric-block.secondary .dex-sep,
+.dex-metric-block.secondary .dex-total-num {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.dex-pct-pill {
+  margin-left: 0.35rem;
+  padding: 0.14rem 0.48rem;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background: var(--dex-accent-soft);
+  color: var(--dex-accent-text);
+  align-self: center;
+}
+
+.dex-pct-pill.secondary {
+  background: light-dark(rgba(15, 23, 42, 0.07), rgba(255, 255, 255, 0.08));
+  color: var(--text-secondary);
+}
+
+.dex-metric-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dex-locked-inline {
+  opacity: 0.82;
+}
+
+.dex-metric-divider {
+  width: 1px;
+  height: 30px;
+  background: var(--border-color);
+}
+
+/* Interactive Missing Shortcut Button & Complete Pill */
+.dex-missing-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 99px;
+  border: 1px solid var(--border-color);
+  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary);
+  font-family: var(--font-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.dex-missing-btn:hover {
+  border-color: var(--dex-accent);
+  color: var(--text-primary);
+  background: var(--dex-accent-soft);
+}
+
+.dex-missing-btn.active {
+  border-color: transparent;
+  background: var(--dex-accent-gradient);
+  color: #ffffff;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--dex-accent) 32%, transparent);
+}
+
+.dex-progress-card.theme-shiny .dex-missing-btn.active,
+.dex-progress-card.theme-purified .dex-missing-btn.active,
+.dex-progress-card.theme-lucky .dex-missing-btn.active {
+  color: #111827;
+}
+
+.dex-complete-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.38rem 0.8rem;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: light-dark(rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.22));
+  color: light-dark(#047857, #6ee7b7);
+  border: 1px solid light-dark(rgba(16, 185, 129, 0.35), rgba(52, 211, 153, 0.35));
+  white-space: nowrap;
+}
+
+/* Dual-Layer Progress Bar */
+.dex-progress-bar-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dex-progress-track {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  border-radius: 99px;
+  background: light-dark(rgba(15, 23, 42, 0.08), rgba(255, 255, 255, 0.07));
+  overflow: hidden;
+}
+
+.dex-progress-available-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: light-dark(rgba(15, 23, 42, 0.1), rgba(255, 255, 255, 0.13));
+  border-right: 2px solid light-dark(rgba(15, 23, 42, 0.25), rgba(255, 255, 255, 0.32));
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dex-progress-fill {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--dex-accent-gradient);
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dex-progress-card.is-completed .dex-progress-fill {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+}
+
+.dex-progress-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dex-progress-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dex-progress-legend strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.dot-caught {
+  background: var(--dex-accent);
+}
+
+.legend-dot.dot-available {
+  background: light-dark(rgba(15, 23, 42, 0.28), rgba(255, 255, 255, 0.35));
+}
+
+.legend-dot.dot-locked {
+  background: light-dark(rgba(15, 23, 42, 0.1), rgba(255, 255, 255, 0.1));
+  border: 1px dashed var(--text-secondary);
+}
+
+/* Adjust main grid top margin so spacing below progress bar feels balanced */
+.dex-progress-section + .pokedex-main {
+  margin-top: 1.35rem;
+}
+
+@media (max-width: 768px) {
+  .dex-progress-section {
+    padding: 0 1rem;
+    margin-top: 0.9rem;
+  }
+
+  .dex-progress-card {
+    padding: 0.9rem 1rem;
+  }
+
+  .dex-progress-metrics {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .dex-metric-block {
+    align-items: flex-start;
+  }
+
+  .dex-metric-block.primary .dex-caught-num {
+    font-size: 1.35rem;
+  }
+
+  .dex-metric-divider {
+    display: none;
+  }
+
+  .dex-progress-legend {
+    gap: 0.65rem;
+    font-size: 0.7rem;
+  }
+}
+
 

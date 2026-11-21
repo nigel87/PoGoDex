@@ -97,32 +97,64 @@
           </div>
         </div>
    
-        <!-- Filtro Regioni -->
+        <!-- Filtro Regioni + Toggle Forme Regionali -->
         <div class="regions-filter-row">
-          <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Regione:' : 'Region:' }}</span>
+          <div class="regions-filter-header">
+            <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Regione:' : 'Region:' }}</span>
+            <label class="regional-forms-toggle" [class.active]="includeRegionalFormsInRegion()" [title]="'pokedex.regional_forms_toggle_desc' | translate">
+              <span class="switch compact-switch">
+                <input
+                  type="checkbox"
+                  [checked]="includeRegionalFormsInRegion()"
+                  (change)="toggleIncludeRegionalForms($any($event.target).checked)">
+                <span class="slider round"></span>
+              </span>
+              <span class="regional-toggle-text">{{ 'pokedex.regional_forms_toggle' | translate }}</span>
+              @if (activeRegionExtraVariantsCount() > 0) {
+                <span class="regional-extra-badge">+{{ activeRegionExtraVariantsCount() }}</span>
+              }
+            </label>
+          </div>
           <div class="region-pills-scroll">
             @for (reg of pokemonRegions; track reg.value) {
-              <button 
+              @let rp = regionProgressMap()[reg.value];
+              <button
+                type="button"
                 class="region-filter-pill"
                 [class.active]="selectedRegion() === reg.value"
+                [class.pill-completed]="!isLoading() && rp && rp.availableTotal > 0 && rp.caught === rp.availableTotal"
+                [title]="getRegionPillTooltip(reg.value)"
                 (click)="selectRegion(reg.value)">
-                {{ 'region.' + reg.value | translate }}
+                <span class="pill-label">{{ 'region.' + reg.value | translate }}</span>
+                @if (!isLoading() && rp) {
+                  <span class="pill-count" [class.completed]="rp.availableTotal > 0 && rp.caught === rp.availableTotal">
+                    {{ rp.caught }}/{{ rp.availableTotal }}
+                  </span>
+                }
               </button>
             }
           </div>
         </div>
-    
+
         <!-- Filtro Forme Speciali -->
         <div class="form-filters-row">
           <span class="filter-label">{{ i18n.currentLang() === 'it' ? 'Forma Speciale:' : 'Special Form:' }}</span>
           <div class="form-pills-scroll">
             @for (form of visibleSpecialForms(); track form.value) {
-              <button 
-                class="form-filter-pill"
+              @let fp = formProgressMap()[form.value];
+              <button
+                type="button"
+                class="form-filter-pill form-{{ form.value }}"
                 [class.active]="selectedFormFilter() === form.value"
-                [class]="'form-' + form.value"
+                [class.pill-completed]="!isLoading() && fp && fp.availableTotal > 0 && fp.caught === fp.availableTotal"
+                [title]="getFormPillTooltip(form.value)"
                 (click)="selectFormFilter(form.value)">
-                {{ 'form.' + form.value | translate }}
+                <span class="pill-label">{{ 'form.' + form.value | translate }}</span>
+                @if (!isLoading() && fp) {
+                  <span class="pill-count" [class.completed]="fp.availableTotal > 0 && fp.caught === fp.availableTotal">
+                    {{ fp.caught }}/{{ fp.availableTotal }}
+                  </span>
+                }
               </button>
             }
           </div>
@@ -133,9 +165,9 @@
           <div class="type-pills-scroll">
             @for (t of pokemonTypes; track t.value) {
               <button 
-                class="type-filter-pill"
+                type="button"
+                class="type-filter-pill type-{{ t.value }}"
                 [class.active]="selectedType() === t.value"
-                [class]="'type-' + t.value"
                 (click)="selectType(t.value)">
                 {{ getTypeLabel(t.value) }}
               </button>
@@ -144,6 +176,181 @@
         </div>
       </div>
     </section>
+
+    <!-- Pokédex Registration Summary Bar (Pokémon GO Style) -->
+    @if (!isLoading() && pokemonList().length > 0) {
+      @let sp = summaryProgress();
+      <section class="dex-progress-section" [attr.aria-label]="'pokedex.progress.registered' | translate">
+        <div
+          class="glass-card dex-progress-card theme-{{ selectedFormFilter() }}"
+          [class.is-completed]="sp.availableTotal > 0 && sp.caught === sp.availableTotal">
+
+          <div class="dex-progress-top">
+            <!-- Left: Category Icon & Active Filter Context -->
+            <div class="dex-progress-identity">
+              <div class="dex-category-badge">
+                @if (getCategoryIcon(selectedFormFilter()) === 'pokeball') {
+                  <svg class="dex-pokeball-svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9.5"></circle>
+                    <line x1="2.5" y1="12" x2="8.5" y2="12"></line>
+                    <line x1="15.5" y1="12" x2="21.5" y2="12"></line>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                } @else {
+                  <span class="dex-category-symbol" aria-hidden="true">{{ getCategoryIcon(selectedFormFilter()) }}</span>
+                }
+              </div>
+
+              <div class="dex-context-text">
+                <div class="dex-title-row">
+                  <span class="dex-region-title">{{ 'region.' + selectedRegion() | translate }}</span>
+                  <span class="dex-title-dot" aria-hidden="true">•</span>
+                  <span class="dex-category-title">
+                    {{ selectedFormFilter() === 'all' ? ('pokedex.progress.pokedex_label' | translate) : ('form.' + selectedFormFilter() | translate) }}
+                  </span>
+                </div>
+
+                @if (selectedType() !== 'all' || includeRegionalFormsInRegion() || searchQuery().trim()) {
+                  <div class="dex-context-chips">
+                    @if (selectedType() !== 'all') {
+                      <span class="dex-context-chip type-chip type-{{ selectedType() }}">
+                        {{ getTypeLabel(selectedType()) }}
+                      </span>
+                    }
+                    @if (includeRegionalFormsInRegion() && selectedFormFilter() !== 'mega' && selectedFormFilter() !== 'gigamax' && selectedFormFilter() !== 'costume') {
+                      <span class="dex-context-chip regional-chip">
+                        {{ 'pokedex.progress.regional_badge' | translate }}
+                      </span>
+                    }
+                    @if (searchQuery().trim()) {
+                      <span class="dex-context-chip search-chip">
+                        🔍 {{ searchQuery().trim() }}
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Right: Dual-Number Registered Metrics & Interactive Missing Shortcut -->
+            <div class="dex-progress-metrics">
+              <!-- Primary Counter (Available in GO / Caught) -->
+              <div class="dex-metric-block primary">
+                <div class="dex-metric-value">
+                  <span class="dex-caught-num">{{ sp.caught }}</span>
+                  <span class="dex-sep">/</span>
+                  <span class="dex-total-num">{{ sp.availableTotal }}</span>
+                  <span class="dex-pct-pill">{{ sp.availablePct }}%</span>
+                </div>
+                <span class="dex-metric-label">
+                  @if (selectedFormFilter() === 'costume') {
+                    {{ 'pokedex.progress.costumes_normal' | translate }}
+                  } @else if (sp.hasDualTotal) {
+                    {{ 'pokedex.progress.available' | translate }}
+                  } @else {
+                    {{ 'pokedex.progress.registered' | translate }}
+                  }
+                </span>
+              </div>
+
+              <!-- Secondary Counter: Full Pokédex Total (when different from available) -->
+              @if (sp.hasDualTotal) {
+                <div class="dex-metric-divider" aria-hidden="true"></div>
+                <div class="dex-metric-block secondary">
+                  <div class="dex-metric-value">
+                    <span class="dex-caught-num">{{ sp.caughtTotal }}</span>
+                    <span class="dex-sep">/</span>
+                    <span class="dex-total-num">{{ sp.dexTotal }}</span>
+                    <span class="dex-pct-pill secondary">{{ sp.dexPct }}%</span>
+                  </div>
+                  <span class="dex-metric-label">
+                    {{ 'pokedex.progress.full_dex' | translate }}
+                    <span class="dex-locked-inline">({{ sp.dexTotal - sp.availableTotal }} {{ (selectedFormFilter() === 'shiny' || selectedFormFilter() === 'lucky' ? 'pokedex.progress.unavailable' : 'pokedex.progress.unreleased') | translate }})</span>
+                  </span>
+                </div>
+              }
+
+              <!-- Secondary Counter for Costumes: Shiny Costumes -->
+              @if (selectedFormFilter() === 'costume' && (sp.costumeShinyTotal ?? 0) > 0) {
+                <div class="dex-metric-divider" aria-hidden="true"></div>
+                <div class="dex-metric-block secondary shiny-costume-metric">
+                  <div class="dex-metric-value">
+                    <span class="dex-caught-num">✨ {{ sp.costumeShinyCaught ?? 0 }}</span>
+                    <span class="dex-sep">/</span>
+                    <span class="dex-total-num">{{ sp.costumeShinyTotal ?? 0 }}</span>
+                    <span class="dex-pct-pill secondary">{{ sp.costumeShinyPct ?? 0 }}%</span>
+                  </div>
+                  <span class="dex-metric-label">{{ 'pokedex.progress.costumes_shiny' | translate }}</span>
+                </div>
+              }
+
+              <!-- Missing Shortcut Button / Completed Medal -->
+              @if (sp.missingAvailable > 0) {
+                <button
+                  type="button"
+                  class="dex-missing-btn"
+                  [class.active]="selectedStatus() === 'missing'"
+                  [attr.aria-pressed]="selectedStatus() === 'missing'"
+                  [title]="'pokedex.progress.filter_missing_title' | translate"
+                  (click)="toggleMissingShortcut()">
+                  <span class="dex-missing-num">{{ sp.missingAvailable }}</span>
+                  <span>{{ (sp.missingAvailable === 1 ? 'pokedex.progress.missing_one' : 'pokedex.progress.missing') | translate }}</span>
+                </button>
+              } @else if (sp.availableTotal > 0) {
+                <span class="dex-complete-pill">
+                  ✓ {{ 'pokedex.progress.complete' | translate }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Bottom: Dual-Layer Progress Bar -->
+          <div class="dex-progress-bar-area">
+            <div
+              class="dex-progress-track"
+              role="progressbar"
+              [attr.aria-valuenow]="sp.caught"
+              aria-valuemin="0"
+              [attr.aria-valuemax]="sp.availableTotal"
+              [attr.aria-label]="('region.' + selectedRegion() | translate) + ' ' + sp.caught + ' / ' + sp.availableTotal">
+              @if (sp.hasDualTotal) {
+                <!-- Available-in-GO ceiling track inside full Pokédex bar -->
+                <div
+                  class="dex-progress-available-zone"
+                  [style.width.%]="sp.availableCeilingPct">
+                </div>
+                <div
+                  class="dex-progress-fill"
+                  [style.width.%]="sp.dexTotal > 0 ? (sp.caught / sp.dexTotal) * 100 : 0">
+                </div>
+              } @else {
+                <div
+                  class="dex-progress-fill"
+                  [style.width.%]="sp.availableTotal > 0 ? (sp.caught / sp.availableTotal) * 100 : 0">
+                </div>
+              }
+            </div>
+
+            @if (sp.hasDualTotal) {
+              <div class="dex-progress-legend">
+                <span class="legend-item">
+                  <span class="legend-dot dot-caught"></span>
+                  {{ 'pokedex.progress.legend_caught' | translate }}: <strong>{{ sp.caught }}</strong>
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot dot-available"></span>
+                  {{ 'pokedex.progress.legend_available' | translate }}: <strong>{{ sp.availableTotal }}</strong>
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot dot-locked"></span>
+                  {{ 'pokedex.progress.legend_locked' | translate }}: <strong>{{ sp.dexTotal - sp.availableTotal }}</strong>
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+    }
 
     <!-- Pokedex Listing Grid -->
     <main class="pokedex-main">
@@ -238,8 +445,8 @@
                     }
                   </div>
                   
-                  <!-- Regional Form Selector Switcher (Solo se raggruppamento attivo, nessuna regione specifica selezionata, ci sono varianti e non è specie a modale) -->
-                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && !isModalFormSpecies(base.name)) {
+                  <!-- Regional Form Selector Switcher (Attivo in Tutte le Regioni o nella regione nativa in modalità Pokédex puro) -->
+                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && canShowFormSwitcher(base) && getRegionalForms(base).length > 0 && !isModalFormSpecies(base.name)) {
                     <div class="regional-switcher-row">
                       <button 
                         type="button" 
@@ -262,7 +469,7 @@
                   }
 
                   <!-- Modal Trigger Button per specie con molteplici forme (es: Unown, Vivillon) -->
-                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && selectedRegion() === 'all' && getRegionalForms(base).length > 0 && isModalFormSpecies(base.name)) {
+                  @if (settingsService.layout() === 'detailed' && settingsService.groupRegionals() && getRegionalForms(base).length > 0 && isModalFormSpecies(base.name)) {
                     <div class="modal-trigger-row">
                       <button 
                         type="button" 

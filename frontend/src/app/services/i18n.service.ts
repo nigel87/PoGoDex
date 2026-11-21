@@ -148,6 +148,26 @@ export class I18nService {
       'pokedex.costumes.empty': 'Nessun costume corrisponde ai filtri.',
       'pokedex.costumes.close': 'Chiudi',
 
+      // Pokédex Registration Counters & Regional Forms Toggle
+      'pokedex.regional_forms_toggle': 'Includi Forme Regionali',
+      'pokedex.regional_forms_toggle_desc': 'Include forme di Alola, Galar, Hisui e Paldea nelle rispettive regioni (es. Ninetales di Alola in Alola) e nei conteggi. Disattivo = Pokédex regionale puro stile Pokémon GO.',
+      'pokedex.progress.pokedex_label': 'Pokédex',
+      'pokedex.progress.registered': 'Registrati',
+      'pokedex.progress.available': 'Disponibili in GO',
+      'pokedex.progress.full_dex': 'Pokédex Completo',
+      'pokedex.progress.missing': 'mancanti',
+      'pokedex.progress.missing_one': 'mancante',
+      'pokedex.progress.complete': 'Completato',
+      'pokedex.progress.unreleased': 'non rilasciati',
+      'pokedex.progress.unavailable': 'non disponibili',
+      'pokedex.progress.filter_missing_title': 'Filtra i Pokémon mancanti',
+      'pokedex.progress.regional_badge': '+ Forme Regionali',
+      'pokedex.progress.costumes_normal': 'Costumi Registrati',
+      'pokedex.progress.costumes_shiny': 'Costumi Shiny',
+      'pokedex.progress.legend_caught': 'Registrati',
+      'pokedex.progress.legend_available': 'Disponibili',
+      'pokedex.progress.legend_locked': 'Non ancora in GO',
+
       // Caught Status filters
       'status.all': 'Tutti i Pokémon',
       'status.caught': 'Catturati',
@@ -415,6 +435,26 @@ export class I18nService {
       'pokedex.costumes.filter_missing': 'Missing',
       'pokedex.costumes.empty': 'No costumes match these filters.',
       'pokedex.costumes.close': 'Close',
+
+      // Pokédex Registration Counters & Regional Forms Toggle
+      'pokedex.regional_forms_toggle': 'Include Regional Forms',
+      'pokedex.regional_forms_toggle_desc': 'Include Alolan, Galarian, Hisuian & Paldean forms in their respective regions (e.g., Alolan Ninetales in Alola) and counts. Off = pure Pokémon GO regional Pokédex.',
+      'pokedex.progress.pokedex_label': 'Pokédex',
+      'pokedex.progress.registered': 'Registered',
+      'pokedex.progress.available': 'Available in GO',
+      'pokedex.progress.full_dex': 'Full Pokédex',
+      'pokedex.progress.missing': 'missing',
+      'pokedex.progress.missing_one': 'missing',
+      'pokedex.progress.complete': 'Complete',
+      'pokedex.progress.unreleased': 'unreleased',
+      'pokedex.progress.unavailable': 'unavailable',
+      'pokedex.progress.filter_missing_title': 'Filter missing Pokémon',
+      'pokedex.progress.regional_badge': '+ Regional Forms',
+      'pokedex.progress.costumes_normal': 'Costumes Registered',
+      'pokedex.progress.costumes_shiny': 'Shiny Costumes',
+      'pokedex.progress.legend_caught': 'Registered',
+      'pokedex.progress.legend_available': 'Available',
+      'pokedex.progress.legend_locked': 'Not yet in GO',
 
       // Caught Status filters
       'status.all': 'All Pokémon',
