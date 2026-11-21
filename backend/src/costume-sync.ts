@@ -11,16 +11,20 @@ export interface CostumeSyncResult {
   newlyAdded: string[];
   newlyShiny: string[];
   spritesUpgraded: number;
+  unmatchedSprites: string[];
   source: string;
 }
 
 const WWM_SPRITE_BASE = 'https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/pokemon/';
+const HOME_UICONS_SPRITE_BASE = 'https://raw.githubusercontent.com/nileplumb/PkmnHomeIcons/master/UICONS/pokemon/';
 const BULBA_EVENT_URL =
   'https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=Event_Pok%C3%A9mon_(GO)&prop=wikitext&format=json';
 const WWM_MASTER_URL =
   'https://raw.githubusercontent.com/WatWowMap/Masterfile-Generator/master/master-latest-raw.json';
 const WWM_INDEX_URL =
   'https://raw.githubusercontent.com/WatWowMap/wwm-uicons-webp/main/index.json';
+const HOME_UICONS_INDEX_URL =
+  'https://raw.githubusercontent.com/nileplumb/PkmnHomeIcons/master/UICONS/index.json';
 
 const NON_EVENT_FORMS = new Set([
   'NORMAL', 'ALOLA', 'GALARIAN', 'HISUIAN', 'PALDEA', 'PURIFIED', 'SHADOW', 'MEGA', 'MEGA_X', 'MEGA_Y', 'PRIMAL', 'GIGANTAMAX',
@@ -203,6 +207,8 @@ const SUFFIX_TO_PROTO: Record<string, string[]> = {
   PokopiaHat: ['DITTO_SPRING_2026_B'],
 };
 
+type RegionalFormLabel = 'Alolan' | 'Galarian' | 'Hisuian' | 'Paldean';
+
 function cleanWikiText(s: string): string {
   return s
     .replace(/<!--[\s\S]*?-->/g, '')
@@ -219,6 +225,17 @@ function cleanWikiText(s: string): string {
     .replace(/<br\s*\/?>/gi, ' / ')
     .replace(/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/g, '$1')
     .replace(/'''?/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function humanizeSuffix(suffix: string): string {
+  return suffix
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+    .replace(/(\d)([a-zA-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -281,8 +298,89 @@ function refineCostumeName(bulbaSuffix: string, baseName: string, species: strin
   return baseName;
 }
 
+/**
+ * Rileva automaticamente la forma regionale (Alolan/Galarian/Hisuian/Paldean)
+ * incrociando il prefisso Bulbapedia con le forme regionali realmente esistenti nel DB per quella specie.
+ */
+function detectRegionalForm(
+  dexId: number,
+  suffix: string,
+  regionalFormsByParent: Map<number, Set<RegionalFormLabel>>
+): RegionalFormLabel | null {
+  const available = regionalFormsByParent.get(dexId);
+  if (!available || available.size === 0) return null;
+
+  if (
+    available.has('Galarian') &&
+    /^G[A-Z]/.test(suffix) &&
+    !/^(GOFest|GoTour|Gems|Green|Gold|Goggles|Glasses|Ghost|Glacier)/i.test(suffix)
+  ) {
+    return 'Galarian';
+  }
+  if (
+    available.has('Alolan') &&
+    /^A[A-Z]/.test(suffix) &&
+    !/^(Anniversary|April|Adventure|Amethyst|Aquamarine|Astronaut|ABow)/i.test(suffix)
+  ) {
+    return 'Alolan';
+  }
+  if (
+    available.has('Hisuian') &&
+    /^H[A-Z]/.test(suffix) &&
+    !/^(Holiday|Halloween|Hoenn|Hanbok|Hat|Horizons)/i.test(suffix)
+  ) {
+    return 'Hisuian';
+  }
+  if (
+    available.has('Paldean') &&
+    /^P[A-Z]/.test(suffix) &&
+    !/^(Party|Pyrite|Pop|PhD|Purple|Pok|Pink|Pumpkin)/i.test(suffix)
+  ) {
+    return 'Paldean';
+  }
+  return null;
+}
+
+/**
+ * Disambigua automaticamente eventuali nomi costume duplicati sulla stessa specie
+ * (es. nuove righe rowspan future su Bulbapedia) usando il suffisso Bulbapedia umanizzato.
+ */
+function disambiguateDuplicateCostumeNames(entries: ParsedBulbaCostume[]): void {
+  const groups = new Map<string, ParsedBulbaCostume[]>();
+  for (const e of entries) {
+    const key = `${e.pokemonId}|${e.costumeName.toLowerCase()}`;
+    const arr = groups.get(key);
+    if (arr) arr.push(e);
+    else groups.set(key, [e]);
+  }
+
+  for (const group of groups.values()) {
+    if (group.length <= 1) continue;
+    for (const item of group) {
+      const existingWords = new Set(
+        item.costumeName
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(Boolean)
+      );
+      const suffixTokens = humanizeSuffix(item.bulbaSuffix)
+        .split(/\s+/)
+        .filter(tok => tok && !existingWords.has(tok.toLowerCase()));
+      const qualifier = suffixTokens.length > 0 ? suffixTokens.join(' ') : humanizeSuffix(item.bulbaSuffix);
+      if (qualifier) {
+        item.costumeName = `${item.costumeName} (${qualifier})`;
+      }
+    }
+  }
+}
+
 function normalizeToken(s: string | null | undefined): string {
   return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function extractYears(s: string | null | undefined): string[] {
+  return ((s || '').match(/(?<!\d)20\d{2}(?!\d)/g) || []).filter((v, i, a) => a.indexOf(v) === i);
 }
 
 interface ParsedBulbaCostume {
@@ -291,16 +389,17 @@ interface ParsedBulbaCostume {
   speciesName: string;
   bulbaSuffix: string;
   costumeName: string;
-  regionalFormName: string | null;
+  regionalFormName: RegionalFormLabel | null;
   shinyReleased: boolean;
   sortOrder: number;
 }
 
-interface WwmSpriteCandidate {
+interface UiconsSpriteCandidate {
   key: string;
   base: string;
   file: string;
   shinyFile: string | null;
+  spriteBaseUrl: string;
   formId: number | null;
   formProto: string | null;
   costumeId: number | null;
@@ -308,7 +407,10 @@ interface WwmSpriteCandidate {
   proto: string;
 }
 
-function parseBulbapediaEventWikitext(wt: string): ParsedBulbaCostume[] {
+function parseBulbapediaEventWikitext(
+  wt: string,
+  regionalFormsByParent: Map<number, Set<RegionalFormLabel>>
+): ParsedBulbaCostume[] {
   const listStart = wt.indexOf('==List of Event Pokémon==');
   if (listStart === -1) {
     throw new Error('Sezione ==List of Event Pokémon== non trovata su Bulbapedia');
@@ -398,16 +500,7 @@ function parseBulbapediaEventWikitext(wt: string): ParsedBulbaCostume[] {
         if (!dexId) continue;
 
         const suffix = code.replace(/^0*\d+/, '');
-        let regionalFormName: string | null = null;
-        if ((dexId === 77 || dexId === 222 || dexId === 263) && suffix.startsWith('G')) {
-          regionalFormName = 'Galarian';
-        } else if (/^A[A-Z]/.test(suffix) && !/^(Anniversary|April|Adventure|Amethyst|Aquamarine|Astronaut|ABow)/.test(suffix)) {
-          regionalFormName = 'Alolan';
-        } else if (/^H[A-Z]/.test(suffix) && !/^(Holiday|Halloween|Hoenn|Hanbok|Hat)/.test(suffix)) {
-          regionalFormName = 'Hisuian';
-        } else if (/^P[A-Z]/.test(suffix) && !/^(Party|Pyrite|Pop|PhD|Purple|Pok|Pink)/.test(suffix)) {
-          regionalFormName = 'Paldean';
-        }
+        const regionalFormName = detectRegionalForm(dexId, suffix, regionalFormsByParent);
 
         entries.push({
           id: code,
@@ -426,19 +519,27 @@ function parseBulbapediaEventWikitext(wt: string): ParsedBulbaCostume[] {
     extractTemplates(evoCol);
   }
 
+  disambiguateDuplicateCostumeNames(entries);
   return entries;
 }
 
-function buildWwmCandidatesByDex(rawMaster: any, uiconsIndex: any): Map<number, WwmSpriteCandidate[]> {
+function buildUiconsCandidatesByDex(
+  rawMaster: any,
+  uiconsIndex: any,
+  spriteBaseUrl: string
+): Map<number, UiconsSpriteCandidate[]> {
   const pokeFiles: string[] = Array.isArray(uiconsIndex?.pokemon) ? uiconsIndex.pokemon : [];
   const pokeFilesSet = new Set<string>(pokeFiles);
-  const byDex = new Map<number, Map<string, WwmSpriteCandidate>>();
+  const byDex = new Map<number, Map<string, UiconsSpriteCandidate>>();
 
   for (const file of pokeFiles) {
-    if (!file.endsWith('.webp') || file.includes('_s.webp') || file.includes('_a') || file.includes('_b') || file.includes('_e')) {
+    const extMatch = file.match(/\.(webp|png)$/i);
+    if (!extMatch) continue;
+    const ext = extMatch[0];
+    if (file.endsWith(`_s${ext}`) || file.includes('_a') || file.includes('_b') || file.includes('_e')) {
       continue;
     }
-    const base = file.replace('.webp', '');
+    const base = file.slice(0, -ext.length);
     const m = base.match(/^(\d+)(?:_f(\d+))?(?:_g(\d+))?(?:_c(\d+))?$/);
     if (!m) continue;
 
@@ -458,7 +559,7 @@ function buildWwmCandidatesByDex(rawMaster: any, uiconsIndex: any): Map<number, 
       if (
         formInfo.isCostume ||
         formId === 133 ||
-        /COPY_2019|GOGGLES_2026|SWIM_2025|ANNIVERSARY_20\d\d|K_20\d\d|HALLOWEEN|HOLIDAY|WILDAREA|COSTUME|HORIZON/i.test(p)
+        /COPY_20\d\d|GOGGLES|SWIM|ANNIVERSARY_20\d\d|K_20\d\d|HALLOWEEN|HOLIDAY|WILDAREA|COSTUME|HORIZON/i.test(p)
       ) {
         isEvent = true;
       } else if (
@@ -477,12 +578,13 @@ function buildWwmCandidatesByDex(rawMaster: any, uiconsIndex: any): Map<number, 
     if (!byDex.has(dexId)) byDex.set(dexId, new Map());
     const dexMap = byDex.get(dexId)!;
     if (!dexMap.has(key) || gender === null) {
-      const shinyFile = `${base}_s.webp`;
+      const shinyFile = `${base}_s${ext}`;
       dexMap.set(key, {
         key,
         base,
         file,
         shinyFile: pokeFilesSet.has(shinyFile) ? shinyFile : null,
+        spriteBaseUrl,
         formId,
         formProto: formInfo?.proto || null,
         costumeId,
@@ -492,22 +594,77 @@ function buildWwmCandidatesByDex(rawMaster: any, uiconsIndex: any): Map<number, 
     }
   }
 
-  const result = new Map<number, WwmSpriteCandidate[]>();
+  // Ordina deterministicamente in ordine cronologico Game Master (costumeId / formId crescente)
+  const result = new Map<number, UiconsSpriteCandidate[]>();
   for (const [dexId, map] of byDex.entries()) {
-    result.set(dexId, Array.from(map.values()));
+    const arr = Array.from(map.values()).sort(
+      (a, b) => (a.costumeId || 0) - (b.costumeId || 0) || (a.formId || 0) - (b.formId || 0)
+    );
+    result.set(dexId, arr);
   }
   return result;
 }
 
 /**
+ * Unisce due mappe di candidati UIcons: mantiene tutti gli sprite della fonte primaria (WatWowMap WebP)
+ * e integra dalla fonte secondaria (PkmnHomeIcons PNG) solo le chiavi mancanti.
+ */
+function mergeSpriteCandidates(
+  primary: Map<number, UiconsSpriteCandidate[]>,
+  secondary: Map<number, UiconsSpriteCandidate[]>
+): Map<number, UiconsSpriteCandidate[]> {
+  const merged = new Map<number, UiconsSpriteCandidate[]>();
+  const allDex = new Set<number>([...primary.keys(), ...secondary.keys()]);
+
+  for (const dexId of allDex) {
+    const pList = primary.get(dexId) || [];
+    const sList = secondary.get(dexId) || [];
+    const byKey = new Map<string, UiconsSpriteCandidate>();
+    for (const c of pList) byKey.set(c.key, c);
+    for (const c of sList) {
+      if (!byKey.has(c.key)) byKey.set(c.key, c);
+    }
+    const arr = Array.from(byKey.values()).sort(
+      (a, b) => (a.costumeId || 0) - (b.costumeId || 0) || (a.formId || 0) - (b.formId || 0)
+    );
+    merged.set(dexId, arr);
+  }
+  return merged;
+}
+
+/**
  * Sincronizza automaticamente i Pokémon in costume da Bulbapedia (Event_Pokémon_(GO))
- * abbinando gli sprite ufficiali normali e shiny da WatWowMap UIcons WebP + Masterfile.
+ * abbinando gli sprite ufficiali normali e shiny da WatWowMap UIcons WebP + fallback PkmnHomeIcons PNG.
  */
 export async function performCostumeAutoSync(
   db: Database,
   fetchWithTimeout: FetchWithTimeoutFn
 ): Promise<CostumeSyncResult> {
   console.log('[Auto-Sync-Costumes] Avvio sincronizzazione costumi da Bulbapedia + WatWowMap UIcons...');
+
+  // 0. Carica dal DB le specie valide e le relative forme regionali esistenti
+  const validPokemonRows = await db.all<{ id: number; name: string; spriteUrl: string; parentId: number | null }[]>(
+    'SELECT id, name, spriteUrl, parentId FROM pokemons'
+  );
+  const validPokemonMap = new Map<number, string>();
+  const regionalFormsByParent = new Map<number, Set<RegionalFormLabel>>();
+
+  for (const r of validPokemonRows) {
+    if (r.parentId === null) {
+      validPokemonMap.set(r.id, r.spriteUrl);
+    } else {
+      const lower = r.name.toLowerCase();
+      let region: RegionalFormLabel | null = null;
+      if (lower.includes('(alolan)')) region = 'Alolan';
+      else if (lower.includes('(galarian)')) region = 'Galarian';
+      else if (lower.includes('(hisuian)')) region = 'Hisuian';
+      else if (lower.includes('(paldean)')) region = 'Paldean';
+      if (region) {
+        if (!regionalFormsByParent.has(r.parentId)) regionalFormsByParent.set(r.parentId, new Set());
+        regionalFormsByParent.get(r.parentId)!.add(region);
+      }
+    }
+  }
 
   // 1. Scarica la lista aggiornata di tutti i costumi rilasciati da Bulbapedia
   const bulbaResp = await fetchWithTimeout(BULBA_EVENT_URL, {}, 25000);
@@ -516,15 +673,16 @@ export async function performCostumeAutoSync(
   }
   const bulbaJson = (await bulbaResp.json()) as any;
   const wikitext: string = bulbaJson?.parse?.wikitext?.['*'] || '';
-  const parsedCostumes = parseBulbapediaEventWikitext(wikitext);
+  const parsedCostumes = parseBulbapediaEventWikitext(wikitext, regionalFormsByParent);
 
   if (parsedCostumes.length < 250) {
     throw new Error(`Conteggio costumi anomalo da Bulbapedia: ${parsedCostumes.length}`);
   }
 
-  // 2. Scarica WatWowMap Masterfile + UIcons index per abbinare gli sprite (anche dei costumi appena rilasciati)
-  let wwmByDex = new Map<number, WwmSpriteCandidate[]>();
-  let wwmFilesSet = new Set<string>();
+  // 2. Scarica WatWowMap Masterfile + UIcons index primario (con fallback automatico su PkmnHomeIcons)
+  let rawMaster: any = null;
+  let spriteByDex = new Map<number, UiconsSpriteCandidate[]>();
+  let primarySucceeded = false;
   let source = 'Bulbapedia + WatWowMap UIcons';
 
   try {
@@ -532,34 +690,53 @@ export async function performCostumeAutoSync(
       fetchWithTimeout(WWM_MASTER_URL, {}, 25000),
       fetchWithTimeout(WWM_INDEX_URL, {}, 25000),
     ]);
-    if (masterResp.ok && indexResp.ok) {
-      const [rawMaster, uiconsIndex] = await Promise.all([masterResp.json(), indexResp.json()]);
-      wwmFilesSet = new Set<string>(Array.isArray((uiconsIndex as any)?.pokemon) ? (uiconsIndex as any).pokemon : []);
-      wwmByDex = buildWwmCandidatesByDex(rawMaster, uiconsIndex);
-    } else {
-      source = 'Bulbapedia (cache sprite locale)';
+    if (masterResp.ok) {
+      rawMaster = await masterResp.json();
+    }
+    if (rawMaster && indexResp.ok) {
+      const uiconsIndex = await indexResp.json();
+      spriteByDex = buildUiconsCandidatesByDex(rawMaster, uiconsIndex, WWM_SPRITE_BASE);
+      primarySucceeded = spriteByDex.size > 0;
     }
   } catch (wwmErr) {
-    console.warn('[Auto-Sync-Costumes] Impossibile scaricare WatWowMap index/masterfile, uso cache locale:', wwmErr);
-    source = 'Bulbapedia (cache sprite locale)';
+    console.warn('[Auto-Sync-Costumes] WatWowMap UIcons non disponibile, tento fallback PkmnHomeIcons:', wwmErr);
   }
 
-  // 3. Carica i costumi esistenti nel DB + pokemon validi per verificare foreign key e preservare mapping verificati
+  // Fallback secondario: se WatWowMap è offline o incompleto, carica anche nileplumb/PkmnHomeIcons
+  let homeLoaded = false;
+  const loadHomeFallback = async () => {
+    if (homeLoaded || !rawMaster) return;
+    homeLoaded = true;
+    try {
+      const homeResp = await fetchWithTimeout(HOME_UICONS_INDEX_URL, {}, 25000);
+      if (homeResp.ok) {
+        const homeIndex = await homeResp.json();
+        const homeByDex = buildUiconsCandidatesByDex(rawMaster, homeIndex, HOME_UICONS_SPRITE_BASE);
+        spriteByDex = primarySucceeded ? mergeSpriteCandidates(spriteByDex, homeByDex) : homeByDex;
+        source = primarySucceeded
+          ? 'Bulbapedia + WatWowMap UIcons (+ PkmnHomeIcons fallback)'
+          : 'Bulbapedia + PkmnHomeIcons (fallback)';
+      }
+    } catch (homeErr) {
+      console.warn('[Auto-Sync-Costumes] Anche PkmnHomeIcons fallback non disponibile:', homeErr);
+    }
+  };
+
+  if (!primarySucceeded) {
+    await loadHomeFallback();
+    if (spriteByDex.size === 0) {
+      source = 'Bulbapedia (cache sprite locale)';
+    }
+  }
+
+  // 3. Carica i costumi esistenti nel DB per preservare mapping verificati
   const existingRows = await db.all<any[]>('SELECT * FROM pokemon_costumes');
   const existingById = new Map<string, any>();
   for (const r of existingRows) {
     existingById.set(r.id, r);
   }
 
-  const validPokemonRows = await db.all<{ id: number; spriteUrl: string }[]>(
-    'SELECT id, spriteUrl FROM pokemons WHERE parentId IS NULL'
-  );
-  const validPokemonMap = new Map<number, string>();
-  for (const r of validPokemonRows) {
-    validPokemonMap.set(r.id, r.spriteUrl);
-  }
-
-  // Raggruppa per pokemonId per eseguire il matching 1-to-1 sugli sprite WWM
+  // Raggruppa per pokemonId per eseguire il matching 1-to-1 sugli sprite UIcons
   const byDex = new Map<number, ParsedBulbaCostume[]>();
   for (const c of parsedCostumes) {
     if (!validPokemonMap.has(c.pokemonId)) continue;
@@ -567,8 +744,24 @@ export async function performCostumeAutoSync(
     byDex.get(c.pokemonId)!.push(c);
   }
 
+  // Se c'è almeno una specie con più costumi Bulbapedia che sprite in WatWowMap, integra PkmnHomeIcons
+  if (primarySucceeded && !homeLoaded) {
+    let needsFallback = false;
+    for (const [dexId, bList] of byDex.entries()) {
+      const wCount = (spriteByDex.get(dexId) || []).length;
+      if (wCount < bList.length) {
+        needsFallback = true;
+        break;
+      }
+    }
+    if (needsFallback) {
+      await loadHomeFallback();
+    }
+  }
+
   const newlyAdded: string[] = [];
   const newlyShiny: string[] = [];
+  const unmatchedSprites: string[] = [];
   let spritesUpgraded = 0;
 
   const toUpsert: Array<{
@@ -585,13 +778,13 @@ export async function performCostumeAutoSync(
   }> = [];
 
   for (const [dexId, bList] of byDex.entries()) {
-    let wList = (wwmByDex.get(dexId) || []).slice();
+    let wList = (spriteByDex.get(dexId) || []).slice();
     if (dexId === 150) wList = wList.filter(w => w.costumeId !== 3);
     if (dexId === 172) wList = wList.filter(w => w.costumeId !== 6);
     if (dexId === 25 || dexId === 26) wList = wList.filter(w => w.costumeId !== 69);
 
     const usedKeys = new Set<string>();
-    const assignments = bList.map(b => ({ b, w: null as WwmSpriteCandidate | null }));
+    const assignments = bList.map(b => ({ b, w: null as UiconsSpriteCandidate | null }));
 
     // Pass 0: preserva mapping già verificati presenti nel DB (costumeKey)
     for (const a of assignments) {
@@ -625,48 +818,76 @@ export async function performCostumeAutoSync(
       }
     }
 
-    // Pass 2: fuzzy token match per nuovi costumi futuri
+    // Pass 2: fuzzy token match ad alta confidenza (richiede match testuale oltre al solo anno se ambiguo)
     for (const a of assignments) {
       if (a.w) continue;
       const normSuf = normalizeToken(a.b.bulbaSuffix);
-      let best: WwmSpriteCandidate | null = null;
+      let best: UiconsSpriteCandidate | null = null;
       let bestScore = 0;
+      let tieCount = 0;
 
       for (const w of wList) {
         if (usedKeys.has(w.key)) continue;
         const normP = normalizeToken(w.proto);
         let score = 0;
         if (normP && normP === normSuf) score = 100;
-        else if (normP && (normP.includes(normSuf) || normSuf.includes(normP))) score = 70;
+        else if (normP && normSuf.length >= 4 && (normP.includes(normSuf) || normSuf.includes(normP))) score = 70;
         else {
           const bTokens: string[] = (a.b.bulbaSuffix + ' ' + a.b.costumeName).toLowerCase().match(/[a-z]{3,}|\d{4}/g) || [];
           const wTokens: string[] = (w.proto || '').toLowerCase().match(/[a-z]{3,}|\d{4}/g) || [];
-          for (const bt of bTokens) {
+          const bSet = new Set(bTokens);
+          for (const bt of bSet) {
             if (wTokens.includes(bt)) score += /^\d{4}$/.test(bt) ? 25 : 15;
           }
         }
         if (score > bestScore) {
           bestScore = score;
           best = w;
+          tieCount = 1;
+        } else if (score > 0 && score === bestScore) {
+          tieCount++;
         }
       }
-      if (best && bestScore >= 25) {
+      // Accetta solo se c'è un vincitore netto (evita assegnazioni casuali su pareggi del solo anno)
+      if (best && ((bestScore >= 30 && tieCount === 1) || (bestScore >= 25 && tieCount === 1 && wList.filter(w => !usedKeys.has(w.key)).length === 1))) {
         a.w = best;
         usedKeys.add(best.key);
       }
     }
 
-    // Pass 3: se resta esattamente 1 costume non abbinato e 1 sprite WWM libero per questa specie, abbinali!
+    // Pass 3a: se resta esattamente 1 costume non abbinato e 1 sprite UIcons libero per questa specie, abbinali
     const remA = assignments.filter(a => !a.w);
     const remW = wList.filter(w => !usedKeys.has(w.key));
     if (remA.length === 1 && remW.length === 1) {
       remA[0].w = remW[0];
       usedKeys.add(remW[0].key);
+    } else if (remA.length > 1 && remW.length > 1) {
+      // Pass 3b: abbinamento cronologico deterministico per batch multipli dello stesso anno (es. futuri GO Tour / GO Fest)
+      const byYearA = new Map<string, typeof remA>();
+      for (const a of remA) {
+        const years = extractYears(`${a.b.bulbaSuffix} ${a.b.costumeName}`);
+        if (years.length === 1) {
+          const y = years[0];
+          if (!byYearA.has(y)) byYearA.set(y, []);
+          byYearA.get(y)!.push(a);
+        }
+      }
+      for (const [year, yearAs] of byYearA.entries()) {
+        const yearWs = remW.filter(w => !usedKeys.has(w.key) && extractYears(w.proto).includes(year));
+        if (yearAs.length === yearWs.length && yearAs.length > 0) {
+          for (let i = 0; i < yearAs.length; i++) {
+            yearAs[i].w = yearWs[i];
+            usedKeys.add(yearWs[i].key);
+          }
+        }
+      }
     }
 
     for (const a of assignments) {
       const ex = existingById.get(a.b.id);
-      const fallbackSprite = validPokemonMap.get(dexId) || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`;
+      const fallbackSprite =
+        validPokemonMap.get(dexId) ||
+        `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`;
       const fallbackShiny = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${dexId}.png`;
 
       let costumeKey: string | null = ex?.costumeKey || null;
@@ -674,21 +895,19 @@ export async function performCostumeAutoSync(
       let shinySpriteUrl: string | null = ex?.shinySpriteUrl || (a.b.shinyReleased ? fallbackShiny : null);
 
       if (a.w) {
-        const newSprite = WWM_SPRITE_BASE + a.w.file;
-        const newShiny = a.w.shinyFile ? WWM_SPRITE_BASE + a.w.shinyFile : null;
+        const newSprite = a.w.spriteBaseUrl + a.w.file;
+        const newShiny = a.w.shinyFile ? a.w.spriteBaseUrl + a.w.shinyFile : null;
         if (ex && !ex.costumeKey && a.w.base) {
           spritesUpgraded++;
         }
         costumeKey = a.w.base;
         spriteUrl = newSprite;
         shinySpriteUrl = newShiny;
-      } else if (ex?.costumeKey && wwmFilesSet.size > 0) {
-        // Mantieni sprite esistente se valido
-        spriteUrl = ex.spriteUrl;
-        shinySpriteUrl = ex.shinySpriteUrl;
+      } else if (!ex?.costumeKey) {
+        unmatchedSprites.push(`${a.b.speciesName} (${a.b.costumeName}) [${a.b.id}]`);
       }
 
-      const shinyReleased = a.b.shinyReleased || (ex?.shinyReleased === 1) ? 1 : 0;
+      const shinyReleased = a.b.shinyReleased || ex?.shinyReleased === 1 ? 1 : 0;
 
       if (!ex) {
         newlyAdded.push(`${a.b.speciesName} (${a.b.costumeName})`);
@@ -725,8 +944,8 @@ export async function performCostumeAutoSync(
         speciesName = excluded.speciesName,
         costumeName = excluded.costumeName,
         costumeKey = COALESCE(excluded.costumeKey, pokemon_costumes.costumeKey),
-        spriteUrl = excluded.spriteUrl,
-        shinySpriteUrl = excluded.shinySpriteUrl,
+        spriteUrl = CASE WHEN excluded.costumeKey IS NOT NULL OR pokemon_costumes.costumeKey IS NULL THEN excluded.spriteUrl ELSE pokemon_costumes.spriteUrl END,
+        shinySpriteUrl = CASE WHEN excluded.costumeKey IS NOT NULL OR pokemon_costumes.costumeKey IS NULL THEN excluded.shinySpriteUrl ELSE pokemon_costumes.shinySpriteUrl END,
         shinyReleased = MAX(pokemon_costumes.shinyReleased, excluded.shinyReleased),
         regionalFormName = excluded.regionalFormName,
         sortOrder = excluded.sortOrder;
@@ -750,12 +969,21 @@ export async function performCostumeAutoSync(
     await stmt.finalize();
     await db.run('COMMIT;');
   } catch (err) {
-    try { await db.run('ROLLBACK;'); } catch (_) {}
+    try {
+      await db.run('ROLLBACK;');
+    } catch (_) {}
     throw err;
   }
 
+  if (unmatchedSprites.length > 0) {
+    console.warn(
+      `[Auto-Sync-Costumes] Attenzione: ${unmatchedSprites.length} costumi usano temporaneamente lo sprite base in attesa dell'upload su UIcons:`,
+      unmatchedSprites
+    );
+  }
+
   console.log(
-    `[Auto-Sync-Costumes] Sincronizzazione completata da ${source}. Totale: ${toUpsert.length}, Nuovi: ${newlyAdded.length}, Nuovi Shiny: ${newlyShiny.length}, Sprite aggiornati: ${spritesUpgraded}.`
+    `[Auto-Sync-Costumes] Sincronizzazione completata da ${source}. Totale: ${toUpsert.length}, Nuovi: ${newlyAdded.length}, Nuovi Shiny: ${newlyShiny.length}, Sprite aggiornati: ${spritesUpgraded}, Senza sprite dedicato: ${unmatchedSprites.length}.`
   );
 
   return {
@@ -763,6 +991,7 @@ export async function performCostumeAutoSync(
     newlyAdded,
     newlyShiny,
     spritesUpgraded,
+    unmatchedSprites,
     source,
   };
 }

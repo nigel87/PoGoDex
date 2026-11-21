@@ -193,9 +193,9 @@ async function seedCostumesCatalog(db: Database) {
         pokemonId = excluded.pokemonId,
         speciesName = excluded.speciesName,
         costumeName = excluded.costumeName,
-        costumeKey = COALESCE(excluded.costumeKey, pokemon_costumes.costumeKey),
-        spriteUrl = excluded.spriteUrl,
-        shinySpriteUrl = excluded.shinySpriteUrl,
+        costumeKey = COALESCE(pokemon_costumes.costumeKey, excluded.costumeKey),
+        spriteUrl = CASE WHEN pokemon_costumes.costumeKey IS NOT NULL THEN pokemon_costumes.spriteUrl ELSE excluded.spriteUrl END,
+        shinySpriteUrl = CASE WHEN pokemon_costumes.costumeKey IS NOT NULL THEN pokemon_costumes.shinySpriteUrl ELSE excluded.shinySpriteUrl END,
         shinyReleased = MAX(pokemon_costumes.shinyReleased, excluded.shinyReleased),
         regionalFormName = excluded.regionalFormName,
         sortOrder = excluded.sortOrder;

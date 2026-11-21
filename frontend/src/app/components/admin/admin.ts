@@ -678,6 +678,8 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
           const total = res.totalCostumes || 0;
           const newlyAdded: string[] = res.newlyAdded || [];
           const newlyShiny: string[] = res.newlyShiny || [];
+          const spritesUpgraded: number = res.spritesUpgraded || 0;
+          const unmatchedSprites: string[] = res.unmatchedSprites || [];
           const source = res.source || 'Bulbapedia';
 
           await addLog(`[SUCCESS] Dati costumi scaricati da ${source}!`, 200);
@@ -689,6 +691,12 @@ export class AdminComponent implements OnInit, AfterViewInit, OnDestroy {
           }
           if (newlyShiny.length > 0) {
             await addLog(`[SUCCESS] Nuovi costumi Shiny sbloccati (${newlyShiny.length}): ${newlyShiny.join(', ')}`, 300);
+          }
+          if (spritesUpgraded > 0) {
+            await addLog(`[SUCCESS] Sprite dedicati aggiornati automaticamente: ${spritesUpgraded}.`, 250);
+          }
+          if (unmatchedSprites.length > 0) {
+            await addLog(`[WARN] ${unmatchedSprites.length} costumi in attesa di sprite dedicato (usano sprite base): ${unmatchedSprites.join(', ')}`, 300);
           }
           await addLog(`[SUCCESS] Catalogo costumi SQLite aggiornato con successo!`, 400);
 
